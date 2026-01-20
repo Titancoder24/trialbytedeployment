@@ -1,0 +1,38 @@
+/* Custom styles for calendar dropdowns */
+.rdp-dropdown_root {
+  width: 60px !important;
+  font-size: 12px !important;
+  min-width: 60px !important;
+  max-width: 80px !important;
+}
+
+.rdp-dropdown {
+  max-height: 80px !important;
+  overflow-y: auto !important;
+  font-size: 11px !important;
+  background: white !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 4px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+}
+
+.rdp-caption_label {
+  font-size: 12px !important;
+  padding: 2px 4px !important;
+}
+
+.rdp-dropdowns {
+  gap: 4px !important;
+}
+
+/* Ensure dropdown is visible */
+.rdp-dropdown_root:focus-within .rdp-dropdown {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Style the dropdown options */
+.rdp-dropdown option {
+  font-size: 11px !important;
+  padding: 2px 4px !important;
+}
