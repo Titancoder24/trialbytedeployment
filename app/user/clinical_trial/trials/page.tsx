@@ -978,7 +978,7 @@ function ClinicalTrialsPage() {
             }}
           >
             <Image
-              src="/pngs/trialsearchIcon.png"
+              src="/pngs/trialsearchicon.png"
               alt="Trials Search"
               width={20}
               height={20}
@@ -1082,7 +1082,7 @@ function ClinicalTrialsPage() {
               }}
             >
               <Image
-                src="/pngs/Profile.png"
+                src="/pngs/profile.png"
                 alt="Profile"
                 width={32}
                 height={32}
