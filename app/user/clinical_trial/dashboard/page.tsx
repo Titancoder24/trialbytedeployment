@@ -27,7 +27,7 @@ import {
   LogOut,
   User,
   ChevronDown,
-  Heart,
+  Bookmark as BookmarkIcon,
   RefreshCw,
   Loader2,
   Calendar,
@@ -44,6 +44,7 @@ import { SlList } from "react-icons/sl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDateToMMDDYYYY } from "@/lib/date-utils";
+import { formatDisplayValue } from "@/lib/format-utils";
 import Image from "next/image";
 import { ClinicalTrialFilterModal, ClinicalTrialFilterState } from "@/components/clinical-trial-filter-modal";
 import { ClinicalTrialAdvancedSearchModal, ClinicalTrialSearchCriteria } from "@/components/clinical-trial-advanced-search-modal";
@@ -165,6 +166,7 @@ interface ApiResponse {
 export default function ClinicalTrialDashboard() {
   const router = useRouter();
   const [trials, setTrials] = useState<TherapeuticTrial[]>([]);
+  const [totalTrialCount, setTotalTrialCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -195,6 +197,8 @@ export default function ClinicalTrialDashboard() {
   });
   const [appliedSearchCriteria, setAppliedSearchCriteria] = useState<ClinicalTrialSearchCriteria[]>([]);
   const [viewType, setViewType] = useState<'list' | 'card'>('list');
+  const [viewTypeExpanded, setViewTypeExpanded] = useState(true);
+  const [sortByExpanded, setSortByExpanded] = useState(true);
   const [customizeColumnModalOpen, setCustomizeColumnModalOpen] = useState(false);
   const [columnSettings, setColumnSettings] = useState<ColumnSettings>(DEFAULT_COLUMN_SETTINGS);
   const [favoriteTrialsModalOpen, setFavoriteTrialsModalOpen] = useState(false);
@@ -232,6 +236,7 @@ export default function ClinicalTrialDashboard() {
           if (age < cacheMaxAge) {
             const data = JSON.parse(cachedData);
             setTrials(data.trials);
+            setTotalTrialCount(data.total_trials || data.trials.length);
             setLoading(false);
             // Refresh in background silently
             fetchFromAPIBackground();
@@ -265,6 +270,7 @@ export default function ClinicalTrialDashboard() {
       }
 
       setTrials(data.trials);
+      setTotalTrialCount(data.total_trials || data.trials.length);
 
       if (isRefresh) {
         toast({
@@ -301,6 +307,7 @@ export default function ClinicalTrialDashboard() {
           sessionStorage.setItem('trials_cache_timestamp', Date.now().toString());
         } catch (e) { }
         setTrials(data.trials);
+        setTotalTrialCount(data.total_trials || data.trials.length);
       }
     } catch (e) {
       // Silently fail background updates
@@ -310,7 +317,7 @@ export default function ClinicalTrialDashboard() {
   useEffect(() => {
     fetchTrials();
     // Load column settings from localStorage
-    const savedColumnSettings = localStorage.getItem('trialColumnSettings');
+    const savedColumnSettings = localStorage.getItem('clinicalTrialColumnSettings');
     if (savedColumnSettings) {
       try {
         setColumnSettings(JSON.parse(savedColumnSettings));
@@ -410,6 +417,16 @@ export default function ClinicalTrialDashboard() {
     }
   };
 
+  // Helper function to normalize strings for comparison (handles case and underscores)
+  const normalizeForComparison = (value: string): string => {
+    if (!value) return '';
+    return value
+      .toLowerCase()
+      .replace(/_/g, ' ')  // Replace underscores with spaces
+      .replace(/[-]/g, ' ') // Replace hyphens with spaces
+      .trim();
+  };
+
   // Helper function to evaluate search criteria
   const evaluateCriteria = (fieldValue: string | null | undefined, operator: string, searchValue: string): boolean => {
     // Handle null/undefined field values
@@ -417,8 +434,9 @@ export default function ClinicalTrialDashboard() {
       return operator === "is_not" ? true : false;
     }
 
-    const field = fieldValue.toLowerCase();
-    const value = (searchValue || '').toLowerCase();
+    // Normalize both values for comparison (handles case and underscores)
+    const field = normalizeForComparison(fieldValue);
+    const value = normalizeForComparison(searchValue || '');
 
     switch (operator) {
       case "contains": return field.includes(value);
@@ -426,6 +444,24 @@ export default function ClinicalTrialDashboard() {
       case "is_not": return field !== value;
       case "starts_with": return field.startsWith(value);
       case "ends_with": return field.endsWith(value);
+      case "greater_than":
+      case "greater_than_equal":
+        const numField1 = parseFloat(fieldValue);
+        const numValue1 = parseFloat(searchValue);
+        return !isNaN(numField1) && !isNaN(numValue1) && numField1 >= numValue1;
+      case "less_than":
+      case "less_than_equal":
+        const numField2 = parseFloat(fieldValue);
+        const numValue2 = parseFloat(searchValue);
+        return !isNaN(numField2) && !isNaN(numValue2) && numField2 <= numValue2;
+      case "equals":
+        const numField3 = parseFloat(fieldValue);
+        const numValue3 = parseFloat(searchValue);
+        return !isNaN(numField3) && !isNaN(numValue3) && numField3 === numValue3;
+      case "not_equals":
+        const numField4 = parseFloat(fieldValue);
+        const numValue4 = parseFloat(searchValue);
+        return !isNaN(numField4) && !isNaN(numValue4) && numField4 !== numValue4;
       default: return true;
     }
   };
@@ -455,32 +491,33 @@ export default function ClinicalTrialDashboard() {
 
   // Apply filters and search criteria, then sort
   const filteredTrials = trials.filter((trial) => {
-    // Basic search filter
+    // Basic search filter - use normalize for consistent matching
+    const normalizedSearchTerm = normalizeForComparison(searchTerm);
     const matchesSearch = searchTerm === "" ||
-      (trial.trial_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (trial.overview.therapeutic_area || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (trial.overview.disease_type || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (trial.overview.primary_drugs || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (trial.overview.title || '').toLowerCase().includes(searchTerm.toLowerCase());
+      normalizeForComparison(trial.trial_id || '').includes(normalizedSearchTerm) ||
+      normalizeForComparison(trial.overview.therapeutic_area || '').includes(normalizedSearchTerm) ||
+      normalizeForComparison(trial.overview.disease_type || '').includes(normalizedSearchTerm) ||
+      normalizeForComparison(trial.overview.primary_drugs || '').includes(normalizedSearchTerm) ||
+      normalizeForComparison(trial.overview.title || '').includes(normalizedSearchTerm);
 
-    // Apply filters
+    // Apply filters - use normalize for consistent matching with underscores and case
     const matchesFilters = (
       (appliedFilters.therapeuticAreas.length === 0 ||
         appliedFilters.therapeuticAreas.some(area =>
-          (trial.overview.therapeutic_area || '').toLowerCase().includes(area.toLowerCase()))) &&
+          normalizeForComparison(trial.overview.therapeutic_area || '').includes(normalizeForComparison(area)))) &&
       (appliedFilters.statuses.length === 0 ||
         appliedFilters.statuses.some(status =>
-          (trial.overview.status || '').toLowerCase() === status.toLowerCase())) &&
+          normalizeForComparison(trial.overview.status || '') === normalizeForComparison(status))) &&
       (appliedFilters.diseaseTypes.length === 0 ||
         appliedFilters.diseaseTypes.some(type =>
-          (trial.overview.disease_type || '').toLowerCase().includes(type.toLowerCase()))) &&
+          normalizeForComparison(trial.overview.disease_type || '').includes(normalizeForComparison(type)))) &&
       (appliedFilters.primaryDrugs.length === 0 ||
         appliedFilters.primaryDrugs.some(drug =>
-          (trial.overview.primary_drugs || '').toLowerCase().includes(drug.toLowerCase()))) &&
+          normalizeForComparison(trial.overview.primary_drugs || '').includes(normalizeForComparison(drug)))) &&
       (appliedFilters.trialPhases.length === 0 ||
         appliedFilters.trialPhases.some(phase => {
-          const trialPhase = (trial.overview.trial_phase || '').toLowerCase();
-          const filterPhase = phase.toLowerCase();
+          const trialPhase = normalizeForComparison(trial.overview.trial_phase || '');
+          const filterPhase = normalizeForComparison(phase);
           // Handle both "Phase I" and "I" formats
           return trialPhase.includes(filterPhase) ||
             filterPhase.includes(trialPhase) ||
@@ -488,7 +525,7 @@ export default function ClinicalTrialDashboard() {
         })) &&
       (appliedFilters.countries.length === 0 ||
         appliedFilters.countries.some(country =>
-          (trial.overview.countries || '').toLowerCase().includes(country.toLowerCase())))
+          normalizeForComparison(trial.overview.countries || '').includes(normalizeForComparison(country))))
     );
 
     // Apply advanced search criteria
@@ -527,6 +564,13 @@ export default function ClinicalTrialDashboard() {
     setAppliedFilters(filters);
   };
 
+  // Handler for column settings changes from CustomizeColumnModal
+  const handleColumnSettingsChange = (settings: ColumnSettings) => {
+    setColumnSettings(settings);
+    // Optionally save to localStorage for persistence
+    localStorage.setItem('clinicalTrialColumnSettings', JSON.stringify(settings));
+  };
+
   const handleApplyAdvancedSearch = (criteria: ClinicalTrialSearchCriteria[]) => {
     setAppliedSearchCriteria(criteria);
   };
@@ -537,6 +581,7 @@ export default function ClinicalTrialDashboard() {
       statuses: [],
       diseaseTypes: [],
       primaryDrugs: [],
+      otherDrugs: [],
       trialPhases: [],
       patientSegments: [],
       lineOfTherapy: [],
@@ -578,12 +623,6 @@ export default function ClinicalTrialDashboard() {
     if (queryData.searchCriteria) {
       setAppliedSearchCriteria(queryData.searchCriteria);
     }
-  };
-
-  const handleColumnSettingsChange = (newSettings: ColumnSettings) => {
-    setColumnSettings(newSettings);
-    // Save to localStorage
-    localStorage.setItem('trialColumnSettings', JSON.stringify(newSettings));
   };
 
   // Favorite trials functionality
@@ -689,7 +728,7 @@ export default function ClinicalTrialDashboard() {
                         width={13}
                         height={13}
                       />
-                      <span className="text-sm font-medium text-gray-900">{trial.overview.therapeutic_area}</span>
+                      <span className="text-sm font-medium text-gray-900">{formatDisplayValue(trial.overview.therapeutic_area)}</span>
                     </div>
                   </div>
                 </div>
@@ -698,7 +737,7 @@ export default function ClinicalTrialDashboard() {
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
                   <div className="flex items-center gap-2">
                     <span className="text-black text-sm font-bold">Disease Type :</span>
-                    <span className="text-sm font-medium text-gray-900">{trial.overview.disease_type}</span>
+                    <span className="text-sm font-medium text-gray-900">{formatDisplayValue(trial.overview.disease_type)}</span>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -738,10 +777,10 @@ export default function ClinicalTrialDashboard() {
                   }}
                   className="h-8 w-8 p-0 hover:bg-red-50"
                 >
-                  <Heart
+                  <BookmarkIcon
                     className={`h-4 w-4 ${favoriteTrials.includes(trial.trial_id)
-                      ? 'fill-red-500 text-red-500'
-                      : 'text-gray-400 hover:text-red-500'
+                      ? 'fill-blue-500 text-blue-500'
+                      : 'text-gray-400 hover:text-blue-500'
                       }`}
                   />
                 </Button>
@@ -784,8 +823,7 @@ export default function ClinicalTrialDashboard() {
       {/* Top Navigation - Matching Trials Page */}
       <div
         style={{
-          width: "calc(100% - 32px)",
-          maxWidth: "1409px",
+          width: "calc(100% - 64px)",
           margin: "25px auto 0",
           borderRadius: "24px",
           backgroundColor: "#F7F9FB",
@@ -824,11 +862,11 @@ export default function ClinicalTrialDashboard() {
             />
           </div>
 
-          {/* Dashboard Box - Active/Selected */}
+          {/* Trials Search Box - Active/Selected */}
           <button
             className="flex items-center justify-center flex-shrink-0"
             style={{
-              width: "140px",
+              width: "165px",
               height: "52px",
               borderRadius: "12px",
               paddingTop: "12px",
@@ -841,8 +879,8 @@ export default function ClinicalTrialDashboard() {
             }}
           >
             <Image
-              src="/pngs/dashboardicon.png"
-              alt="Dashboard"
+              src="/pngs/trialsearchIcon.png"
+              alt="Trials Search"
               width={20}
               height={20}
               className="object-contain"
@@ -857,44 +895,6 @@ export default function ClinicalTrialDashboard() {
                 lineHeight: "150%",
                 letterSpacing: "-2%",
                 color: "#FFFFFF",
-              }}
-            >
-              Dashboard
-            </span>
-          </button>
-
-          {/* Trials Search Box */}
-          <button
-            className="flex items-center justify-center flex-shrink-0"
-            style={{
-              width: "165px",
-              height: "52px",
-              borderRadius: "12px",
-              paddingTop: "12px",
-              paddingRight: "20px",
-              paddingBottom: "12px",
-              paddingLeft: "16px",
-              gap: "8px",
-              backgroundColor: "#FFFFFF",
-              boxShadow: "0 -2px 6px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.1)",
-            }}
-          >
-            <Image
-              src="/pngs/trialsearchIcon.png"
-              alt="Trials Search"
-              width={20}
-              height={20}
-              className="object-contain"
-            />
-            <span
-              style={{
-                fontFamily: "Poppins",
-                fontWeight: 400,
-                fontStyle: "normal",
-                fontSize: "14px",
-                lineHeight: "150%",
-                letterSpacing: "-2%",
-                color: "#000000",
               }}
             >
               Trials Search
@@ -942,8 +942,46 @@ export default function ClinicalTrialDashboard() {
             </button>
           </Link>
 
-          {/* Spacer */}
-          <div style={{ flex: 1 }} />
+          {/* Search Box */}
+          <div
+            className="flex items-center"
+            style={{
+              flex: "1",
+              minWidth: "300px",
+              maxWidth: "800px",
+              height: "52px",
+              borderRadius: "12px",
+              gap: "8px",
+              padding: "16px",
+              backgroundColor: "#FFFFFF",
+              marginLeft: "auto",
+              boxShadow: "0 -2px 6px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <Image
+              src="/pngs/trialsearchIcon.png"
+              alt="Search"
+              width={20}
+              height={20}
+              className="object-contain"
+            />
+            <input
+              type="text"
+              placeholder="Search.."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1 outline-none bg-transparent"
+              style={{
+                fontFamily: "Poppins",
+                fontWeight: 400,
+                fontStyle: "normal",
+                fontSize: "14px",
+                lineHeight: "150%",
+                letterSpacing: "-2%",
+                color: "#000000",
+              }}
+            />
+          </div>
 
           {/* TrialByte Box */}
           <div
@@ -1048,7 +1086,7 @@ export default function ClinicalTrialDashboard() {
       </div>
 
       {/* Container for gradient and content overlay */}
-      <div className="relative" style={{ width: "calc(100% - 32px)", maxWidth: "1409px", margin: "0 auto" }}>
+      <div className="relative" style={{ width: "calc(100% - 64px)", margin: "0 auto" }}>
         {/* Blue Gradient Background */}
         <div
           className="absolute"
@@ -1220,7 +1258,7 @@ export default function ClinicalTrialDashboard() {
                 />
               </div>
 
-              {/* View Type Section */}
+              {/* View Type Section - Collapsible */}
               <div className="relative">
                 <button
                   className="w-full flex items-center justify-between gap-2 py-3 px-4"
@@ -1229,7 +1267,7 @@ export default function ClinicalTrialDashboard() {
                     height: "56px",
                     borderRadius: "0",
                   }}
-                  onClick={() => setViewType(viewType === 'list' ? 'card' : 'list')}
+                  onClick={() => setViewTypeExpanded(!viewTypeExpanded)}
                 >
                   <div className="flex items-center gap-3">
                     <Image
@@ -1241,33 +1279,35 @@ export default function ClinicalTrialDashboard() {
                     />
                     <span className="text-white" style={{ fontFamily: "Poppins", fontSize: "16px", fontWeight: 500 }}>View Type</span>
                   </div>
-                  <ChevronDown className="h-5 w-5 text-white" />
+                  <ChevronDown className={`h-5 w-5 text-white transition-transform ${viewTypeExpanded ? '' : '-rotate-90'}`} />
                 </button>
-                <div className="py-3 px-4 space-y-2">
-                  <label className="flex items-center gap-3 text-sm cursor-pointer p-2 rounded hover:bg-gray-50" style={{ color: viewType === 'list' ? "#204B73" : "#374151" }}>
-                    <input
-                      type="checkbox"
-                      checked={viewType === 'list'}
-                      onChange={() => setViewType('list')}
-                      className="w-4 h-4 rounded border-gray-300"
-                      style={{ accentColor: "#204B73" }}
-                    />
-                    <span style={{ fontFamily: "Poppins", fontSize: "14px", fontWeight: viewType === 'list' ? 500 : 400 }}>List view</span>
-                  </label>
-                  <label className="flex items-center gap-3 text-sm cursor-pointer p-2 rounded hover:bg-gray-50" style={{ color: "#9CA3AF" }}>
-                    <input
-                      type="checkbox"
-                      checked={viewType === 'card'}
-                      onChange={() => setViewType('card')}
-                      className="w-4 h-4 rounded border-gray-300"
-                      style={{ accentColor: "#204B73" }}
-                    />
-                    <span style={{ fontFamily: "Poppins", fontSize: "14px", fontWeight: 400 }}>Card view</span>
-                  </label>
-                </div>
+                {viewTypeExpanded && (
+                  <div className="py-3 px-4 space-y-2">
+                    <label className="flex items-center gap-3 text-sm cursor-pointer p-2 rounded hover:bg-gray-50" style={{ color: viewType === 'list' ? "#204B73" : "#374151" }}>
+                      <input
+                        type="checkbox"
+                        checked={viewType === 'list'}
+                        onChange={() => setViewType('list')}
+                        className="w-4 h-4 rounded border-gray-300"
+                        style={{ accentColor: "#204B73" }}
+                      />
+                      <span style={{ fontFamily: "Poppins", fontSize: "14px", fontWeight: viewType === 'list' ? 500 : 400 }}>List view</span>
+                    </label>
+                    <label className="flex items-center gap-3 text-sm cursor-pointer p-2 rounded hover:bg-gray-50" style={{ color: "#9CA3AF" }}>
+                      <input
+                        type="checkbox"
+                        checked={viewType === 'card'}
+                        onChange={() => setViewType('card')}
+                        className="w-4 h-4 rounded border-gray-300"
+                        style={{ accentColor: "#204B73" }}
+                      />
+                      <span style={{ fontFamily: "Poppins", fontSize: "14px", fontWeight: 400 }}>Card view</span>
+                    </label>
+                  </div>
+                )}
               </div>
 
-              {/* Sort By Section */}
+              {/* Sort By Section - Collapsible */}
               <div className="relative">
                 <button
                   className="w-full flex items-center justify-between gap-2 py-3 px-4"
@@ -1276,6 +1316,7 @@ export default function ClinicalTrialDashboard() {
                     height: "56px",
                     borderRadius: "0",
                   }}
+                  onClick={() => setSortByExpanded(!sortByExpanded)}
                 >
                   <div className="flex items-center gap-3">
                     <Image
@@ -1287,49 +1328,51 @@ export default function ClinicalTrialDashboard() {
                     />
                     <span className="text-white" style={{ fontFamily: "Poppins", fontSize: "16px", fontWeight: 500 }}>Sort By</span>
                   </div>
-                  <ChevronDown className="h-5 w-5 text-white" />
+                  <ChevronDown className={`h-5 w-5 text-white transition-transform ${sortByExpanded ? '' : '-rotate-90'}`} />
                 </button>
-                <div className="py-3 px-4 space-y-1">
-                  {/* Display only the columns selected in Customize Column View */}
-                  {[
-                    { key: "trial_id", label: "Trial ID", setting: "trialId" as keyof typeof columnSettings },
-                    { key: "therapeutic_area", label: "Therapeutic Area", setting: "therapeuticArea" as keyof typeof columnSettings },
-                    { key: "disease_type", label: "Disease Type", setting: "diseaseType" as keyof typeof columnSettings },
-                    { key: "primary_drug", label: "Primary Drug", setting: "primaryDrug" as keyof typeof columnSettings },
-                    { key: "trial_status", label: "Trial Status", setting: "trialRecordStatus" as keyof typeof columnSettings },
-                    { key: "sponsor", label: "Sponsor", setting: "sponsorsCollaborators" as keyof typeof columnSettings },
-                    { key: "phase", label: "Phase", setting: "trialPhase" as keyof typeof columnSettings },
-                  ]
-                    .filter(item => columnSettings[item.setting])
-                    .map(({ key, label }) => (
-                      <label
-                        key={key}
-                        className="flex items-center gap-3 text-sm cursor-pointer p-2 rounded hover:bg-gray-50"
-                        style={{ color: "#374151" }}
+                {sortByExpanded && (
+                  <div className="py-3 px-4 space-y-1">
+                    {/* Display only the columns selected in Customize Column View */}
+                    {[
+                      { key: "trial_id", label: "Trial ID", setting: "trialId" as keyof typeof columnSettings },
+                      { key: "therapeutic_area", label: "Therapeutic Area", setting: "therapeuticArea" as keyof typeof columnSettings },
+                      { key: "disease_type", label: "Disease Type", setting: "diseaseType" as keyof typeof columnSettings },
+                      { key: "primary_drug", label: "Primary Drug", setting: "primaryDrug" as keyof typeof columnSettings },
+                      { key: "trial_status", label: "Trial Status", setting: "trialRecordStatus" as keyof typeof columnSettings },
+                      { key: "sponsor", label: "Sponsor", setting: "sponsorsCollaborators" as keyof typeof columnSettings },
+                      { key: "phase", label: "Phase", setting: "trialPhase" as keyof typeof columnSettings },
+                    ]
+                      .filter(item => columnSettings[item.setting])
+                      .map(({ key, label }) => (
+                        <label
+                          key={key}
+                          className="flex items-center gap-3 text-sm cursor-pointer p-2 rounded hover:bg-gray-50"
+                          style={{ color: "#374151" }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={sortField === key}
+                            onChange={() => handleSort(key)}
+                            className="w-4 h-4 rounded border-gray-300"
+                            style={{ accentColor: "#204B73" }}
+                          />
+                          <span style={{ fontFamily: "Poppins", fontSize: "14px", fontWeight: 400 }}>{label}</span>
+                        </label>
+                      ))}
+                    {sortField && (
+                      <button
+                        onClick={() => {
+                          setSortField("");
+                          setSortDirection("asc");
+                        }}
+                        className="w-full text-left text-sm py-2 px-2 hover:bg-gray-50 rounded transition-colors"
+                        style={{ color: "#204B73", fontFamily: "Poppins", fontSize: "13px", fontWeight: 500 }}
                       >
-                        <input
-                          type="checkbox"
-                          checked={sortField === key}
-                          onChange={() => handleSort(key)}
-                          className="w-4 h-4 rounded border-gray-300"
-                          style={{ accentColor: "#204B73" }}
-                        />
-                        <span style={{ fontFamily: "Poppins", fontSize: "14px", fontWeight: 400 }}>{label}</span>
-                      </label>
-                    ))}
-                  {sortField && (
-                    <button
-                      onClick={() => {
-                        setSortField("");
-                        setSortDirection("asc");
-                      }}
-                      className="w-full text-left text-sm py-2 px-2 hover:bg-gray-50 rounded transition-colors"
-                      style={{ color: "#204B73", fontFamily: "Poppins", fontSize: "13px", fontWeight: 500 }}
-                    >
-                      Clear Sort
-                    </button>
-                  )}
-                </div>
+                        Clear Sort
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Sidebar Action Buttons */}
@@ -1560,31 +1603,71 @@ export default function ClinicalTrialDashboard() {
               </div>
 
               {/* Stats Bar - Above Trial Data */}
-              <div
-                className="flex items-center gap-8 py-3 mb-1"
-                style={{ fontFamily: "Poppins", fontSize: "14px", backgroundColor: "transparent" }}
-              >
-                <span className="flex items-center gap-2">
-                  <span style={{ color: "#204B73" }}>📊</span>
-                  <span className="font-semibold" style={{ color: "#204B73" }}>{trials.length}</span>
-                  <span style={{ color: "#204B73" }}>Total Trials</span>
-                </span>
-                <span className="flex items-center gap-2">
-                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#FFB547", display: "inline-block" }} />
-                  <span className="font-medium" style={{ color: "#333333" }}>45%</span>
-                  <span style={{ color: "#333333" }}>Active Trials</span>
-                </span>
-                <span className="flex items-center gap-2">
-                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#EF4444", display: "inline-block" }} />
-                  <span className="font-medium" style={{ color: "#333333" }}>25%</span>
-                  <span style={{ color: "#333333" }}>Terminated</span>
-                </span>
-                <span className="flex items-center gap-2">
-                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#22C55E", display: "inline-block" }} />
-                  <span className="font-medium" style={{ color: "#333333" }}>30%</span>
-                  <span style={{ color: "#333333" }}>Completed</span>
-                </span>
-              </div>
+              {(() => {
+                // Use totalTrialCount from API for accurate total, but calculate percentages from loaded trials
+                const displayTotal = totalTrialCount || trials.length;
+                const loadedTrials = trials.length;
+
+                // Count trials by status (case-insensitive matching) from loaded data
+                const plannedCount = trials.filter(t =>
+                  t.overview.status?.toLowerCase() === 'planned'
+                ).length;
+                const openCount = trials.filter(t =>
+                  t.overview.status?.toLowerCase() === 'open' ||
+                  t.overview.status?.toLowerCase() === 'recruiting' ||
+                  t.overview.status?.toLowerCase() === 'active'
+                ).length;
+                const closedCount = trials.filter(t =>
+                  t.overview.status?.toLowerCase() === 'closed'
+                ).length;
+                const terminatedCount = trials.filter(t =>
+                  t.overview.status?.toLowerCase() === 'terminated' ||
+                  t.overview.status?.toLowerCase() === 'withdrawn' ||
+                  t.overview.status?.toLowerCase() === 'suspended'
+                ).length;
+                const completedCount = trials.filter(t =>
+                  t.overview.status?.toLowerCase() === 'completed'
+                ).length;
+
+                // Calculate percentages using the formula (based on loaded trials for accuracy)
+                const activePercentage = loadedTrials > 0
+                  ? Math.round((plannedCount + openCount + closedCount) / loadedTrials * 100)
+                  : 0;
+                const terminatedPercentage = loadedTrials > 0
+                  ? Math.round(terminatedCount / loadedTrials * 100)
+                  : 0;
+                const completedPercentage = loadedTrials > 0
+                  ? Math.round(completedCount / loadedTrials * 100)
+                  : 0;
+
+                return (
+                  <div
+                    className="flex items-center gap-8 py-3 mb-1"
+                    style={{ fontFamily: "Poppins", fontSize: "14px", backgroundColor: "transparent" }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span style={{ color: "#204B73" }}>📊</span>
+                      <span className="font-semibold" style={{ color: "#204B73" }}>{displayTotal}</span>
+                      <span style={{ color: "#204B73" }}>Total Trials</span>
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#FFB547", display: "inline-block" }} />
+                      <span className="font-medium" style={{ color: "#333333" }}>{activePercentage}%</span>
+                      <span style={{ color: "#333333" }}>Active Trials</span>
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#EF4444", display: "inline-block" }} />
+                      <span className="font-medium" style={{ color: "#333333" }}>{terminatedPercentage}%</span>
+                      <span style={{ color: "#333333" }}>Terminated</span>
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#22C55E", display: "inline-block" }} />
+                      <span className="font-medium" style={{ color: "#333333" }}>{completedPercentage}%</span>
+                      <span style={{ color: "#333333" }}>Completed</span>
+                    </span>
+                  </div>
+                );
+              })()}
 
               {/* Conditional Rendering: Table or Card View */}
               {viewType === 'list' ? (
@@ -1730,10 +1813,290 @@ export default function ClinicalTrialDashboard() {
                               </div>
                             </th>
                           )}
+                          {/* Title Column */}
+                          {columnSettings.title && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[180px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Title</span>
+                              </div>
+                            </th>
+                          )}
+                          {/* Patient Segment Column */}
+                          {columnSettings.patientSegment && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[100px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Patient Segment</span>
+                              </div>
+                            </th>
+                          )}
+                          {/* Line of Therapy Column */}
+                          {columnSettings.lineOfTherapy && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[100px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Line of Therapy</span>
+                              </div>
+                            </th>
+                          )}
+                          {/* Countries Column */}
+                          {columnSettings.countries && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Countries</span>
+                              </div>
+                            </th>
+                          )}
+                          {/* Other Drugs Column */}
+                          {columnSettings.otherDrugs && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[100px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Other Drugs</span>
+                              </div>
+                            </th>
+                          )}
+                          {/* Regions Column */}
+                          {columnSettings.regions && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[100px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Regions</span>
+                              </div>
+                            </th>
+                          )}
+                          {/* Field of Activity Column */}
+                          {columnSettings.fieldOfActivity && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Field of Activity</span>
+                              </div>
+                            </th>
+                          )}
+                          {/* Associated CRO Column */}
+                          {columnSettings.associatedCro && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[100px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Associated CRO</span>
+                              </div>
+                            </th>
+                          )}
+                          {/* Trial Tags Column */}
+                          {columnSettings.trialTags && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[100px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Trial Tags</span>
+                              </div>
+                            </th>
+                          )}
+                          {/* Eligibility Section Columns */}
+                          {columnSettings.inclusionCriteria && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[150px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Inclusion Criteria</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.exclusionCriteria && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[150px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Exclusion Criteria</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.ageFrom && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[80px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Age From</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.ageTo && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[80px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Age To</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.subjectType && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[100px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Subject Type</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.sex && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[80px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Sex</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.healthyVolunteers && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Healthy Volunteers</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.targetNoVolunteers && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Target Volunteers</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.actualEnrolledVolunteers && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Enrolled Volunteers</span>
+                              </div>
+                            </th>
+                          )}
+                          {/* Study Design Section Columns */}
+                          {columnSettings.purposeOfTrial && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[150px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Purpose of Trial</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.summary && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[180px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Summary</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.primaryOutcomeMeasures && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[150px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Primary Outcome</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.otherOutcomeMeasures && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[150px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Other Outcome</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.studyDesignKeywords && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[130px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Design Keywords</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.studyDesign && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[130px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Study Design</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.treatmentRegimen && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[130px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Treatment Regimen</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.numberOfArms && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[100px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>No. of Arms</span>
+                              </div>
+                            </th>
+                          )}
+                          {/* Timing Section Columns */}
+                          {columnSettings.startDateEstimated && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Start Date</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.trialEndDateEstimated && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>End Date</span>
+                              </div>
+                            </th>
+                          )}
+                          {/* Results Section Columns */}
+                          {columnSettings.resultsAvailable && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[100px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Results Available</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.endpointsMet && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[100px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Endpoints Met</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.adverseEventsReported && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Adverse Events</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.trialOutcome && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Trial Outcome</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.trialOutcomeContent && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[150px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Outcome Content</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.adverseEventReported && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>AE Reported</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.adverseEventType && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>AE Type</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.treatmentForAdverseEvents && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[130px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>AE Treatment</span>
+                              </div>
+                            </th>
+                          )}
+                          {/* Sites Section Columns */}
+                          {columnSettings.totalSites && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[80px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Total Sites</span>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.siteNotes && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[150px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <span style={{ fontSize: "13px" }}>Site Notes</span>
+                              </div>
+                            </th>
+                          )}
                           {/* Like/Favorite Column */}
                           <th className="px-2 text-center align-middle font-medium text-white w-[40px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                             <div className="flex flex-col py-2 items-center">
-                              <Heart className="h-4 w-4" />
+                              <BookmarkIcon className="h-4 w-4" />
                             </div>
                           </th>
                         </tr>
@@ -1770,14 +2133,14 @@ export default function ClinicalTrialDashboard() {
                                 <div className="flex items-center" title={trial.overview.therapeutic_area}>
                                   {/* Red Icon */}
                                   <Image src="/pngs/redicon.png" alt="icon" width={16} height={16} className="mr-2 flex-shrink-0" />
-                                  <span className="truncate">{trial.overview.therapeutic_area}</span>
+                                  <span className="truncate">{formatDisplayValue(trial.overview.therapeutic_area)}</span>
                                 </div>
                               </td>
                             )}
                             {columnSettings.diseaseType && (
                               <td className="p-4 align-middle w-[100px] max-w-[100px]">
                                 <span className="truncate block" title={trial.overview.disease_type}>
-                                  {trial.overview.disease_type}
+                                  {formatDisplayValue(trial.overview.disease_type)}
                                 </span>
                               </td>
                             )}
@@ -1804,6 +2167,258 @@ export default function ClinicalTrialDashboard() {
                             {columnSettings.trialPhase && (
                               <td className="p-4 align-middle w-[80px]">{trial.overview.trial_phase}</td>
                             )}
+                            {/* Title */}
+                            {columnSettings.title && (
+                              <td className="p-4 align-middle w-[180px] max-w-[180px]">
+                                <span className="truncate block" title={trial.overview.title}>
+                                  {trial.overview.title || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {/* Patient Segment */}
+                            {columnSettings.patientSegment && (
+                              <td className="p-4 align-middle w-[100px] max-w-[100px]">
+                                <span className="truncate block" title={trial.overview.patient_segment}>
+                                  {formatDisplayValue(trial.overview.patient_segment) || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {/* Line of Therapy */}
+                            {columnSettings.lineOfTherapy && (
+                              <td className="p-4 align-middle w-[100px] max-w-[100px]">
+                                <span className="truncate block" title={trial.overview.line_of_therapy}>
+                                  {formatDisplayValue(trial.overview.line_of_therapy) || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {/* Countries */}
+                            {columnSettings.countries && (
+                              <td className="p-4 align-middle w-[120px] max-w-[120px]">
+                                <span className="truncate block" title={trial.overview.countries}>
+                                  {trial.overview.countries || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {/* Other Drugs */}
+                            {columnSettings.otherDrugs && (
+                              <td className="p-4 align-middle w-[100px] max-w-[100px]">
+                                <span className="truncate block" title={trial.overview.other_drugs}>
+                                  {trial.overview.other_drugs || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {/* Regions */}
+                            {columnSettings.regions && (
+                              <td className="p-4 align-middle w-[100px] max-w-[100px]">
+                                <span className="truncate block" title={trial.overview.region}>
+                                  {trial.overview.region || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {/* Field of Activity */}
+                            {columnSettings.fieldOfActivity && (
+                              <td className="p-4 align-middle w-[120px] max-w-[120px]">
+                                <span className="truncate block" title={trial.overview.sponsor_field_activity}>
+                                  {trial.overview.sponsor_field_activity || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {/* Associated CRO */}
+                            {columnSettings.associatedCro && (
+                              <td className="p-4 align-middle w-[100px] max-w-[100px]">
+                                <span className="truncate block" title={trial.overview.associated_cro}>
+                                  {trial.overview.associated_cro || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {/* Trial Tags */}
+                            {columnSettings.trialTags && (
+                              <td className="p-4 align-middle w-[100px] max-w-[100px]">
+                                <span className="truncate block" title={trial.overview.trial_tags}>
+                                  {trial.overview.trial_tags || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {/* Eligibility Section Cells */}
+                            {columnSettings.inclusionCriteria && (
+                              <td className="p-4 align-middle w-[150px] max-w-[150px]">
+                                <span className="truncate block" title={trial.criteria?.[0]?.inclusion_criteria}>
+                                  {trial.criteria?.[0]?.inclusion_criteria || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {columnSettings.exclusionCriteria && (
+                              <td className="p-4 align-middle w-[150px] max-w-[150px]">
+                                <span className="truncate block" title={trial.criteria?.[0]?.exclusion_criteria}>
+                                  {trial.criteria?.[0]?.exclusion_criteria || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {columnSettings.ageFrom && (
+                              <td className="p-4 align-middle w-[80px]">
+                                <span>{trial.criteria?.[0]?.age_from || "N/A"}</span>
+                              </td>
+                            )}
+                            {columnSettings.ageTo && (
+                              <td className="p-4 align-middle w-[80px]">
+                                <span>{trial.criteria?.[0]?.age_to || "N/A"}</span>
+                              </td>
+                            )}
+                            {columnSettings.subjectType && (
+                              <td className="p-4 align-middle w-[100px] max-w-[100px]">
+                                <span className="truncate block" title={trial.criteria?.[0]?.subject_type}>
+                                  {trial.criteria?.[0]?.subject_type || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {columnSettings.sex && (
+                              <td className="p-4 align-middle w-[80px]">
+                                <span>{trial.criteria?.[0]?.sex || "N/A"}</span>
+                              </td>
+                            )}
+                            {columnSettings.healthyVolunteers && (
+                              <td className="p-4 align-middle w-[120px]">
+                                <span>{trial.criteria?.[0]?.healthy_volunteers || "N/A"}</span>
+                              </td>
+                            )}
+                            {columnSettings.targetNoVolunteers && (
+                              <td className="p-4 align-middle w-[120px]">
+                                <span>{trial.criteria?.[0]?.target_no_volunteers ?? "N/A"}</span>
+                              </td>
+                            )}
+                            {columnSettings.actualEnrolledVolunteers && (
+                              <td className="p-4 align-middle w-[120px]">
+                                <span>{trial.criteria?.[0]?.actual_enrolled_volunteers ?? "N/A"}</span>
+                              </td>
+                            )}
+                            {/* Study Design Section Cells */}
+                            {columnSettings.purposeOfTrial && (
+                              <td className="p-4 align-middle w-[150px] max-w-[150px]">
+                                <span className="truncate block" title={trial.outcomes?.[0]?.purpose_of_trial}>
+                                  {trial.outcomes?.[0]?.purpose_of_trial || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {columnSettings.summary && (
+                              <td className="p-4 align-middle w-[180px] max-w-[180px]">
+                                <span className="truncate block" title={trial.outcomes?.[0]?.summary}>
+                                  {trial.outcomes?.[0]?.summary || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {columnSettings.primaryOutcomeMeasures && (
+                              <td className="p-4 align-middle w-[150px] max-w-[150px]">
+                                <span className="truncate block" title={trial.outcomes?.[0]?.primary_outcome_measure}>
+                                  {trial.outcomes?.[0]?.primary_outcome_measure || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {columnSettings.otherOutcomeMeasures && (
+                              <td className="p-4 align-middle w-[150px] max-w-[150px]">
+                                <span className="truncate block" title={trial.outcomes?.[0]?.other_outcome_measure}>
+                                  {trial.outcomes?.[0]?.other_outcome_measure || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {columnSettings.studyDesignKeywords && (
+                              <td className="p-4 align-middle w-[130px] max-w-[130px]">
+                                <span className="truncate block" title={trial.outcomes?.[0]?.study_design_keywords}>
+                                  {trial.outcomes?.[0]?.study_design_keywords || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {columnSettings.studyDesign && (
+                              <td className="p-4 align-middle w-[130px] max-w-[130px]">
+                                <span className="truncate block" title={trial.outcomes?.[0]?.study_design}>
+                                  {trial.outcomes?.[0]?.study_design || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {columnSettings.treatmentRegimen && (
+                              <td className="p-4 align-middle w-[130px] max-w-[130px]">
+                                <span className="truncate block" title={trial.outcomes?.[0]?.treatment_regimen}>
+                                  {trial.outcomes?.[0]?.treatment_regimen || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {columnSettings.numberOfArms && (
+                              <td className="p-4 align-middle w-[100px]">
+                                <span>{trial.outcomes?.[0]?.number_of_arms ?? "N/A"}</span>
+                              </td>
+                            )}
+                            {/* Timing Section Cells */}
+                            {columnSettings.startDateEstimated && (
+                              <td className="p-4 align-middle w-[120px]">
+                                <span>{trial.timing?.[0]?.start_date_estimated || "N/A"}</span>
+                              </td>
+                            )}
+                            {columnSettings.trialEndDateEstimated && (
+                              <td className="p-4 align-middle w-[120px]">
+                                <span>{trial.timing?.[0]?.trial_end_date_estimated || "N/A"}</span>
+                              </td>
+                            )}
+                            {/* Results Section Cells */}
+                            {columnSettings.resultsAvailable && (
+                              <td className="p-4 align-middle w-[100px]">
+                                <span>{trial.results && trial.results.length > 0 ? "Yes" : "No"}</span>
+                              </td>
+                            )}
+                            {columnSettings.endpointsMet && (
+                              <td className="p-4 align-middle w-[100px]">
+                                <span>{trial.results?.[0]?.trial_results?.length > 0 ? "Yes" : "N/A"}</span>
+                              </td>
+                            )}
+                            {columnSettings.adverseEventsReported && (
+                              <td className="p-4 align-middle w-[120px]">
+                                <span>{trial.results?.[0]?.adverse_event_reported || "N/A"}</span>
+                              </td>
+                            )}
+                            {columnSettings.trialOutcome && (
+                              <td className="p-4 align-middle w-[120px] max-w-[120px]">
+                                <span className="truncate block" title={trial.results?.[0]?.trial_outcome}>
+                                  {trial.results?.[0]?.trial_outcome || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {columnSettings.trialOutcomeContent && (
+                              <td className="p-4 align-middle w-[150px] max-w-[150px]">
+                                <span className="truncate block" title={trial.results?.[0]?.trial_results?.join(", ")}>
+                                  {trial.results?.[0]?.trial_results?.join(", ") || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {columnSettings.adverseEventReported && (
+                              <td className="p-4 align-middle w-[120px]">
+                                <span>{trial.results?.[0]?.adverse_event_reported || "N/A"}</span>
+                              </td>
+                            )}
+                            {columnSettings.adverseEventType && (
+                              <td className="p-4 align-middle w-[120px] max-w-[120px]">
+                                <span className="truncate block" title={trial.results?.[0]?.adverse_event_type || undefined}>
+                                  {trial.results?.[0]?.adverse_event_type || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {columnSettings.treatmentForAdverseEvents && (
+                              <td className="p-4 align-middle w-[130px] max-w-[130px]">
+                                <span className="truncate block" title={trial.results?.[0]?.treatment_for_adverse_events || undefined}>
+                                  {trial.results?.[0]?.treatment_for_adverse_events || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {/* Sites Section Cells */}
+                            {columnSettings.totalSites && (
+                              <td className="p-4 align-middle w-[80px]">
+                                <span>{trial.sites?.[0]?.total ?? "N/A"}</span>
+                              </td>
+                            )}
+                            {columnSettings.siteNotes && (
+                              <td className="p-4 align-middle w-[150px] max-w-[150px]">
+                                <span className="truncate block" title={trial.sites?.[0]?.notes}>
+                                  {trial.sites?.[0]?.notes || "N/A"}
+                                </span>
+                              </td>
+                            )}
                             <td className="p-4 align-middle">
                               <Button
                                 variant="ghost"
@@ -1814,10 +2429,10 @@ export default function ClinicalTrialDashboard() {
                                 }}
                                 className="h-8 w-8 p-0 hover:bg-red-50"
                               >
-                                <Heart
+                                <BookmarkIcon
                                   className={`h-4 w-4 ${favoriteTrials.includes(trial.trial_id)
-                                    ? 'fill-red-500 text-red-500'
-                                    : 'text-gray-400 hover:text-red-500'
+                                    ? 'fill-blue-500 text-blue-500'
+                                    : 'text-gray-400 hover:text-blue-500'
                                     }`}
                                 />
                               </Button>
@@ -1991,6 +2606,22 @@ export default function ClinicalTrialDashboard() {
                 open={queryHistoryModalOpen}
                 onOpenChange={setQueryHistoryModalOpen}
                 onLoadQuery={handleLoadQuery}
+                onEditQuery={(queryData) => {
+                  // Close the query history modal
+                  setQueryHistoryModalOpen(false);
+                  // Apply the filters and criteria from the query
+                  if (queryData.filters) {
+                    setAppliedFilters(queryData.filters);
+                  }
+                  if (queryData.searchCriteria) {
+                    setAppliedSearchCriteria(queryData.searchCriteria);
+                  }
+                  if (queryData.searchTerm) {
+                    setSearchTerm(queryData.searchTerm);
+                  }
+                  // Open the advanced search modal with the criteria for editing
+                  setAdvancedSearchModalOpen(true);
+                }}
               />
 
               {/* Customize Column Modal */}

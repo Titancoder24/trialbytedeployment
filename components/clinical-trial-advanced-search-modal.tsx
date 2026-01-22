@@ -5,8 +5,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { X, Plus, Minus } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { X, Plus, Minus, CalendarIcon } from "lucide-react"
 import { FaBook, FaBookmark } from "react-icons/fa"
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
 
 interface ClinicalTrialAdvancedSearchModalProps {
   open: boolean
@@ -24,21 +28,103 @@ export interface ClinicalTrialSearchCriteria {
 }
 
 const searchFields = [
-  { value: "disease_type", label: "Disease Type" },
-  { value: "enrollment", label: "Enrollment" },
-  { value: "therapeutic_area", label: "Therapeutic Area" },
-  { value: "trial_phase", label: "Trial Phase" },
-  { value: "primary_drugs", label: "Primary Drug" },
-  { value: "secondary_drugs", label: "Secondary Drug" },
-  { value: "trial_status", label: "Trial Status" },
-  { value: "sponsor_collaborators", label: "Sponsor" },
-  { value: "countries", label: "Countries" },
-  { value: "patient_segment", label: "Patient Segment" },
-  { value: "line_of_therapy", label: "Line of Therapy" },
-  { value: "trial_identifier", label: "Trial Identifier" },
-  { value: "start_date", label: "Start Date" },
-  { value: "end_date", label: "End Date" }
+  { value: "disease_type", label: "Disease Type", type: "dropdown" },
+  { value: "enrollment", label: "Enrollment", type: "number" },
+  { value: "therapeutic_area", label: "Therapeutic Area", type: "dropdown" },
+  { value: "trial_phase", label: "Trial Phase", type: "dropdown" },
+  { value: "primary_drugs", label: "Primary Drug", type: "text" },
+  { value: "secondary_drugs", label: "Secondary Drug", type: "text" },
+  { value: "trial_status", label: "Trial Status", type: "dropdown" },
+  { value: "sponsor_collaborators", label: "Sponsor", type: "dropdown" },
+  { value: "countries", label: "Countries", type: "dropdown" },
+  { value: "patient_segment", label: "Patient Segment", type: "dropdown" },
+  { value: "line_of_therapy", label: "Line of Therapy", type: "dropdown" },
+  { value: "trial_identifier", label: "Trial Identifier", type: "text" },
+  { value: "start_date", label: "Start Date", type: "date" },
+  { value: "end_date", label: "End Date", type: "date" },
+  { value: "title", label: "Title", type: "text" }
 ]
+
+// Field-specific dropdown options
+const fieldOptions: Record<string, { value: string; label: string }[]> = {
+  therapeutic_area: [
+    { value: "Autoimmune", label: "Autoimmune" },
+    { value: "Cardiovascular", label: "Cardiovascular" },
+    { value: "Endocrinology", label: "Endocrinology" },
+    { value: "Gastrointestinal", label: "Gastrointestinal" },
+    { value: "Infectious", label: "Infectious" },
+    { value: "Oncology", label: "Oncology" },
+    { value: "Gastroenterology", label: "Gastroenterology" },
+    { value: "Dermatology", label: "Dermatology" },
+    { value: "Vaccines", label: "Vaccines" },
+    { value: "CNS/Neurology", label: "CNS/Neurology" },
+    { value: "Ophthalmology", label: "Ophthalmology" },
+    { value: "Immunology", label: "Immunology" },
+    { value: "Rheumatology", label: "Rheumatology" },
+    { value: "Haematology", label: "Haematology" },
+    { value: "Nephrology", label: "Nephrology" },
+    { value: "Urology", label: "Urology" }
+  ],
+  trial_phase: [
+    { value: "Phase I", label: "Phase I" },
+    { value: "Phase I/II", label: "Phase I/II" },
+    { value: "Phase II", label: "Phase II" },
+    { value: "Phase II/III", label: "Phase II/III" },
+    { value: "Phase III", label: "Phase III" },
+    { value: "Phase III/IV", label: "Phase III/IV" },
+    { value: "Phase IV", label: "Phase IV" }
+  ],
+  trial_status: [
+    { value: "Planned", label: "Planned" },
+    { value: "Open", label: "Open" },
+    { value: "Closed", label: "Closed" },
+    { value: "Completed", label: "Completed" },
+    { value: "Terminated", label: "Terminated" }
+  ],
+  disease_type: [
+    { value: "Breast", label: "Breast" },
+    { value: "Lung Non-small cell", label: "Lung Non-small cell" },
+    { value: "Colorectal", label: "Colorectal" },
+    { value: "Melanoma", label: "Melanoma" },
+    { value: "Liver", label: "Liver" },
+    { value: "Pancreas", label: "Pancreas" },
+    { value: "Ovarian", label: "Ovarian" },
+    { value: "Prostate", label: "Prostate" },
+    { value: "Renal", label: "Renal" },
+    { value: "Multiple Myeloma", label: "Multiple Myeloma" }
+  ],
+  patient_segment: [
+    { value: "Children", label: "Children" },
+    { value: "Adults", label: "Adults" },
+    { value: "Healthy Volunteers", label: "Healthy Volunteers" },
+    { value: "First Line", label: "First Line" },
+    { value: "Second Line", label: "Second Line" }
+  ],
+  line_of_therapy: [
+    { value: "1 – First Line", label: "1 – First Line" },
+    { value: "2 – Second Line", label: "2 – Second Line" },
+    { value: "Unknown", label: "Unknown" },
+    { value: "Neo-Adjuvant", label: "Neo-Adjuvant" },
+    { value: "Adjuvant", label: "Adjuvant" }
+  ],
+  countries: [
+    { value: "United States", label: "United States" },
+    { value: "Canada", label: "Canada" },
+    { value: "United Kingdom", label: "United Kingdom" },
+    { value: "Germany", label: "Germany" },
+    { value: "France", label: "France" },
+    { value: "Japan", label: "Japan" },
+    { value: "China", label: "China" },
+    { value: "India", label: "India" }
+  ],
+  sponsor_collaborators: [
+    { value: "Pfizer", label: "Pfizer" },
+    { value: "Novartis", label: "Novartis" },
+    { value: "AstraZeneca", label: "AstraZeneca" },
+    { value: "Roche", label: "Roche" },
+    { value: "Bristol-Myers Squibb", label: "Bristol-Myers Squibb" }
+  ]
+}
 
 const operators = [
   { value: "contains", label: "Contains" },
@@ -53,23 +139,10 @@ const operators = [
 ]
 
 export function ClinicalTrialAdvancedSearchModal({ open, onOpenChange, onApplySearch, onOpenSavedQueries }: ClinicalTrialAdvancedSearchModalProps) {
+  // Start with a single empty criteria row - NO default selections
   const [criteria, setCriteria] = useState<ClinicalTrialSearchCriteria[]>([
     {
       id: "1",
-      field: "disease_type",
-      operator: "contains",
-      value: "Liver cancer",
-      logic: "AND",
-    },
-    {
-      id: "2",
-      field: "enrollment",
-      operator: "greater_than",
-      value: "100",
-      logic: "OR",
-    },
-    {
-      id: "3",
       field: "",
       operator: "",
       value: "",
@@ -93,11 +166,20 @@ export function ClinicalTrialAdvancedSearchModal({ open, onOpenChange, onApplySe
   }
 
   const updateCriteria = (id: string, field: keyof ClinicalTrialSearchCriteria, value: string) => {
-    setCriteria((prev) => prev.map((c) => (c.id === id ? { ...c, [field]: value } : c)))
+    setCriteria((prev) => prev.map((c) => {
+      if (c.id === id) {
+        // If field changes, reset value and operator
+        if (field === "field" && c.field !== value) {
+          return { ...c, field: value, operator: "", value: "" }
+        }
+        return { ...c, [field]: value }
+      }
+      return c
+    }))
   }
 
   const handleApply = () => {
-    onApplySearch(criteria.filter((c) => c.value.trim() !== ""))
+    onApplySearch(criteria.filter((c) => c.field && c.value.trim() !== ""))
     onOpenChange(false)
   }
 
@@ -109,7 +191,8 @@ export function ClinicalTrialAdvancedSearchModal({ open, onOpenChange, onApplySe
   }
 
   const handleSaveQuery = () => {
-    const queryName = `Advanced Search (${criteria.length} criteria) - ${new Date().toLocaleDateString()}`;
+    const validCriteria = criteria.filter(c => c.field && c.value.trim() !== "");
+    const queryName = `Advanced Search (${validCriteria.length} criteria) - ${new Date().toLocaleDateString()}`;
     const savedQueries = JSON.parse(localStorage.getItem('clinicalTrialSearchQueries') || '[]');
     const newQuery = {
       id: Date.now().toString(),
@@ -121,6 +204,99 @@ export function ClinicalTrialAdvancedSearchModal({ open, onOpenChange, onApplySe
     savedQueries.push(newQuery);
     localStorage.setItem('clinicalTrialSearchQueries', JSON.stringify(savedQueries));
     alert(`Query saved as: ${queryName}`);
+  }
+
+  // Get field type for determining input type
+  const getFieldType = (fieldValue: string): string => {
+    const field = searchFields.find(f => f.value === fieldValue)
+    return field?.type || "text"
+  }
+
+  // Render value input based on field type
+  const renderValueInput = (criterion: ClinicalTrialSearchCriteria) => {
+    const fieldType = getFieldType(criterion.field)
+    const options = fieldOptions[criterion.field]
+
+    // Date field - show date picker
+    if (fieldType === "date") {
+      return (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                "w-full justify-start text-left font-normal border border-gray-300 rounded-lg",
+                !criterion.value && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {criterion.value ? format(new Date(criterion.value), "PPP") : "Select date"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={criterion.value ? new Date(criterion.value) : undefined}
+              onSelect={(date) => {
+                if (date) {
+                  updateCriteria(criterion.id, "value", date.toISOString())
+                }
+              }}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+      )
+    }
+
+    // Dropdown field - show select with options
+    if (fieldType === "dropdown" && options) {
+      return (
+        <Select
+          value={criterion.value}
+          onValueChange={(value) => updateCriteria(criterion.id, "value", value)}
+        >
+          <SelectTrigger
+            className="bg-white border border-gray-300 rounded-lg"
+            style={{ fontFamily: "Poppins, sans-serif" }}
+          >
+            <SelectValue placeholder="Select value" />
+          </SelectTrigger>
+          <SelectContent position="popper" side="bottom" style={{ fontFamily: "Poppins, sans-serif" }}>
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )
+    }
+
+    // Number field - show number input
+    if (fieldType === "number") {
+      return (
+        <Input
+          type="number"
+          placeholder="Enter number"
+          value={criterion.value}
+          onChange={(e) => updateCriteria(criterion.id, "value", e.target.value)}
+          className="border border-gray-300 rounded-lg text-center"
+          style={{ fontFamily: "Poppins, sans-serif" }}
+        />
+      )
+    }
+
+    // Default - text input
+    return (
+      <Input
+        placeholder="Enter the search term"
+        value={criterion.value}
+        onChange={(e) => updateCriteria(criterion.id, "value", e.target.value)}
+        className="border border-gray-300 rounded-lg text-center"
+        style={{ fontFamily: "Poppins, sans-serif" }}
+      />
+    )
   }
 
   return (
@@ -183,9 +359,10 @@ export function ClinicalTrialAdvancedSearchModal({ open, onOpenChange, onApplySe
                   <Select
                     value={criterion.operator}
                     onValueChange={(value) => updateCriteria(criterion.id, "operator", value)}
+                    disabled={!criterion.field}
                   >
                     <SelectTrigger
-                      className="text-white border-0 rounded-lg text-center justify-center"
+                      className="text-white border-0 rounded-lg text-center justify-center disabled:opacity-50"
                       style={{ backgroundColor: "#208B8B", fontFamily: "Poppins, sans-serif" }}
                     >
                       <SelectValue placeholder="Operator" />
@@ -200,15 +377,18 @@ export function ClinicalTrialAdvancedSearchModal({ open, onOpenChange, onApplySe
                   </Select>
                 </div>
 
-                {/* Search Term Input */}
+                {/* Search Term Input - Dynamic based on field type */}
                 <div className="flex-1">
-                  <Input
-                    placeholder="Enter the search term"
-                    value={criterion.value}
-                    onChange={(e) => updateCriteria(criterion.id, "value", e.target.value)}
-                    className="border border-gray-300 rounded-lg text-center"
-                    style={{ fontFamily: "Poppins, sans-serif" }}
-                  />
+                  {criterion.field ? (
+                    renderValueInput(criterion)
+                  ) : (
+                    <Input
+                      placeholder="Select a field first"
+                      disabled
+                      className="border border-gray-300 rounded-lg text-center"
+                      style={{ fontFamily: "Poppins, sans-serif" }}
+                    />
+                  )}
                 </div>
 
                 {/* Boolean Dropdown - Orange #FFB547 */}
@@ -304,3 +484,4 @@ export function ClinicalTrialAdvancedSearchModal({ open, onOpenChange, onApplySe
     </Dialog>
   )
 }
+

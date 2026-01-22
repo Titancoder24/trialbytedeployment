@@ -2,6 +2,7 @@
 
 import { formatDateToMMDDYYYY } from "@/lib/date-utils";
 import { getUniqueFieldValues, normalizePhaseValue, arePhasesEquivalent } from "@/lib/search-utils";
+import { formatDisplayValue } from "@/lib/format-utils";
 import { useState, useEffect, useMemo } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -158,6 +159,7 @@ const therapeuticSearchFields = [
   { value: "countries", label: "Countries" },
   { value: "region", label: "Region" },
   { value: "trial_record_status", label: "Trial Record Status" },
+  { value: "trial_tags", label: "Trial Tags" },
 
   // Eligibility criteria dropdown fields (Step 5-3)
   { value: "gender", label: "Gender" },
@@ -165,50 +167,16 @@ const therapeuticSearchFields = [
 
   // Results dropdown fields (Step 5-5)
   { value: "trial_outcome", label: "Trial Outcome" },
-  { value: "adverse_event_reported", label: "Adverse Event Reported" },
-  { value: "adverse_event_type", label: "Adverse Event Type" },
 
   // Additional data dropdown fields (Step 5-7)
-  { value: "publication_type", label: "Publication Type" },
   { value: "registry_name", label: "Registry Name" },
-  { value: "study_type", label: "Study Type" },
 
   // Study design keywords (Step 5-2) - dropdown
   { value: "study_design_keywords", label: "Study Design Keywords" },
 
-  // Text fields that are searchable (Step 5-1)
+  // Text fields that are commonly used for search
   { value: "title", label: "Title" },
   { value: "trial_identifier", label: "Trial Identifier" },
-  { value: "reference_links", label: "Reference Links" },
-  { value: "trial_tags", label: "Trial Tags" },
-  { value: "study_design", label: "Study Design" },
-
-  // Text fields from Step 5-2: Trial Purpose & Design
-  { value: "purpose_of_trial", label: "Purpose of Trial" },
-  { value: "summary", label: "Summary" },
-  { value: "primaryOutcomeMeasures", label: "Primary Outcome Measures" },
-  { value: "otherOutcomeMeasures", label: "Other Outcome Measures" },
-  { value: "treatment_regimen", label: "Treatment Regimen" },
-
-  // Text fields from Step 5-3: Eligibility Criteria
-  { value: "inclusion_criteria", label: "Inclusion Criteria" },
-  { value: "exclusion_criteria", label: "Exclusion Criteria" },
-
-  // Text fields from Step 5-8: Notes
-  { value: "notes", label: "Notes" },
-
-  // Numeric fields
-  { value: "number_of_arms", label: "Number of Arms" },
-  { value: "age_min", label: "Age Minimum" },
-  { value: "age_max", label: "Age Maximum" },
-
-  // Date fields
-  { value: "created_at", label: "Created Date" },
-  { value: "updated_at", label: "Updated Date" },
-
-  // Logs fields
-  { value: "last_modified_date", label: "Last Modified Date" },
-  { value: "last_modified_user", label: "Last Modified User" }
 ]
 
 const operators = [
@@ -332,17 +300,8 @@ const fieldOptions: Record<string, { value: string; label: string }[]> = {
     { value: "vaginal", label: "Vaginal" },
     { value: "vulvar", label: "Vulvar" }
   ],
-  // Patient Segment - Includes general options plus disease-specific options
+  // Patient Segment - Breast Cancer specific patient segments only
   patient_segment: [
-    // General patient segments
-    { value: "children", label: "Children" },
-    { value: "adults", label: "Adults" },
-    { value: "healthy_volunteers", label: "Healthy Volunteers" },
-    { value: "unknown", label: "Unknown" },
-    { value: "first_line", label: "First Line" },
-    { value: "second_line", label: "Second Line" },
-    { value: "adjuvant", label: "Adjuvant" },
-    // Breast Cancer specific patient segments
     { value: "her2_positive_breast_cancer", label: "HER2+ Breast Cancer" },
     { value: "her2_negative_breast_cancer", label: "HER2− Breast Cancer" },
     { value: "hr_positive_breast_cancer", label: "HR+ Breast Cancer (ER+ and/or PR+)" },
@@ -354,7 +313,7 @@ const fieldOptions: Record<string, { value: string; label: string }[]> = {
     { value: "advanced_breast_cancer", label: "Advanced Breast Cancer (Non-Metastatic)" },
     { value: "premenopausal_breast_cancer", label: "Premenopausal Breast Cancer Patients" },
     { value: "postmenopausal_breast_cancer", label: "Postmenopausal Breast Cancer Patients" },
-    { value: "breast_cancer_nos", label: "Breast Cancer (NOS)" }
+    { value: "breast_cancer_nos", label: "Breast Cancer (NOS)" },
   ],
   // Line of Therapy - Exact options from creation phase
   line_of_therapy: [
@@ -557,7 +516,7 @@ export function TherapeuticAdvancedSearchModal({
   const [therapeuticData, setTherapeuticData] = useState<TherapeuticTrial[]>([])
   const [loading, setLoading] = useState(false)
   const { getPrimaryDrugsOptions, refreshFromAPI, isLoading: isDrugsLoading } = useDrugNames()
-  
+
   // List of all dropdown categories that should use dynamic options
   const dropdownCategories = [
     'therapeutic_area', 'trial_phase', 'trial_status', 'disease_type', 'patient_segment',
@@ -797,7 +756,7 @@ export function TherapeuticAdvancedSearchModal({
       'countries': 'country',
     };
     const categoryName = fieldToCategoryMap[criterion.field] || criterion.field;
-    
+
     // Use dynamic options if available, fallback to static fieldOptions
     let fieldOptionsForField = fieldOptions[criterion.field]
     if (dynamicDropdowns[categoryName] && dynamicDropdowns[categoryName].options.length > 0) {
@@ -914,7 +873,7 @@ export function TherapeuticAdvancedSearchModal({
         <SearchableSelect
           value={Array.isArray(criterion.value) ? criterion.value[0] || "" : (criterion.value as string)}
           onValueChange={(value) => updateCriteria(criterion.id, "value", value)}
-          options={dynamicValues.map(v => ({ value: v, label: v }))}
+          options={dynamicValues.map(v => ({ value: v, label: formatDisplayValue(v) }))}
           placeholder="Select option"
           searchPlaceholder={`Search ${criterion.field.replace(/_/g, ' ')}...`}
           className="w-full"

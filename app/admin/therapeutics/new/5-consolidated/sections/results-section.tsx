@@ -124,22 +124,45 @@ export default function ResultsSection() {
   // Handle file removal
   const handleAttachmentRemove = async () => {
     if (form.trial_outcome_attachment?.url) {
+      const fileUrl = form.trial_outcome_attachment.url;
+
+      // Optimistically update UI first for better UX
+      updateField("step5_5", "trial_outcome_attachment", null);
+
       try {
         await edgestore.trialOutcomeAttachments.delete({
-          url: form.trial_outcome_attachment.url,
+          url: fileUrl,
         });
-        updateField("step5_5", "trial_outcome_attachment", null);
         toast({
           title: "Success",
           description: "File removed successfully",
         });
-      } catch (error) {
-        console.error("Error removing file:", error);
-        toast({
-          title: "Error",
-          description: "Failed to remove file. Please try again.",
-          variant: "destructive",
-        });
+      } catch (error: any) {
+        // Handle EdgeStore errors gracefully - file is already removed from form
+        const errorMessage = error?.message || String(error) || '';
+        const errorString = errorMessage.toLowerCase();
+
+        const isNotFoundError = errorString.includes('404') ||
+          errorString.includes('not found') ||
+          errorString.includes('does not exist');
+
+        const isServerError = errorString.includes('internal server error') ||
+          errorString.includes('500');
+
+        if (isNotFoundError || isServerError) {
+          // File may not exist on EdgeStore or server error - that's fine, we already removed from UI
+          console.warn("EdgeStore deletion issue (file removed from form):", error);
+          toast({
+            title: "File removed",
+            description: "File has been removed from the form.",
+          });
+        } else {
+          console.error("Error removing file:", error);
+          toast({
+            title: "File removed",
+            description: "File has been removed from the form.",
+          });
+        }
       }
     }
   };
@@ -194,26 +217,47 @@ export default function ResultsSection() {
     const currentNote = form.site_notes[noteIndex];
     const attachment = currentNote?.attachments[attachmentIndex];
 
+    // Optimistically update UI first
+    const updatedAttachments = currentNote.attachments.filter((_: any, i: number) => i !== attachmentIndex);
+    handleUpdateSiteNote(noteIndex, "attachments", updatedAttachments);
+
     if (attachment && typeof attachment === "object" && "url" in attachment && (attachment as any).url) {
+      const fileUrl = (attachment as any).url;
+
       try {
         await edgestore.trialOutcomeAttachments.delete({
-          url: (attachment as any).url,
+          url: fileUrl,
         });
-
-        const updatedAttachments = currentNote.attachments.filter((_: any, i: number) => i !== attachmentIndex);
-        handleUpdateSiteNote(noteIndex, "attachments", updatedAttachments);
 
         toast({
           title: "Success",
           description: "File removed successfully",
         });
-      } catch (error) {
-        console.error("Error removing file:", error);
-        toast({
-          title: "Error",
-          description: "Failed to remove file. Please try again.",
-          variant: "destructive",
-        });
+      } catch (error: any) {
+        // Handle EdgeStore errors gracefully - file is already removed from form
+        const errorMessage = error?.message || String(error) || '';
+        const errorString = errorMessage.toLowerCase();
+
+        const isNotFoundError = errorString.includes('404') ||
+          errorString.includes('not found') ||
+          errorString.includes('does not exist');
+
+        const isServerError = errorString.includes('internal server error') ||
+          errorString.includes('500');
+
+        if (isNotFoundError || isServerError) {
+          console.warn("EdgeStore deletion issue (file removed from form):", error);
+          toast({
+            title: "File removed",
+            description: "File has been removed from the form.",
+          });
+        } else {
+          console.error("Error removing file:", error);
+          toast({
+            title: "File removed",
+            description: "File has been removed from the form.",
+          });
+        }
       }
     }
   };
@@ -323,9 +367,10 @@ export default function ResultsSection() {
             />
           </div>
 
-          <div className="flex gap-2 mt-2">
-            <div className="flex items-center gap-2 flex-1">
-              <Label className="whitespace-nowrap">Link</Label>
+          {/* Link Row */}
+          <div className="space-y-2 mt-2">
+            <Label>Link</Label>
+            <div className="flex items-center gap-2">
               <Input
                 type="url"
                 placeholder="Enter link"
@@ -337,63 +382,63 @@ export default function ResultsSection() {
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
-            <div className="flex items-center gap-2 flex-1">
-              <Label className="whitespace-nowrap">Attachments</Label>
-              <div className="flex-1 flex flex-col gap-2">
-                <div className="flex gap-2">
-                  <Input
-                    type="file"
-                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.rtf,.zip,.rar"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        handleAttachmentUpload(file);
-                      }
-                    }}
-                    disabled={uploadingAttachment}
-                    className="border-gray-600 focus:border-gray-800 focus:ring-gray-800 flex-1"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    disabled={uploadingAttachment}
-                  >
-                    {uploadingAttachment ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Upload className="h-4 w-4" />
-                    )}
-                  </Button>
-                  {form.trial_outcome_attachment?.url && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={handleAttachmentRemove}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-                {form.trial_outcome_attachment?.url && (
-                  <div className="flex items-center gap-2 px-2 py-1 bg-gray-100 rounded-md">
-                    <span className="text-sm text-gray-700 flex-1 truncate">
-                      {form.trial_outcome_attachment.name || "Uploaded file"}
-                    </span>
-                    <a
-                      href={form.trial_outcome_attachment.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 text-sm"
-                    >
-                      View
-                    </a>
-                  </div>
+          </div>
+
+          {/* Attachments Row */}
+          <div className="space-y-2 mt-2">
+            <Label>Attachments</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="file"
+                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.rtf,.zip,.rar"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    handleAttachmentUpload(file);
+                  }
+                }}
+                disabled={uploadingAttachment}
+                className="border-gray-600 focus:border-gray-800 focus:ring-gray-800 flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                disabled={uploadingAttachment}
+              >
+                {uploadingAttachment ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
                 )}
-              </div>
+              </Button>
+              {form.trial_outcome_attachment?.url && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={handleAttachmentRemove}
+                  className="text-red-500 hover:text-red-700"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
             </div>
+            {form.trial_outcome_attachment?.url && (
+              <div className="flex items-center gap-2 px-2 py-1 bg-gray-100 rounded-md">
+                <span className="text-sm text-gray-700 flex-1 truncate">
+                  {form.trial_outcome_attachment.name || "Uploaded file"}
+                </span>
+                <a
+                  href={form.trial_outcome_attachment.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 text-sm"
+                >
+                  View
+                </a>
+              </div>
+            )}
           </div>
         </div>
       </div>

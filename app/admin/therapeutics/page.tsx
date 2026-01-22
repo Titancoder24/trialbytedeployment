@@ -36,6 +36,7 @@ import {
 
 import { formatDateToMMDDYYYY } from "@/lib/date-utils";
 import { normalizePhaseValue } from "@/lib/search-utils";
+import { formatDisplayValue } from "@/lib/format-utils";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2, Eye, Plus, Search, Loader2, Filter, Clock, Edit, ChevronDown, Settings, Download, Save, ExternalLink, Maximize2, RefreshCw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -307,10 +308,10 @@ export default function AdminTherapeuticsPage() {
       console.log('User name mapping populated:', newMap);
     } catch (error: any) {
       // Handle network errors gracefully
-      const isNetworkError = error?.message?.includes('Failed to fetch') || 
-                            error?.message?.includes('NetworkError') ||
-                            error?.message?.includes('Network error');
-      
+      const isNetworkError = error?.message?.includes('Failed to fetch') ||
+        error?.message?.includes('NetworkError') ||
+        error?.message?.includes('Network error');
+
       if (isNetworkError) {
         console.warn("Network error populating user name map (non-critical):", error);
       } else {
@@ -432,10 +433,10 @@ export default function AdminTherapeuticsPage() {
 
     } catch (error: any) {
       // Handle network errors gracefully
-      const isNetworkError = error?.message?.includes('Failed to fetch') || 
-                            error?.message?.includes('NetworkError') ||
-                            error?.name === 'TypeError';
-      
+      const isNetworkError = error?.message?.includes('Failed to fetch') ||
+        error?.message?.includes('NetworkError') ||
+        error?.name === 'TypeError';
+
       if (isNetworkError) {
         console.warn("Network error fetching trials (non-critical):", error);
         // Don't show error toast for network errors, just use existing data
@@ -539,10 +540,10 @@ export default function AdminTherapeuticsPage() {
       }
     } catch (error: any) {
       // Handle network errors gracefully
-      const isNetworkError = error?.message?.includes('Failed to fetch') || 
-                            error?.message?.includes('NetworkError') ||
-                            error?.name === 'TypeError';
-      
+      const isNetworkError = error?.message?.includes('Failed to fetch') ||
+        error?.message?.includes('NetworkError') ||
+        error?.name === 'TypeError';
+
       if (isNetworkError) {
         console.warn("Network error fetching drugs for mapping (non-critical):", error);
       } else {
@@ -595,7 +596,7 @@ export default function AdminTherapeuticsPage() {
       return;
     }
 
-    const currentUserId = typeof window !== 'undefined' 
+    const currentUserId = typeof window !== 'undefined'
       ? localStorage.getItem("userId") || "2be97b5e-5bf3-43f2-b84a-4db4a138e497"
       : "2be97b5e-5bf3-43f2-b84a-4db4a138e497";
 
@@ -661,7 +662,7 @@ export default function AdminTherapeuticsPage() {
     try {
       setDeletingTrials((prev) => ({ ...prev, [trialId]: true }));
 
-      const currentUserId = typeof window !== 'undefined' 
+      const currentUserId = typeof window !== 'undefined'
         ? localStorage.getItem("userId") || "2be97b5e-5bf3-43f2-b84a-4db4a138e497"
         : "2be97b5e-5bf3-43f2-b84a-4db4a138e497";
 
@@ -1215,17 +1216,17 @@ export default function AdminTherapeuticsPage() {
       const searchValue = rawSearchValue.trim();
       const searchValueLower = searchValue.toLowerCase();
 
-      // Special handling for dropdown fields that should use exact matching
+      // Special handling for dropdown fields - use contains matching for flexibility
       const dropdownFields = [
         'trial_phase', 'status', 'therapeutic_area', 'disease_type',
         'patient_segment', 'line_of_therapy', 'trial_record_status',
-        'sex', 'healthy_volunteers', 'trial_outcome', 'adverse_event_reported'
+        'sex', 'healthy_volunteers', 'trial_outcome', 'adverse_event_reported',
+        'study_design_keywords', 'gender', 'region', 'countries', 'registry_name'
       ];
 
-      // For dropdown fields, if the operator is "contains" but we're searching for exact values,
-      // we should use exact matching instead
+      // For dropdown fields, use contains matching for better flexibility
       if (dropdownFields.includes(field) && (operator === "contains" || operator === "is")) {
-        // Check if the search value matches exactly or if it's a partial match within the field
+        // Check if the search value matches exactly first
         if (targetValue === searchValueLower) {
           return true;
         }
@@ -1268,8 +1269,16 @@ export default function AdminTherapeuticsPage() {
           return normalizedTarget.includes(normalizedSearch) || normalizedSearch.includes(normalizedTarget);
         }
 
-        // For other dropdown fields, use exact matching
-        return targetValue === searchValueLower;
+        // For other dropdown fields, use CONTAINS matching for flexibility
+        // This allows 'infectious' to match 'infectious_disease', etc.
+        if (targetValue.includes(searchValueLower) || searchValueLower.includes(targetValue)) {
+          return true;
+        }
+
+        // Also check with underscores removed/replaced
+        const targetNoUnderscore = targetValue.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+        const searchNoUnderscore = searchValueLower.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+        return targetNoUnderscore.includes(searchNoUnderscore) || searchNoUnderscore.includes(targetNoUnderscore);
       }
 
       // Special handling for trial_tags with multiple values
@@ -2296,8 +2305,8 @@ export default function AdminTherapeuticsPage() {
       ...selectedTrialData.map(trial => [
         trial.trial_id,
         `"${trial.overview.title || 'Untitled'}"`,
-        `"${trial.overview.therapeutic_area || 'N/A'}"`,
-        `"${trial.overview.disease_type || 'N/A'}"`,
+        `"${formatDisplayValue(trial.overview.therapeutic_area)}"`,
+        `"${formatDisplayValue(trial.overview.disease_type)}"`,
         `"${trial.overview.status || 'Unknown'}"`,
         `"${trial.overview.trial_phase || 'N/A'}"`,
         `"${trial.overview.sponsor_collaborators || 'N/A'}"`,
@@ -2776,10 +2785,10 @@ export default function AdminTherapeuticsPage() {
                     </td>
                     {/* Basic Info Section */}
                     {columnSettings.therapeuticArea && (
-                      <td className="p-4 align-middle max-w-[150px] truncate">{trial.overview.therapeutic_area || "N/A"}</td>
+                      <td className="p-4 align-middle max-w-[150px] truncate">{formatDisplayValue(trial.overview.therapeutic_area)}</td>
                     )}
                     {columnSettings.diseaseType && (
-                      <td className="p-4 align-middle max-w-[150px] truncate">{trial.overview.disease_type || "N/A"}</td>
+                      <td className="p-4 align-middle max-w-[150px] truncate">{formatDisplayValue(trial.overview.disease_type)}</td>
                     )}
                     {columnSettings.primaryDrug && (
                       <td className="p-4 align-middle max-w-[150px] truncate">{trial.overview.primary_drugs || "N/A"}</td>
@@ -2788,10 +2797,10 @@ export default function AdminTherapeuticsPage() {
                       <td className="p-4 align-middle">{trial.overview.trial_phase || "N/A"}</td>
                     )}
                     {columnSettings.patientSegment && (
-                      <td className="p-4 align-middle max-w-[150px] truncate">{trial.overview.patient_segment || "N/A"}</td>
+                      <td className="p-4 align-middle max-w-[150px] truncate">{formatDisplayValue(trial.overview.patient_segment)}</td>
                     )}
                     {columnSettings.lineOfTherapy && (
-                      <td className="p-4 align-middle max-w-[150px] truncate">{trial.overview.line_of_therapy || "N/A"}</td>
+                      <td className="p-4 align-middle max-w-[150px] truncate">{formatDisplayValue(trial.overview.line_of_therapy)}</td>
                     )}
                     {columnSettings.countries && (
                       <td className="p-4 align-middle max-w-[150px] truncate">{trial.overview.countries || "N/A"}</td>
@@ -2815,7 +2824,7 @@ export default function AdminTherapeuticsPage() {
                       <td className="p-4 align-middle max-w-[120px] truncate">{trial.overview.region || "N/A"}</td>
                     )}
                     {columnSettings.trialRecordStatus && (
-                      <td className="p-4 align-middle max-w-[120px] truncate">{trial.overview.trial_record_status || "N/A"}</td>
+                      <td className="p-4 align-middle max-w-[120px] truncate">{formatDisplayValue(trial.overview.trial_record_status)}</td>
                     )}
                     {/* Eligibility Section */}
                     {columnSettings.inclusionCriteria && (

@@ -41,6 +41,7 @@ import {
   X,
   Download,
   Plus,
+  PlusCircle,
   Minus,
   Loader2,
   ChevronDown,
@@ -179,7 +180,38 @@ function ClinicalTrialsPage() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [expandedOtherSources, setExpandedOtherSources] = useState<Record<number, boolean>>({ 0: true });
+  const [expandedTimingRefs, setExpandedTimingRefs] = useState<Record<number, boolean>>({ 0: true }); // First card expanded by default
   const [zoomLevel, setZoomLevel] = useState(100); // Zoom level in percentage
+  const [favoriteTrials, setFavoriteTrials] = useState<string[]>([]); // Favorite trials from localStorage
+
+  // Modal states for View Source and Attachments
+  const [showSourceModal, setShowSourceModal] = useState(false);
+  const [sourceUrl, setSourceUrl] = useState<string>("");
+  const [showAttachmentsModal, setShowAttachmentsModal] = useState(false);
+  const [attachmentUrl, setAttachmentUrl] = useState<string>("");
+
+  // Load favorites from localStorage on mount
+  useEffect(() => {
+    const savedFavorites = localStorage.getItem('favoriteTrials');
+    if (savedFavorites) {
+      try {
+        setFavoriteTrials(JSON.parse(savedFavorites));
+      } catch (error) {
+        console.error('Error parsing saved favorites:', error);
+      }
+    }
+  }, []);
+
+  // Toggle favorite for current trial
+  const toggleFavorite = (trialId: string) => {
+    setFavoriteTrials(prev => {
+      const newFavorites = prev.includes(trialId)
+        ? prev.filter(id => id !== trialId)
+        : [...prev, trialId];
+      localStorage.setItem('favoriteTrials', JSON.stringify(newFavorites));
+      return newFavorites;
+    });
+  };
 
   const toggleOtherSource = (index: number) => {
     setExpandedOtherSources(prev => ({
@@ -633,27 +665,92 @@ function ClinicalTrialsPage() {
 
   // Fetch trials on component mount and handle URL parameters
   useEffect(() => {
-    fetchTrials();
-  }, []);
+    const loadTrials = async () => {
+      try {
+        setLoading(true);
 
-  // Handle trial selection from URL parameters
-  useEffect(() => {
-    const trialId = searchParams.get("trialId");
-    if (trialId && trials.length > 0) {
-      const trialIndex = trials.findIndex(
-        (trial) => trial.trial_id === trialId
-      );
-      if (trialIndex !== -1) {
-        setCurrentTrialIndex(trialIndex);
-      } else {
+        // Check cache first for instant loading
+        const cacheKey = 'trials_cache';
+        const cacheTimestampKey = 'trials_cache_timestamp';
+        const cachedData = sessionStorage.getItem(cacheKey);
+        const cachedTimestamp = sessionStorage.getItem(cacheTimestampKey);
+        const cacheMaxAge = 30 * 60 * 1000; // 30 minutes cache
+
+        let allTrials: TherapeuticTrial[] = [];
+
+        // Use cached data if available and fresh
+        if (cachedData && cachedTimestamp) {
+          const age = Date.now() - parseInt(cachedTimestamp, 10);
+          if (age < cacheMaxAge) {
+            const data = JSON.parse(cachedData);
+            allTrials = data.trials;
+          }
+        }
+
+        // If no cache or stale, fetch from API
+        if (allTrials.length === 0) {
+          await fetchFromAPI(true);
+          const freshData = sessionStorage.getItem(cacheKey);
+          if (freshData) {
+            allTrials = JSON.parse(freshData).trials;
+          }
+        }
+
+        // Get trial IDs from URL - only show these trials
+        const trialIdParam = searchParams.get("trialId");
+        const trialIdsParam = searchParams.get("trialIds");
+
+        let targetTrialIds: string[] = [];
+
+        if (trialIdsParam) {
+          // Multiple trials: ?trialIds=id1,id2,id3
+          targetTrialIds = trialIdsParam.split(',').filter(id => id.trim());
+        } else if (trialIdParam) {
+          // Single trial: ?trialId=xxx
+          targetTrialIds = [trialIdParam];
+        }
+
+        if (targetTrialIds.length > 0 && allTrials.length > 0) {
+          // Filter to only show the requested trials
+          const filteredTrials = allTrials.filter(trial =>
+            targetTrialIds.includes(trial.trial_id)
+          );
+
+          if (filteredTrials.length > 0) {
+            setTrials(filteredTrials);
+            setCurrentTrialIndex(0);
+          } else {
+            // If specified trial not found, show message
+            toast({
+              title: "Trial not found",
+              description: "The requested trial(s) could not be found.",
+              variant: "destructive",
+            });
+            // Redirect to dashboard
+            router.push('/user/clinical_trial/dashboard');
+          }
+        } else if (allTrials.length > 0 && targetTrialIds.length === 0) {
+          // No trial ID specified in URL - redirect to dashboard
+          toast({
+            title: "No trial selected",
+            description: "Please select a trial from the dashboard.",
+          });
+          router.push('/user/clinical_trial/dashboard');
+        }
+      } catch (error) {
+        console.error("Error loading trials:", error);
         toast({
-          title: "Trial not found",
-          description: `Trial with ID ${trialId} was not found.`,
+          title: "Error",
+          description: "Failed to load trial data",
           variant: "destructive",
         });
+      } finally {
+        setLoading(false);
       }
-    }
-  }, [searchParams, trials]);
+    };
+
+    loadTrials();
+  }, [searchParams]);
 
   // Handle clicking outside dropdown
   useEffect(() => {
@@ -822,8 +919,7 @@ function ClinicalTrialsPage() {
       <div
         className="sticky top-0 z-40"
         style={{
-          width: "calc(100% - 32px)",
-          maxWidth: "1409px",
+          width: "calc(100% - 64px)",
           margin: "25px auto 0",
           borderRadius: "24px",
           backgroundColor: "#F7F9FB",
@@ -862,52 +958,11 @@ function ClinicalTrialsPage() {
             />
           </div>
 
-          {/* Dashboard Box */}
+          {/* Trials Search Box */}
           <button
             onClick={() => {
               router.push("/user/clinical_trial/dashboard");
             }}
-            className="flex items-center justify-center flex-shrink-0"
-            style={{
-              width: "140px",
-              height: "52px",
-              borderRadius: "12px",
-              paddingTop: "12px",
-              paddingRight: "20px",
-              paddingBottom: "12px",
-              paddingLeft: "16px",
-              gap: "8px",
-              backgroundColor: pathname === "/user/clinical_trial/dashboard" ? "#204B73" : "#FFFFFF",
-              boxShadow: "0 -2px 6px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.1)",
-            }}
-          >
-            <Image
-              src="/pngs/dashboardicon.png"
-              alt="Dashboard"
-              width={20}
-              height={20}
-              className="object-contain"
-              style={{
-                filter: pathname === "/user/clinical_trial/dashboard" ? "brightness(0) invert(1)" : "none",
-              }}
-            />
-            <span
-              style={{
-                fontFamily: "Poppins",
-                fontWeight: 400,
-                fontStyle: "normal",
-                fontSize: "14px",
-                lineHeight: "150%",
-                letterSpacing: "-2%",
-                color: pathname === "/user/clinical_trial/dashboard" ? "#FFFFFF" : "#000000",
-              }}
-            >
-              Dashboard
-            </span>
-          </button>
-
-          {/* Trials Search Box */}
-          <button
             className="flex items-center justify-center flex-shrink-0"
             style={{
               width: "165px",
@@ -985,44 +1040,8 @@ function ClinicalTrialsPage() {
             </span>
           </button>
 
-          {/* Search Box */}
-          <div
-            className="flex items-center"
-            style={{
-              flex: "1",
-              minWidth: "300px",
-              maxWidth: "800px",
-              height: "52px",
-              borderRadius: "12px",
-              gap: "8px",
-              padding: "16px",
-              backgroundColor: "#FFFFFF",
-              marginLeft: "auto",
-              boxShadow: "0 -2px 6px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.1)",
-            }}
-          >
-            <Image
-              src="/pngs/trialsearchIcon.png"
-              alt="Search"
-              width={20}
-              height={20}
-              className="object-contain"
-            />
-            <input
-              type="text"
-              placeholder="Search.."
-              className="flex-1 outline-none bg-transparent"
-              style={{
-                fontFamily: "Poppins",
-                fontWeight: 400,
-                fontStyle: "normal",
-                fontSize: "14px",
-                lineHeight: "150%",
-                letterSpacing: "-2%",
-                color: "#000000",
-              }}
-            />
-          </div>
+          {/* Spacer */}
+          <div style={{ flex: 1 }} />
 
           {/* Message Icon Box */}
           <button
@@ -1108,7 +1127,7 @@ function ClinicalTrialsPage() {
       </div>
 
       {/* Container for gradient and content overlay */}
-      <div className="relative" style={{ width: "calc(100% - 32px)", maxWidth: "1409px", margin: "0 auto" }}>
+      <div className="relative" style={{ width: "calc(100% - 64px)", margin: "0 auto" }}>
         {/* Blue Gradient Background - Full height overlay */}
         <div
           className="absolute"
@@ -1204,18 +1223,21 @@ function ClinicalTrialsPage() {
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 w-8 p-0"
-              title="Edit"
+              className={`h-8 w-8 p-0 ${currentTrial && favoriteTrials.includes(currentTrial.trial_id) ? 'text-yellow-500' : ''}`}
+              title={currentTrial && favoriteTrials.includes(currentTrial.trial_id) ? "Remove from favorites" : "Add to favorites"}
+              onClick={() => {
+                if (currentTrial) {
+                  toggleFavorite(currentTrial.trial_id);
+                  toast({
+                    title: favoriteTrials.includes(currentTrial.trial_id) ? "Removed from Favorites" : "Added to Favorites",
+                    description: favoriteTrials.includes(currentTrial.trial_id)
+                      ? "Trial has been removed from your favorites"
+                      : "Trial has been added to your favorites",
+                  });
+                }
+              }}
             >
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-              title="Bookmark"
-            >
-              <Bookmark className="h-4 w-4" />
+              <Bookmark className={`h-4 w-4 ${currentTrial && favoriteTrials.includes(currentTrial.trial_id) ? 'fill-current' : ''}`} />
             </Button>
             <Button
               variant="ghost"
@@ -1362,7 +1384,7 @@ function ClinicalTrialsPage() {
                               className="flex items-center text-white"
                             >
                               <span>
-                                {trial.trial_id}
+                                {trial.overview?.trial_id || trial.trial_id.slice(0, 12)}
                               </span>
                             </button>
                             <button
@@ -1399,7 +1421,7 @@ function ClinicalTrialsPage() {
                             className="flex items-center"
                           >
                             <span>
-                              {trial.trial_id}
+                              {trial.overview?.trial_id || trial.trial_id.slice(0, 12)}
                             </span>
                           </button>
                           <button
@@ -1883,52 +1905,6 @@ function ClinicalTrialsPage() {
                         </div>
                       </div>
                     </div>
-
-                    {/* Navigation */}
-                    <div className="flex items-center justify-between mt-8 pt-6 border-t">
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          const newIndex = Math.max(0, currentTrialIndex - 1);
-                          setCurrentTrialIndex(newIndex);
-                          // Update URL with new trial ID
-                          if (trials[newIndex]) {
-                            router.push(
-                              `/user/clinical_trial/trials?trialId=${trials[newIndex].trial_id}`,
-                              { scroll: false }
-                            );
-                          }
-                        }}
-                        disabled={currentTrialIndex === 0}
-                      >
-                        <ChevronLeft className="h-4 w-4 mr-2" />
-                        Previous Trial
-                      </Button>
-                      <span className="text-sm text-gray-600">
-                        Trial {currentTrialIndex + 1} of {trials.length}
-                      </span>
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          const newIndex = Math.min(
-                            trials.length - 1,
-                            currentTrialIndex + 1
-                          );
-                          setCurrentTrialIndex(newIndex);
-                          // Update URL with new trial ID
-                          if (trials[newIndex]) {
-                            router.push(
-                              `/user/clinical_trial/trials?trialId=${trials[newIndex].trial_id}`,
-                              { scroll: false }
-                            );
-                          }
-                        }}
-                        disabled={currentTrialIndex === trials.length - 1}
-                      >
-                        Next Trial
-                        <ChevronRight className="h-4 w-4 ml-2" />
-                      </Button>
-                    </div>
                   </CardContent>
                 </Card>
               )}
@@ -1941,62 +1917,140 @@ function ClinicalTrialsPage() {
                       Objectives
                     </h2>
                   </div>
-                  <CardContent className="p-6">
-                    <div className="space-y-8">
-                      {/* Purpose of the trial */}
-                      <div className="bg-gray-50 rounded-lg p-6">
-                        <h3 className="text-base font-semibold text-gray-700 mb-4">
-                          Purpose of the trial
-                        </h3>
-                        <p className="text-sm text-gray-700 leading-relaxed">
-                          {currentTrial.outcomes[0]?.purpose_of_trial ||
-                            "No purpose description available"}
-                        </p>
-                      </div>
+                  <CardContent className="p-6 space-y-4">
+                    {/* Purpose of the trial */}
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h3 className="text-base font-semibold text-[#204B73] mb-3">
+                        Purpose of the trial
+                      </h3>
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        {currentTrial.outcomes[0]?.purpose_of_trial ||
+                          "No purpose description available"}
+                      </p>
+                    </div>
 
-                      {/* Primary Outcome */}
-                      <div className="space-y-6">
+                    {/* Primary Outcome */}
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h3 className="text-base font-semibold text-[#204B73] mb-4">
+                        Primary Outcome
+                      </h3>
+                      <div className="space-y-3">
                         <div>
-                          <h3 className="text-base font-semibold text-blue-700 mb-4">
-                            Primary Outcome
-                          </h3>
-
-                          <div className="space-y-4">
-                            <div>
-                              <span className="text-sm font-medium text-gray-600">
-                                Outcome Measure :
-                              </span>
-                              <p className="text-sm text-gray-700 mt-1">
-                                {currentTrial.outcomes[0]
-                                  ?.primary_outcome_measure ||
-                                  "No primary outcome measure available"}
-                              </p>
-                            </div>
-
-                            <div>
-                              <span className="text-sm font-medium text-gray-600">
-                                Measure Description :
-                              </span>
-                              <p className="text-sm text-gray-700 mt-1 leading-relaxed">
-                                {currentTrial.outcomes[0]?.summary ||
-                                  "No measure description available"}
-                              </p>
-                            </div>
-
-                            <div>
-                              <span className="text-sm font-medium text-gray-600">
-                                Other Outcome Measures :
-                              </span>
-                              <p className="text-sm text-gray-700 mt-1">
-                                {currentTrial.outcomes[0]
-                                  ?.other_outcome_measure ||
-                                  "No other outcome measures available"}
-                              </p>
-                            </div>
-                          </div>
+                          <span className="text-sm font-semibold text-[#204B73]">
+                            Outcome Measure :
+                          </span>
+                          <p className="text-sm text-gray-700 mt-1">
+                            {currentTrial.outcomes[0]?.primary_outcome_measure ||
+                              "No primary outcome measure available"}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-semibold text-[#204B73]">
+                            Measure Description :
+                          </span>
+                          <p className="text-sm text-gray-700 mt-1 leading-relaxed">
+                            {currentTrial.outcomes[0]?.summary ||
+                              "No measure description available"}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-semibold text-[#204B73]">
+                            Time Frame :
+                          </span>
+                          <p className="text-sm text-gray-700 mt-1">
+                            {currentTrial.timing[0]?.primary_completion_date ||
+                              currentTrial.timing[0]?.study_duration ||
+                              "Not specified"}
+                          </p>
                         </div>
                       </div>
                     </div>
+
+                    {/* Other Outcomes - Parse and display as separate numbered cards */}
+                    {(() => {
+                      const otherOutcomes = currentTrial.outcomes[0]?.other_outcome_measure;
+
+                      // If no other outcomes, don't show anything
+                      if (!otherOutcomes || otherOutcomes.trim() === '') {
+                        return null;
+                      }
+
+                      // Try to parse multiple outcomes from the string
+                      // Common patterns: "Outcome Measure: X Time Frame: Y" repeated
+                      // Split by "Outcome Measure:" to get individual outcomes
+                      const outcomeText = otherOutcomes.trim();
+
+                      // Try to split by patterns like "Outcome Measure:" 
+                      let outcomes: string[] = [];
+
+                      // Check if text contains multiple "Outcome Measure:" patterns
+                      if (outcomeText.toLowerCase().includes('outcome measure:')) {
+                        // Split by "Outcome Measure:" but keep it for parsing
+                        const parts = outcomeText.split(/(?=Outcome Measure:)/gi).filter(p => p.trim());
+                        outcomes = parts.length > 0 ? parts : [outcomeText];
+                      } else {
+                        // Single outcome - treat entire text as one outcome
+                        outcomes = [outcomeText];
+                      }
+
+                      return (
+                        <>
+                          {outcomes.map((outcome, index) => {
+                            // Parse measure description and time frame if present
+                            let measureText = outcome;
+                            let description = "";
+                            let timeFrame = "";
+
+                            // Try to extract parts if they follow a pattern
+                            const measureMatch = outcome.match(/Outcome Measure:\s*([^]*?)(?:Measure Description:|Time Frame:|$)/i);
+                            const descMatch = outcome.match(/Measure Description:\s*([^]*?)(?:Time Frame:|$)/i);
+                            const timeMatch = outcome.match(/Time Frame:\s*([^]*?)$/i);
+
+                            if (measureMatch) measureText = measureMatch[1].trim();
+                            if (descMatch) description = descMatch[1].trim();
+                            if (timeMatch) timeFrame = timeMatch[1].trim();
+
+                            return (
+                              <div key={index} className="border border-gray-200 rounded-lg p-4">
+                                <h3 className="text-base font-semibold text-[#204B73] mb-4">
+                                  Other Outcome : {index + 1}
+                                </h3>
+                                <div className="space-y-3">
+                                  <div>
+                                    <span className="text-sm font-semibold text-[#204B73]">
+                                      Outcome Measure :
+                                    </span>
+                                    <p className="text-sm text-gray-700 mt-1">
+                                      {measureText || outcome}
+                                    </p>
+                                  </div>
+                                  {description && (
+                                    <div>
+                                      <span className="text-sm font-semibold text-[#204B73]">
+                                        Measure Description :
+                                      </span>
+                                      <p className="text-sm text-gray-700 mt-1 leading-relaxed">
+                                        {description}
+                                      </p>
+                                    </div>
+                                  )}
+                                  <div>
+                                    <span className="text-sm font-semibold text-[#204B73]">
+                                      Time Frame :
+                                    </span>
+                                    <p className="text-sm text-gray-700 mt-1">
+                                      {timeFrame || currentTrial.timing[0]?.study_end_date ||
+                                        currentTrial.timing[0]?.study_duration ||
+                                        "Not specified"}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
               )}
@@ -2009,95 +2063,102 @@ function ClinicalTrialsPage() {
                       Treatment Plan
                     </h2>
                   </div>
-                  <CardContent className="p-6">
-                    <div className="space-y-8">
-                      {/* Study Design Keywords */}
-                      <div>
-                        <h3 className="text-base font-semibold text-blue-700 mb-4">
-                          Study Design Keywords
-                        </h3>
-                        <div className="flex flex-wrap gap-2">
-                          {currentTrial.outcomes[0]?.study_design_keywords ? (
-                            currentTrial.outcomes[0].study_design_keywords
-                              .split(",")
-                              .map((keyword, index) => (
-                                <Badge
-                                  key={index}
-                                  className="bg-gray-200 text-gray-700 hover:bg-gray-300"
-                                >
-                                  {keyword.trim()}
-                                </Badge>
-                              ))
-                          ) : (
-                            <span className="text-sm text-gray-600">
-                              No study design keywords available
-                            </span>
-                          )}
-                        </div>
+                  <CardContent className="p-6 space-y-4">
+                    {/* Study Design Keywords - Bordered Card */}
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h3 className="text-base font-semibold text-[#204B73] mb-4">
+                        Study Design Keywords
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {currentTrial.outcomes[0]?.study_design_keywords ? (
+                          currentTrial.outcomes[0].study_design_keywords
+                            .split(",")
+                            .map((keyword, index) => (
+                              <Badge
+                                key={index}
+                                variant="outline"
+                                className="bg-[#F0F0F0] text-gray-700 border-gray-300 px-4 py-1.5 rounded-md"
+                              >
+                                {keyword.trim()}
+                              </Badge>
+                            ))
+                        ) : (
+                          <span className="text-sm text-gray-600">
+                            No study design keywords available
+                          </span>
+                        )}
                       </div>
+                    </div>
 
-                      {/* Study Design */}
-                      <div>
-                        <h3 className="text-base font-semibold text-blue-700 mb-4">
-                          Study Design
-                        </h3>
-                        <div className="space-y-3">
-                          <div className="flex items-start">
-                            <span className="text-sm font-medium text-gray-600 min-w-[120px] flex-shrink-0">
-                              Study Design :
-                            </span>
-                            <span className="text-sm text-gray-700">
-                              {currentTrial.outcomes[0]?.study_design || "N/A"}
-                            </span>
-                          </div>
-                          <div className="flex items-start">
-                            <span className="text-sm font-medium text-gray-600 min-w-[120px] flex-shrink-0">
-                              Keywords :
-                            </span>
-                            <span className="text-sm text-gray-700">
-                              {currentTrial.outcomes[0]?.study_design_keywords ||
-                                "N/A"}
-                            </span>
-                          </div>
-                          <div className="flex items-start">
-                            <span className="text-sm font-medium text-gray-600 min-w-[120px] flex-shrink-0">
-                              Number of Arms :
-                            </span>
-                            <span className="text-sm text-gray-700">
-                              {currentTrial.outcomes[0]?.number_of_arms || "N/A"}
-                            </span>
-                          </div>
+                    {/* Study Design - Bordered Card */}
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h3 className="text-base font-semibold text-[#204B73] mb-4">
+                        Study Design
+                      </h3>
+                      <div className="space-y-2">
+                        <div className="flex items-start">
+                          <span className="text-sm font-semibold text-[#204B73] min-w-[180px] flex-shrink-0">
+                            Primary Purpose :
+                          </span>
+                          <span className="text-sm text-gray-700">
+                            {currentTrial.outcomes[0]?.purpose_of_trial?.split(' ').slice(0, 3).join(' ') || "Treatment"}
+                          </span>
                         </div>
-                        <p className="text-sm text-gray-700 mt-4 leading-relaxed">
-                          {currentTrial.outcomes[0]?.summary ||
-                            "No detailed study design description available"}
-                        </p>
-                      </div>
-
-                      {/* Treatment Regimen */}
-                      <div>
-                        <h3 className="text-base font-semibold text-blue-700 mb-4">
-                          Treatment Regimen
-                        </h3>
-                        <div className="space-y-4">
-                          <div>
-                            <span className="text-sm font-medium text-gray-700">
-                              Treatment Description :
-                            </span>
-                            <p className="text-sm text-gray-600 mt-1">
-                              {currentTrial.outcomes[0]?.treatment_regimen ||
-                                "No treatment regimen description available"}
-                            </p>
-                          </div>
+                        <div className="flex items-start">
+                          <span className="text-sm font-semibold text-[#204B73] min-w-[180px] flex-shrink-0">
+                            Allocation :
+                          </span>
+                          <span className="text-sm text-gray-700">
+                            {currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('randomized') ? 'Randomized' :
+                              currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('non-randomized') ? 'Non-Randomized' : 'N/A'}
+                          </span>
                         </div>
-
-                        <div className="mt-6 pt-4 border-t border-gray-200">
-                          <span className="text-sm font-medium text-gray-700">
-                            Number of arms:{" "}
-                            {currentTrial.outcomes[0]?.number_of_arms || "N/A"}
+                        <div className="flex items-start">
+                          <span className="text-sm font-semibold text-[#204B73] min-w-[180px] flex-shrink-0">
+                            Interventional Model :
+                          </span>
+                          <span className="text-sm text-gray-700">
+                            {currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('parallel') ? 'Parallel Assignment' :
+                              currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('single group') ? 'Single Group Assignment' :
+                                currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('crossover') ? 'Crossover Assignment' : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex items-start">
+                          <span className="text-sm font-semibold text-[#204B73] min-w-[180px] flex-shrink-0">
+                            Masking :
+                          </span>
+                          <span className="text-sm text-gray-700">
+                            {currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('open') ? 'None (Open Label)' :
+                              currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('double') ? 'Double Blind' :
+                                currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('single') && currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('blind') ? 'Single Blind' : 'N/A'}
                           </span>
                         </div>
                       </div>
+                      <p className="text-sm text-gray-700 mt-4 leading-relaxed">
+                        {currentTrial.outcomes[0]?.summary ||
+                          currentTrial.outcomes[0]?.study_design ||
+                          "No detailed study design description available"}
+                      </p>
+                    </div>
+
+                    {/* Treatment Regimen - Bordered Card */}
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h3 className="text-base font-semibold text-[#204B73] mb-4">
+                        Treatment Regimen
+                      </h3>
+                      <div className="space-y-3">
+                        <p className="text-sm text-gray-700 leading-relaxed">
+                          {currentTrial.outcomes[0]?.treatment_regimen ||
+                            "No treatment regimen description available"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Number of Arms - Outside cards */}
+                    <div className="pt-2">
+                      <span className="text-sm text-gray-700">
+                        Number of arms: {currentTrial.outcomes[0]?.number_of_arms || "N/A"}
+                      </span>
                     </div>
                   </CardContent>
                 </Card>
@@ -2112,21 +2173,26 @@ function ClinicalTrialsPage() {
                     </h2>
                   </div>
                   <CardContent className="p-6">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                       {/* Left Column - Criteria (takes 2/3 width) */}
-                      <div className="lg:col-span-2 space-y-8">
-                        {/* Inclusion Criteria */}
-                        <div>
-                          <h3 className="text-base font-semibold text-blue-700 mb-4">
+                      <div className="lg:col-span-2 space-y-4">
+                        {/* Inclusion Criteria - Bordered Card */}
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <h3 className="text-base font-semibold text-[#204B73] mb-4">
                             Inclusion Criteria
                           </h3>
                           {currentTrial.criteria[0]?.inclusion_criteria ? (
-                            <div className="text-sm text-gray-700">
-                              <span className="text-blue-600 mr-2">•</span>
-                              <span className="whitespace-pre-wrap">
-                                {currentTrial.criteria[0].inclusion_criteria}
-                              </span>
-                            </div>
+                            <ul className="space-y-2">
+                              {currentTrial.criteria[0].inclusion_criteria
+                                .split(/[•\n]/)
+                                .filter((item: string) => item.trim())
+                                .map((item: string, index: number) => (
+                                  <li key={index} className="flex items-start text-sm text-gray-700">
+                                    <span className="text-gray-500 mr-2 mt-0.5">•</span>
+                                    <span>{item.trim()}</span>
+                                  </li>
+                                ))}
+                            </ul>
                           ) : (
                             <span className="text-sm text-gray-600">
                               No inclusion criteria available
@@ -2134,18 +2200,23 @@ function ClinicalTrialsPage() {
                           )}
                         </div>
 
-                        {/* Exclusion Criteria */}
-                        <div>
-                          <h3 className="text-base font-semibold text-blue-700 mb-4">
+                        {/* Exclusion Criteria - Bordered Card */}
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <h3 className="text-base font-semibold text-[#204B73] mb-4">
                             Exclusion Criteria
                           </h3>
                           {currentTrial.criteria[0]?.exclusion_criteria ? (
-                            <div className="text-sm text-gray-700">
-                              <span className="text-blue-600 mr-2">•</span>
-                              <span className="whitespace-pre-wrap">
-                                {currentTrial.criteria[0].exclusion_criteria}
-                              </span>
-                            </div>
+                            <ul className="space-y-2">
+                              {currentTrial.criteria[0].exclusion_criteria
+                                .split(/[•\n]/)
+                                .filter((item: string) => item.trim())
+                                .map((item: string, index: number) => (
+                                  <li key={index} className="flex items-start text-sm text-gray-700">
+                                    <span className="text-gray-500 mr-2 mt-0.5">•</span>
+                                    <span>{item.trim()}</span>
+                                  </li>
+                                ))}
+                            </ul>
                           ) : (
                             <span className="text-sm text-gray-600">
                               No exclusion criteria available
@@ -2155,67 +2226,64 @@ function ClinicalTrialsPage() {
                       </div>
 
                       {/* Right Column - Patient Details (takes 1/3 width) */}
-                      <div className="space-y-6">
-                        <div className="bg-gray-50 rounded-lg p-4">
-                          <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                      <div className="space-y-3">
+                        <div className="rounded-lg p-4 bg-[#F3F3F3]">
+                          <h4 className="text-sm font-bold text-[#204B73] mb-1">
                             Ages Eligible for Study
                           </h4>
-                          <p className="text-sm text-gray-600">
-                            {currentTrial.criteria[0]?.age_from || "N/A"} -{" "}
-                            {currentTrial.criteria[0]?.age_to || "N/A"} Years
+                          <p className="text-sm text-gray-700">
+                            {currentTrial.criteria[0]?.age_from || "18"} Years
                           </p>
                         </div>
 
-                        <div className="bg-gray-50 rounded-lg p-4">
-                          <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                        <div className="rounded-lg p-4 bg-[#F3F3F3]">
+                          <h4 className="text-sm font-bold text-[#204B73] mb-1">
                             Sexes Eligible for Study
                           </h4>
-                          <p className="text-sm text-gray-600">
-                            {currentTrial.criteria[0]?.sex || "N/A"}
+                          <p className="text-sm text-gray-700">
+                            {currentTrial.criteria[0]?.sex || "Both"}
                           </p>
                         </div>
 
-                        <div className="bg-gray-50 rounded-lg p-4">
-                          <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                        <div className="rounded-lg p-4 bg-[#F3F3F3]">
+                          <h4 className="text-sm font-bold text-[#204B73] mb-1">
                             Subject Type
                           </h4>
-                          <p className="text-sm text-gray-600">
-                            {currentTrial.criteria[0]?.subject_type || "N/A"}
-                          </p>
-                        </div>
-
-                        <div className="bg-gray-50 rounded-lg p-4">
-                          <h4 className="text-sm font-semibold text-gray-700 mb-2">
-                            Healthy Volunteers
-                          </h4>
-                          <p className="text-sm text-gray-600">
-                            {currentTrial.criteria[0]?.healthy_volunteers ===
-                              "false"
-                              ? "No"
-                              : currentTrial.criteria[0]?.healthy_volunteers ===
-                                "true"
-                                ? "Yes"
-                                : "N/A"}
-                          </p>
-                        </div>
-
-                        <div className="bg-gray-50 rounded-lg p-4">
-                          <h4 className="text-sm font-semibold text-gray-700 mb-2">
-                            Target No of Volunteers
-                          </h4>
-                          <p className="text-sm text-gray-600">
-                            {currentTrial.criteria[0]?.target_no_volunteers ||
+                          <p className="text-sm text-gray-700">
+                            {currentTrial.criteria[0]?.subject_type ||
+                              currentTrial.overview.disease_type ||
                               "N/A"}
                           </p>
                         </div>
 
-                        <div className="bg-gray-50 rounded-lg p-4">
-                          <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                        <div className="rounded-lg p-4 bg-[#F3F3F3]">
+                          <h4 className="text-sm font-bold text-[#204B73] mb-1">
+                            Healthy Volunteers
+                          </h4>
+                          <p className="text-sm text-gray-700">
+                            {currentTrial.criteria[0]?.healthy_volunteers === "false"
+                              ? "No"
+                              : currentTrial.criteria[0]?.healthy_volunteers === "true"
+                                ? "Yes"
+                                : "No"}
+                          </p>
+                        </div>
+
+                        <div className="rounded-lg p-4 bg-[#F3F3F3]">
+                          <h4 className="text-sm font-bold text-[#204B73] mb-1">
+                            Target No of Volunteers
+                          </h4>
+                          <p className="text-sm text-gray-700">
+                            {currentTrial.criteria[0]?.target_no_volunteers || "N/A"}
+                          </p>
+                        </div>
+
+                        <div className="rounded-lg p-4 bg-[#F3F3F3]">
+                          <h4 className="text-sm font-bold text-[#204B73] mb-1">
                             Actual enrolled Volunteers
                           </h4>
-                          <p className="text-sm text-gray-600">
-                            {currentTrial.criteria[0]
-                              ?.actual_enrolled_volunteers || "N/A"}
+                          <p className="text-sm text-gray-700">
+                            {currentTrial.criteria[0]?.actual_enrolled_volunteers || "N/A"}
                           </p>
                         </div>
                       </div>
@@ -2233,36 +2301,70 @@ function ClinicalTrialsPage() {
                     </h2>
                   </div>
                   <CardContent className="p-6">
-                    <div className="space-y-8">
-                      {/* Timing Table - Simplified to show only available fields */}
-                      <div className="overflow-hidden">
-                        <table className="w-full border-collapse table-auto">
+                    <div className="space-y-6">
+                      {/* Timing Table - Full columns */}
+                      <div className="overflow-hidden rounded-lg border border-gray-200">
+                        <table className="w-full border-collapse table-auto text-sm">
                           <thead>
-                            <tr className="bg-slate-600 text-white">
-                              <th className="border border-slate-400 px-4 py-3 text-left text-sm font-medium">
+                            <tr className="bg-[#204B73] text-white">
+                              <th className="border border-[#1a3d5c] px-3 py-3 text-center font-medium">
                                 Category
                               </th>
-                              <th className="border border-slate-400 px-4 py-3 text-left text-sm font-medium">
+                              <th className="border border-[#1a3d5c] px-3 py-3 text-center font-medium">
                                 Start Date
                               </th>
-                              <th className="border border-slate-400 px-4 py-3 text-left text-sm font-medium">
-                                Trial Completion Date
+                              <th className="border border-[#1a3d5c] px-3 py-3 text-center font-medium">
+                                Inclusion<br />Period(months)
+                              </th>
+                              <th className="border border-[#1a3d5c] px-3 py-3 text-center font-medium">
+                                Enrolment<br />closed date
+                              </th>
+                              <th className="border border-[#1a3d5c] px-3 py-3 text-center font-medium">
+                                Treatment & Primary<br />Outcome Measurement<br />Duration (months)
+                              </th>
+                              <th className="border border-[#1a3d5c] px-3 py-3 text-center font-medium">
+                                Trial<br />Completion<br />date
+                              </th>
+                              <th className="border border-[#1a3d5c] px-3 py-3 text-center font-medium">
+                                Duration to<br />Publish Result<br />(months)
+                              </th>
+                              <th className="border border-[#1a3d5c] px-3 py-3 text-center font-medium">
+                                Result<br />Published<br />date
                               </th>
                             </tr>
                           </thead>
                           <tbody>
                             <tr className="bg-white">
-                              <td className="border border-slate-300 px-4 py-3 text-sm">
-                                Estimated
+                              <td className="border border-gray-300 px-3 py-3 text-center font-medium">
+                                Actual
                               </td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm">
+                              <td className="border border-gray-300 px-3 py-3 text-center">
                                 {currentTrial.timing[0]?.start_date_estimated
                                   ? formatDateToMMDDYYYY(currentTrial.timing[0].start_date_estimated)
                                   : "N/A"}
                               </td>
-                              <td className="border border-slate-300 px-4 py-3 text-sm">
+                              <td className="border border-gray-300 px-3 py-3 text-center">
+                                {currentTrial.timing[0]?.inclusion_period_months || "N/A"}
+                              </td>
+                              <td className="border border-gray-300 px-3 py-3 text-center">
+                                {currentTrial.timing[0]?.enrolment_closed_date
+                                  ? formatDateToMMDDYYYY(currentTrial.timing[0].enrolment_closed_date)
+                                  : "N/A"}
+                              </td>
+                              <td className="border border-gray-300 px-3 py-3 text-center">
+                                {currentTrial.timing[0]?.treatment_duration_months || "N/A"}
+                              </td>
+                              <td className="border border-gray-300 px-3 py-3 text-center">
                                 {currentTrial.timing[0]?.trial_end_date_estimated
                                   ? formatDateToMMDDYYYY(currentTrial.timing[0].trial_end_date_estimated)
+                                  : "N/A"}
+                              </td>
+                              <td className="border border-gray-300 px-3 py-3 text-center">
+                                {currentTrial.timing[0]?.duration_to_publish_months || "N/A"}
+                              </td>
+                              <td className="border border-gray-300 px-3 py-3 text-center">
+                                {currentTrial.results[0]?.result_date
+                                  ? formatDateToMMDDYYYY(currentTrial.results[0].result_date)
                                   : "N/A"}
                               </td>
                             </tr>
@@ -2270,101 +2372,118 @@ function ClinicalTrialsPage() {
                         </table>
                       </div>
 
-                      {/* Summary Statistics */}
-                      <div className="flex items-center justify-center space-x-8">
+                      {/* Overall Duration Stats */}
+                      <div className="flex items-center justify-end space-x-6">
                         <div className="flex items-center space-x-2">
-                          <span className="text-sm text-gray-600">
-                            Start Date :
+                          <span className="text-sm text-gray-700 italic">
+                            Overall duration to Complete :
                           </span>
-                          <Badge className="bg-green-600 text-white">
-                            {currentTrial.timing[0]?.start_date_estimated
-                              ? formatDateToMMDDYYYY(currentTrial.timing[0].start_date_estimated)
-                              : "N/A"}
+                          <Badge className="bg-[#28B463] text-white px-2 py-0.5 text-xs rounded">
+                            {currentTrial.timing[0]?.overall_duration_months || "N/A"}
                           </Badge>
+                          <span className="text-xs text-gray-500">(months)</span>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <span className="text-sm text-gray-600">
-                            End Date :
+                          <span className="text-sm text-gray-700 italic">
+                            Overall duration to publish result :
                           </span>
-                          <Badge className="bg-green-600 text-white">
-                            {currentTrial.timing[0]?.trial_end_date_estimated
-                              ? formatDateToMMDDYYYY(currentTrial.timing[0].trial_end_date_estimated)
-                              : "N/A"}
+                          <Badge className="bg-[#28B463] text-white px-2 py-0.5 text-xs rounded">
+                            {currentTrial.timing[0]?.duration_to_publish_months || "N/A"}
                           </Badge>
+                          <span className="text-xs text-gray-500">(months)</span>
                         </div>
                       </div>
 
-                      {/* Reference Section - Using reference links from API */}
-                      {currentTrial.overview.reference_links && currentTrial.overview.reference_links.length > 0 && (
-                        <div>
-                          <h3 className="text-base font-semibold text-gray-800 mb-4">
-                            Reference Links
-                          </h3>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                            {currentTrial.overview.reference_links.map((link, index) => (
-                              <div key={index} className="bg-gray-50 rounded-lg p-4">
-                                <a
-                                  href={link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-sm text-blue-600 hover:text-blue-800 underline break-all"
-                                >
-                                  {link}
-                                </a>
+                      {/* Reference Section */}
+                      <div>
+                        <h3 className="text-base font-semibold text-[#204B73] mb-4">
+                          Reference
+                        </h3>
+                        <div className="flex gap-4 overflow-x-auto pb-4">
+                          {(() => {
+                            // Get source type from URL
+                            const getSourceType = (url: string) => {
+                              if (url.includes('clinicaltrials.gov')) return 'CT.gov';
+                              if (url.includes('pubmed') || url.includes('ncbi.nlm.nih.gov')) return 'PubMed';
+                              if (url.includes('euclinicaltrials') || url.includes('clinicaltrialsregister.eu')) return 'EUCTR';
+                              if (url.includes('who.int')) return 'WHO';
+                              return 'Source';
+                            };
+
+                            const referenceLinks = currentTrial.overview.reference_links || [];
+
+                            // If no reference links, don't show anything
+                            if (referenceLinks.length === 0) {
+                              return null;
+                            }
+
+                            return referenceLinks.map((link, index) => (
+                              <div key={index} className="border border-gray-200 rounded-lg p-4 min-w-[320px] flex-shrink-0">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-3">
+                                    <span className="text-sm text-gray-700">
+                                      {currentTrial.results[0]?.result_date
+                                        ? formatDateToMMDDYYYY(currentTrial.results[0].result_date)
+                                        : "N/A"}
+                                    </span>
+                                    <span className="text-sm font-medium text-gray-700 bg-[#F0F0F0] px-3 py-1 rounded border border-gray-200">
+                                      {getSourceType(link)}
+                                    </span>
+                                  </div>
+                                  <button
+                                    onClick={() => setExpandedTimingRefs(prev => ({ ...prev, [index]: !prev[index] }))}
+                                    className={`w-6 h-6 rounded-full flex items-center justify-center ${expandedTimingRefs[index]
+                                      ? 'bg-gray-400 text-white'
+                                      : 'bg-[#28B463] text-white'
+                                      }`}
+                                  >
+                                    {expandedTimingRefs[index] ? (
+                                      <X className="h-3 w-3" />
+                                    ) : (
+                                      <Plus className="h-3 w-3" />
+                                    )}
+                                  </button>
+                                </div>
+                                {expandedTimingRefs[index] && (
+                                  <>
+                                    <div className="space-y-1 text-sm text-gray-600 mt-3">
+                                      <p>
+                                        <span className="text-[#204B73] font-medium">Study Start (Actual) :</span>{" "}
+                                        {currentTrial.timing[0]?.start_date_estimated
+                                          ? formatDateToMMDDYYYY(currentTrial.timing[0].start_date_estimated)
+                                          : "N/A"}
+                                      </p>
+                                      <p>
+                                        <span className="text-[#204B73] font-medium">Primary Completion (Actual) :</span>{" "}
+                                        {currentTrial.timing[0]?.trial_end_date_estimated
+                                          ? formatDateToMMDDYYYY(currentTrial.timing[0].trial_end_date_estimated)
+                                          : "N/A"}
+                                      </p>
+                                      <p>
+                                        <span className="text-[#204B73] font-medium">Study Completion (Actual) :</span>{" "}
+                                        {currentTrial.timing[0]?.trial_end_date_estimated
+                                          ? formatDateToMMDDYYYY(currentTrial.timing[0].trial_end_date_estimated)
+                                          : "N/A"}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center space-x-2 mt-4">
+                                      <Button variant="outline" size="sm" className="bg-[#204B73] text-white hover:bg-[#1a3d5c] rounded-lg text-xs" onClick={() => { setSourceUrl(link); setShowSourceModal(true); }}>
+                                        View source
+                                      </Button>
+                                      <Button variant="outline" size="sm" className="bg-[#204B73] text-white hover:bg-[#1a3d5c] rounded-lg text-xs" onClick={() => { setAttachmentUrl(link); setShowAttachmentsModal(true); }}>
+                                        <FileText className="h-3 w-3 mr-1" />
+                                        Attachments
+                                      </Button>
+                                      <Button variant="ghost" size="sm" className="text-[#204B73] p-1 h-auto" onClick={() => window.open(link, '_blank')}>
+                                        <Download className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </>
+                                )}
                               </div>
-                            ))}
-                          </div>
+                            ));
+                          })()}
                         </div>
-                      )}
-
-                      {/* Study Details */}
-                      <div className="space-y-2 mb-4">
-                        <div className="flex items-start">
-                          <span className="text-sm font-medium text-gray-600 min-w-[150px] flex-shrink-0">
-                            Study Start (Estimated) :
-                          </span>
-                          <span className="text-sm text-gray-700">
-                            {currentTrial.timing[0]?.start_date_estimated
-                              ? formatDateToMMDDYYYY(currentTrial.timing[0].start_date_estimated)
-                              : "N/A"}
-                          </span>
-                        </div>
-                        <div className="flex items-start">
-                          <span className="text-sm font-medium text-gray-600 min-w-[150px] flex-shrink-0">
-                            Study Completion (Estimated) :
-                          </span>
-                          <span className="text-sm text-gray-700">
-                            {currentTrial.timing[0]?.trial_end_date_estimated
-                              ? formatDateToMMDDYYYY(currentTrial.timing[0].trial_end_date_estimated)
-                              : "N/A"}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="flex items-center space-x-3">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="bg-slate-600 text-white hover:bg-slate-700"
-                        >
-                          View source
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="bg-slate-600 text-white hover:bg-slate-700"
-                        >
-                          <FileText className="h-4 w-4 mr-2" />
-                          Attachments
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-gray-600"
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
                       </div>
                     </div>
                   </CardContent>
@@ -2380,105 +2499,95 @@ function ClinicalTrialsPage() {
                     </h2>
                   </div>
                   <CardContent className="p-6">
-                    <div className="space-y-6">
-                      {/* Results Available Toggle */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      {/* Left Column - Results Available and Trial Outcome */}
+                      <div className="border border-gray-200 rounded-lg p-4">
+                        {/* Results Available Toggle */}
+                        <div className="flex items-center space-x-3 mb-6">
                           <span className="text-sm font-medium text-gray-700">
                             Results available
                           </span>
                           <Switch
                             checked={Boolean(currentTrial.results[0]?.results_available)}
                             disabled
+                            className="data-[state=checked]:bg-[#28B463]"
                           />
                         </div>
+
+                        {/* Trial Outcome */}
+                        <div>
+                          <span className="text-sm font-medium text-gray-700 block mb-2">
+                            Trial Outcome :
+                          </span>
+                          <Badge className="bg-[#28B463] text-white px-3 py-1.5 text-xs rounded-lg">
+                            {currentTrial.results[0]?.trial_outcome ||
+                              "No outcome available"}
+                          </Badge>
+                        </div>
                       </div>
 
-                      {/* Trial Outcome */}
-                      <div className="flex items-center space-x-3">
-                        <span className="text-sm font-medium text-gray-700">
-                          Trial Outcome :
-                        </span>
-                        <Badge className="bg-green-600 text-white px-3 py-1">
-                          {currentTrial.results[0]?.trial_outcome ||
-                            "No outcome available"}
-                        </Badge>
-                      </div>
-
-                      {/* Trial Outcome Reference */}
-                      <div className="bg-gray-50 rounded-lg p-6">
+                      {/* Right Column - Trial Outcome Reference */}
+                      <div className="lg:col-span-2 border border-gray-200 rounded-xl p-5">
                         <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-base font-semibold text-gray-800">
+                          <h3 className="text-lg font-semibold text-[#204B73]">
                             Trial Outcome Reference
                           </h3>
-                          {currentTrial.results[0]?.result_date && (
-                            <span className="text-sm text-gray-600">
-                              {formatDateToMMDDYYYY(currentTrial.results[0].result_date)}
-                            </span>
-                          )}
+                          <span className="text-sm text-gray-700 bg-[#F0F0F0] px-4 py-1.5 rounded-lg border border-gray-300">
+                            {currentTrial.results[0]?.result_date
+                              ? formatDateToMMDDYYYY(currentTrial.results[0].result_date)
+                              : currentTrial.timing[0]?.trial_end_date_estimated
+                                ? formatDateToMMDDYYYY(currentTrial.timing[0].trial_end_date_estimated)
+                                : currentTrial.logs[0]?.trial_added_date
+                                  ? formatDateToMMDDYYYY(currentTrial.logs[0].trial_added_date)
+                                  : "N/A"}
+                          </span>
                         </div>
 
-                        <p className="text-sm text-gray-700 leading-relaxed mb-4">
-                          {currentTrial.results[0]?.reference ||
-                            "No reference information available"}
-                        </p>
-
-                        {currentTrial.results[0]?.trial_results &&
-                          currentTrial.results[0].trial_results.length > 0 && (
-                            <div className="mb-4">
-                              <h4 className="text-sm font-semibold text-gray-800 mb-2">
-                                Trial Results:
-                              </h4>
-                              <ul className="space-y-1">
-                                {currentTrial.results[0].trial_results.map(
-                                  (result, index) => (
-                                    <li
-                                      key={index}
-                                      className="text-sm text-gray-700"
-                                    >
-                                      <span className="text-blue-600 mr-2">
-                                        •
-                                      </span>
-                                      {result}
-                                    </li>
-                                  )
-                                )}
-                              </ul>
-                            </div>
-                          )}
-
-                        {currentTrial.results[0]?.adverse_event_reported ===
-                          "true" && (
-                            <div className="mb-4">
-                              <h4 className="text-sm font-semibold text-gray-800 mb-2">
-                                Adverse Events:
-                              </h4>
-                              <p className="text-sm text-gray-700">
-                                Type:{" "}
-                                {currentTrial.results[0]?.adverse_event_type ||
-                                  "Not specified"}
+                        {(() => {
+                          const refText = currentTrial.results[0]?.reference || currentTrial.outcomes[0]?.summary || "";
+                          // Don't show if it's just a date or empty
+                          const isJustDate = /^\d{4}-\d{2}-\d{2}$/.test(refText.trim()) || /^\d{2}\/\d{2}\/\d{4}$/.test(refText.trim());
+                          if (refText && !isJustDate) {
+                            return (
+                              <p className="text-sm text-gray-700 leading-relaxed mb-6">
+                                {refText}
                               </p>
-                              <p className="text-sm text-gray-700">
-                                Treatment:{" "}
-                                {currentTrial.results[0]
-                                  ?.treatment_for_adverse_events || "Not specified"}
-                              </p>
-                            </div>
-                          )}
+                            );
+                          }
+                          return null;
+                        })()}
 
-                        {/* Action Buttons */}
-                        <div className="flex items-center space-x-3">
+                        {/* Action Buttons - Right aligned */}
+                        <div className="flex items-center justify-end space-x-3">
                           <Button
                             variant="outline"
                             size="sm"
-                            className="bg-slate-600 text-white hover:bg-slate-700"
+                            className="bg-[#204B73] text-white hover:bg-[#1a3d5c] rounded-lg px-4"
+                            onClick={() => {
+                              // Try multiple sources for the URL
+                              const refLink = currentTrial.overview.reference_links?.[0]
+                                || currentTrial.notes?.[0]?.link
+                                || currentTrial.results?.[0]?.reference
+                                || `https://clinicaltrials.gov/study/${currentTrial.overview.trial_identifier?.[0] || currentTrial.trial_id}`;
+                              setSourceUrl(refLink);
+                              setShowSourceModal(true);
+                            }}
                           >
                             View source
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
-                            className="bg-slate-600 text-white hover:bg-slate-700"
+                            className="bg-[#204B73] text-white hover:bg-[#1a3d5c] rounded-lg px-4"
+                            onClick={() => {
+                              // Try multiple sources for the URL
+                              const refLink = currentTrial.overview.reference_links?.[0]
+                                || currentTrial.notes?.[0]?.link
+                                || currentTrial.results?.[0]?.reference
+                                || `https://clinicaltrials.gov/study/${currentTrial.overview.trial_identifier?.[0] || currentTrial.trial_id}`;
+                              setAttachmentUrl(refLink);
+                              setShowAttachmentsModal(true);
+                            }}
                           >
                             <FileText className="h-4 w-4 mr-2" />
                             Attachments
@@ -2486,7 +2595,14 @@ function ClinicalTrialsPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-gray-600"
+                            className="text-[#204B73] border border-gray-300 rounded-lg"
+                            onClick={() => {
+                              const refLink = currentTrial.overview.reference_links?.[0]
+                                || currentTrial.notes?.[0]?.link
+                                || currentTrial.results?.[0]?.reference
+                                || `https://clinicaltrials.gov/study/${currentTrial.overview.trial_identifier?.[0] || currentTrial.trial_id}`;
+                              if (refLink) window.open(refLink, '_blank');
+                            }}
                           >
                             <Download className="h-4 w-4" />
                           </Button>
@@ -3229,6 +3345,83 @@ function ClinicalTrialsPage() {
                 disabled={isExporting}
               >
                 Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Source Modal */}
+      <Dialog open={showSourceModal} onOpenChange={setShowSourceModal}>
+        <DialogContent className="max-w-4xl h-[80vh] p-0 overflow-hidden [&>button]:hidden">
+          <DialogTitle className="sr-only">Source</DialogTitle>
+          <div className="flex flex-col h-full">
+            <div className="bg-[#204B73] text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+              <h2 className="text-lg font-semibold">Source</h2>
+              <button
+                onClick={() => setShowSourceModal(false)}
+                className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center"
+              >
+                <X className="h-5 w-5 text-white" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden bg-white">
+              {sourceUrl ? (
+                <iframe
+                  src={sourceUrl}
+                  className="w-full h-full border-0"
+                  title="Source"
+                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  No source URL available
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Attachments Modal */}
+      <Dialog open={showAttachmentsModal} onOpenChange={setShowAttachmentsModal}>
+        <DialogContent className="max-w-4xl h-[80vh] p-0 overflow-hidden [&>button]:hidden">
+          <DialogTitle className="sr-only">Attachments</DialogTitle>
+          <div className="flex flex-col h-full">
+            <div className="bg-[#204B73] text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+              <h2 className="text-lg font-semibold">Attachments</h2>
+              <button
+                onClick={() => setShowAttachmentsModal(false)}
+                className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center"
+              >
+                <X className="h-5 w-5 text-white" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden bg-white">
+              {attachmentUrl ? (
+                <iframe
+                  src={attachmentUrl}
+                  className="w-full h-full border-0"
+                  title="Attachments"
+                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  No attachments available
+                </div>
+              )}
+            </div>
+            <div className="border-t bg-white px-4 py-3 flex justify-end">
+              <Button
+                className="bg-[#204B73] text-white hover:bg-[#1a3d5c] px-6"
+                onClick={() => {
+                  if (attachmentUrl) {
+                    window.open(attachmentUrl, '_blank');
+                  }
+                }}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download
               </Button>
             </div>
           </div>

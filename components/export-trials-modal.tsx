@@ -80,31 +80,96 @@ export function ExportTrialsModal({
         // Get selected trials data
         const trialsToExport = trials.filter(trial => selectedTrials.includes(trial.id));
 
-        // Create CSV content
-        const headers = ["Trial ID", "Therapeutic Area", "Disease Type", "Primary Drug", "Status", "Sponsor", "Phase"];
-        const csvContent = [
-            headers.join(","),
-            ...trialsToExport.map(trial => [
-                trial.trialId,
-                trial.therapeuticArea,
-                trial.diseaseType,
-                trial.primaryDrug || 'N/A',
-                trial.status,
-                trial.sponsor,
-                trial.phase
-            ].join(","))
-        ].join("\n");
+        // Import jsPDF dynamically and create PDF
+        import('jspdf').then(({ default: jsPDF }) => {
+            const doc = new jsPDF();
 
-        // Download CSV
-        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        link.setAttribute("href", url);
-        link.setAttribute("download", "clinical_trials_export.csv");
-        link.style.visibility = "hidden";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+            // Set title
+            doc.setFontSize(18);
+            doc.setTextColor(32, 75, 115); // #204B73
+            doc.text("Clinical Trials Export", 14, 22);
+
+            // Set date
+            doc.setFontSize(10);
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 30);
+
+            // Table headers
+            const headers = ["Trial ID", "Therapeutic Area", "Disease Type", "Primary Drug", "Status", "Sponsor", "Phase"];
+            const columnWidths = [25, 30, 30, 25, 20, 35, 20];
+
+            let yPos = 40;
+            const leftMargin = 14;
+
+            // Draw header row
+            doc.setFillColor(32, 75, 115); // #204B73
+            doc.rect(leftMargin, yPos - 5, 182, 8, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'bold');
+
+            let xPos = leftMargin + 2;
+            headers.forEach((header, index) => {
+                doc.text(header, xPos, yPos);
+                xPos += columnWidths[index];
+            });
+
+            yPos += 8;
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(0, 0, 0);
+
+            // Draw data rows
+            trialsToExport.forEach((trial, rowIndex) => {
+                // Check if we need a new page
+                if (yPos > 270) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+
+                // Alternate row colors
+                if (rowIndex % 2 === 0) {
+                    doc.setFillColor(245, 245, 245);
+                    doc.rect(leftMargin, yPos - 5, 182, 8, 'F');
+                }
+
+                xPos = leftMargin + 2;
+                const rowData = [
+                    trial.trialId || 'N/A',
+                    trial.therapeuticArea || 'N/A',
+                    trial.diseaseType || 'N/A',
+                    trial.primaryDrug || 'N/A',
+                    trial.status || 'N/A',
+                    trial.sponsor || 'N/A',
+                    trial.phase || 'N/A'
+                ];
+
+                rowData.forEach((cell, index) => {
+                    // Truncate text if too long
+                    const maxWidth = columnWidths[index] - 4;
+                    let text = cell;
+                    while (doc.getTextWidth(text) > maxWidth && text.length > 3) {
+                        text = text.substring(0, text.length - 4) + '...';
+                    }
+                    doc.text(text, xPos, yPos);
+                    xPos += columnWidths[index];
+                });
+
+                yPos += 8;
+            });
+
+            // Add footer
+            const pageCount = doc.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setFontSize(8);
+                doc.setTextColor(150, 150, 150);
+                doc.text(`Page ${i} of ${pageCount}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
+                doc.text('TrialByte', leftMargin, doc.internal.pageSize.height - 10);
+            }
+
+            // Download PDF
+            doc.save("clinical_trials_export.pdf");
+        });
 
         onOpenChange(false);
     };

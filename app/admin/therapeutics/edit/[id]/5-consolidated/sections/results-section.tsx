@@ -342,6 +342,57 @@ export default function ResultsSection() {
     }
   };
 
+  // Handle file removal
+  const handleAttachmentRemove = async () => {
+    const attachment = form.trial_outcome_attachment as any;
+    const fileUrl = attachment?.url || (typeof attachment === 'string' ? attachment : null);
+
+    // Optimistically update UI first
+    updateField("step5_5", "trial_outcome_attachment", null);
+
+    if (fileUrl) {
+      try {
+        await edgestore.trialOutcomeAttachments.delete({
+          url: fileUrl,
+        });
+        toast({
+          title: "Success",
+          description: "File removed successfully",
+        });
+      } catch (error: any) {
+        // Handle EdgeStore errors gracefully - file is already removed from form
+        const errorMessage = error?.message || String(error) || '';
+        const errorString = errorMessage.toLowerCase();
+
+        const isNotFoundError = errorString.includes('404') ||
+          errorString.includes('not found') ||
+          errorString.includes('does not exist');
+
+        const isServerError = errorString.includes('internal server error') ||
+          errorString.includes('500');
+
+        if (isNotFoundError || isServerError) {
+          console.warn("EdgeStore deletion issue (file removed from form):", error);
+          toast({
+            title: "File removed",
+            description: "File has been removed from the form.",
+          });
+        } else {
+          console.error("Error removing file:", error);
+          toast({
+            title: "File removed",
+            description: "File has been removed from the form.",
+          });
+        }
+      }
+    } else {
+      toast({
+        title: "File removed",
+        description: "File has been removed from the form.",
+      });
+    }
+  };
+
   const handleNoteAttachmentUpload = async (file: File, noteIndex: number) => {
     if (!file) return;
 
@@ -499,68 +550,80 @@ export default function ResultsSection() {
             />
           </div>
 
-          <div className="flex flex-col gap-3 mt-2 md:flex-row">
-            <div className="flex flex-1 flex-col gap-2">
-              <Label className="whitespace-nowrap">Link</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="url"
-                  placeholder="Enter link"
-                  value={form.trial_outcome_link || ""}
-                  onChange={(e) => updateField("step5_5", "trial_outcome_link", e.target.value)}
-                  className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
-                />
-                <Button type="button" variant="outline" size="icon">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
+          {/* Link Row */}
+          <div className="space-y-2 mt-2">
+            <Label>Link</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="url"
+                placeholder="Enter link"
+                value={form.trial_outcome_link || ""}
+                onChange={(e) => updateField("step5_5", "trial_outcome_link", e.target.value)}
+                className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
+              />
+              <Button type="button" variant="outline" size="icon">
+                <Plus className="h-4 w-4" />
+              </Button>
             </div>
-            <div className="flex flex-1 flex-col gap-2">
-              <Label className="whitespace-nowrap">Attachments</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="file"
-                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.rtf,.zip,.rar"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      handleAttachmentUpload(file);
-                      e.target.value = '';
-                    }
-                  }}
-                  disabled={uploadingAttachment}
-                  className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
-                />
-                <Button type="button" variant="outline" size="icon" disabled={uploadingAttachment}>
-                  {uploadingAttachment ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Upload className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
+          </div>
+
+          {/* Attachments Row */}
+          <div className="space-y-2 mt-2">
+            <Label>Attachments</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="file"
+                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.rtf,.zip,.rar"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    handleAttachmentUpload(file);
+                    e.target.value = '';
+                  }
+                }}
+                disabled={uploadingAttachment}
+                className="border-gray-600 focus:border-gray-800 focus:ring-gray-800 flex-1"
+              />
+              <Button type="button" variant="outline" size="icon" disabled={uploadingAttachment}>
+                {uploadingAttachment ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+              </Button>
               {attachmentDisplayInfo && (
-                <div className="flex items-center gap-2 px-2 py-1 bg-gray-100 rounded-md">
-                  <span className="text-sm text-gray-700 flex-1 truncate">
-                    {attachmentDisplayInfo.name}
-                  </span>
-                  {attachmentDisplayInfo.url ? (
-                    <PreviewLink
-                      href={attachmentDisplayInfo.url}
-                      title={attachmentDisplayInfo.name}
-                      className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm whitespace-nowrap"
-                    >
-                      <LinkIcon className="h-3 w-3" />
-                      View
-                    </PreviewLink>
-                  ) : (
-                    <span className="text-xs text-gray-500 whitespace-nowrap">
-                      Preview unavailable
-                    </span>
-                  )}
-                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={handleAttachmentRemove}
+                  className="text-red-500 hover:text-red-700"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               )}
             </div>
+            {attachmentDisplayInfo && (
+              <div className="flex items-center gap-2 px-2 py-1 bg-gray-100 rounded-md">
+                <span className="text-sm text-gray-700 flex-1 truncate">
+                  {attachmentDisplayInfo.name}
+                </span>
+                {attachmentDisplayInfo.url ? (
+                  <PreviewLink
+                    href={attachmentDisplayInfo.url}
+                    title={attachmentDisplayInfo.name}
+                    className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm whitespace-nowrap"
+                  >
+                    <LinkIcon className="h-3 w-3" />
+                    View
+                  </PreviewLink>
+                ) : (
+                  <span className="text-xs text-gray-500 whitespace-nowrap">
+                    Preview unavailable
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

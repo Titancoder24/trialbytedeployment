@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { SaveQueryModal } from "@/components/save-query-modal"
 import { useDrugNames } from "@/hooks/use-drug-names"
 import { useMultipleDynamicDropdowns } from "@/hooks/use-dynamic-dropdown"
+import { formatDisplayValue } from "@/lib/format-utils"
 
 import { TherapeuticFilterState, SearchableSelectOption } from "@/components/therapeutic-types"
 export type { TherapeuticFilterState, SearchableSelectOption } // Re-export for compatibility
@@ -1081,7 +1082,7 @@ export function TherapeuticFilterModal({ open, onOpenChange, onApplyFilters, cur
 
   // Use the drug names hook to get drug options from API
   const { drugNames, isLoading: drugsLoading, refreshFromAPI } = useDrugNames()
-  
+
   // Map filter field names to dropdown category names
   const categoryMapping: Record<string, string> = {
     therapeuticAreas: 'therapeutic_area',
@@ -1328,44 +1329,45 @@ export function TherapeuticFilterModal({ open, onOpenChange, onApplyFilters, cur
     sex: "Sex",
     healthyVolunteers: "Healthy Volunteers",
     trialRecordStatus: "Trial Record Status",
-    // Additional fields from trial creation form
+    // Visible additional fields
     otherDrugs: "Other Drugs",
     regions: "Regions",
-    ageMin: "Age Min",
-    ageMax: "Age Max",
-    subjectType: "Subject Type",
-    estimatedEnrollment: "Estimated Enrollment",
-    actualEnrollment: "Actual Enrollment",
+    studyDesignKeywords: "Study Design Keywords",
+    trialOutcome: "Trial Outcome",
+    registryName: "Registry Name",
+    gender: "Gender",
     studySites: "Study Sites",
     siteStatus: "Site Status",
     siteCountries: "Site Countries",
     siteRegions: "Site Regions",
     trialResults: "Trial Results",
-    adverseEventsReported: "Adverse Events Reported",
-    primaryOutcomeMeasures: "Primary Outcome Measures",
-    otherOutcomeMeasures: "Other Outcome Measures",
-    studyDesignKeywords: "Study Design Keywords",
-    studyDesign: "Study Design",
-    treatmentRegimen: "Treatment Regimen",
-    numberOfArms: "Number of Arms",
-    inclusionCriteria: "Inclusion Criteria",
-    exclusionCriteria: "Exclusion Criteria",
-    ageFrom: "Age From",
-    ageTo: "Age To",
-    gender: "Gender",
-    targetNoVolunteers: "Target No Volunteers",
-    actualEnrolledVolunteers: "Actual Enrolled Volunteers",
-    startDateEstimated: "Start Date Estimated",
-    trialEndDateEstimated: "Trial End Date Estimated",
-    trialOutcome: "Trial Outcome",
-    adverseEventReported: "Adverse Event Reported",
-    adverseEventType: "Adverse Event Type",
-    treatmentForAdverseEvents: "Treatment for Adverse Events",
-    totalSites: "Total Sites",
-    siteNotes: "Site Notes",
-    publicationType: "Publication Type",
-    registryName: "Registry Name",
-    studyType: "Study Type",
+    // Hidden fields (empty labels)
+    ageMin: "",
+    ageMax: "",
+    subjectType: "",
+    estimatedEnrollment: "",
+    actualEnrollment: "",
+    adverseEventsReported: "",
+    primaryOutcomeMeasures: "",
+    otherOutcomeMeasures: "",
+    studyDesign: "",
+    treatmentRegimen: "",
+    numberOfArms: "",
+    inclusionCriteria: "",
+    exclusionCriteria: "",
+    ageFrom: "",
+    ageTo: "",
+    targetNoVolunteers: "",
+    actualEnrolledVolunteers: "",
+    startDateEstimated: "",
+    trialEndDateEstimated: "",
+    adverseEventReported: "",
+    adverseEventType: "",
+    treatmentForAdverseEvents: "",
+    totalSites: "",
+    siteNotes: "",
+    publicationType: "",
+    studyType: "",
     ecogPerformanceStatus: "",
     priorTreatments: "",
     biomarkerRequirements: "",
@@ -1461,7 +1463,7 @@ export function TherapeuticFilterModal({ open, onOpenChange, onApplyFilters, cur
                       htmlFor={`${activeCategory}-${item}`}
                       className="text-sm text-gray-700 flex-1 cursor-pointer"
                     >
-                      {item}
+                      {formatDisplayValue(item)}
                     </label>
                   </div>
                 ))}

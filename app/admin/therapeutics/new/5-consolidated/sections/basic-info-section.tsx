@@ -67,15 +67,15 @@ export default function BasicInfoSection() {
     // Get current disease type value(s)
     const diseaseType = form.disease_type;
     const diseaseTypeArray = Array.isArray(diseaseType) ? diseaseType : (diseaseType ? [diseaseType] : []);
-    
+
     // Check if "breast" is selected (case-insensitive)
-    const isBreastSelected = diseaseTypeArray.some(dt => 
+    const isBreastSelected = diseaseTypeArray.some(dt =>
       dt && typeof dt === 'string' && dt.toLowerCase().includes('breast')
     );
 
     // Options to exclude when breast is selected
     const optionsToExclude = ['children', 'adults', 'healthy_volunteers', 'unknown', 'first_line', 'second_line', 'adjuvant'];
-    
+
     if (isBreastSelected) {
       // Filter out the excluded options when breast is selected
       return patientSegmentOptions.filter(option => !optionsToExclude.includes(option.value));
@@ -106,7 +106,7 @@ export default function BasicInfoSection() {
   useEffect(() => {
     const diseaseType = form.disease_type;
     const diseaseTypeArray = Array.isArray(diseaseType) ? diseaseType : (diseaseType ? [diseaseType] : []);
-    const isBreastSelected = diseaseTypeArray.some(dt => 
+    const isBreastSelected = diseaseTypeArray.some(dt =>
       dt && typeof dt === 'string' && dt.toLowerCase().includes('breast')
     );
 
@@ -114,9 +114,9 @@ export default function BasicInfoSection() {
       const optionsToExclude = ['children', 'adults', 'healthy_volunteers', 'unknown', 'first_line', 'second_line', 'adjuvant'];
       const currentPatientSegment = form.patient_segment;
       const patientSegmentArray = Array.isArray(currentPatientSegment) ? currentPatientSegment : (currentPatientSegment ? [currentPatientSegment] : []);
-      
+
       // Filter out excluded options from current selection
-      const filteredPatientSegment = patientSegmentArray.filter(ps => 
+      const filteredPatientSegment = patientSegmentArray.filter(ps =>
         ps && !optionsToExclude.includes(ps)
       );
 
@@ -418,15 +418,7 @@ export default function BasicInfoSection() {
   const { options: patientSegmentOptions } = useDynamicDropdown({
     categoryName: 'patient_segment',
     fallbackOptions: [
-      // General patient segments
-      { value: "children", label: "Children" },
-      { value: "adults", label: "Adults" },
-      { value: "healthy_volunteers", label: "Healthy Volunteers" },
-      { value: "unknown", label: "Unknown" },
-      { value: "first_line", label: "First Line" },
-      { value: "second_line", label: "Second Line" },
-      { value: "adjuvant", label: "Adjuvant" },
-      // Breast Cancer specific patient segments
+      // Breast Cancer specific patient segments only
       { value: "her2_positive_breast_cancer", label: "HER2+ Breast Cancer" },
       { value: "her2_negative_breast_cancer", label: "HER2− Breast Cancer" },
       { value: "hr_positive_breast_cancer", label: "HR+ Breast Cancer (ER+ and/or PR+)" },
@@ -557,7 +549,7 @@ export default function BasicInfoSection() {
     const fetchCurrentUser = async () => {
       try {
         const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
-        
+
         // Validate userId - must be a valid UUID format, not a fallback ID
         if (userId && userId !== 'trialbyteuser-fallback-id') {
           // Check if it's a valid UUID format

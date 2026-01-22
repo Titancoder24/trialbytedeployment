@@ -238,19 +238,37 @@ export function ClinicalTrialFilterModal({ open, onOpenChange, onApplyFilters, c
             style={{ borderRight: "3px solid #204B73" }}
           >
             <div className="space-y-1">
-              {categoryOrder.map((category) => (
-                <button
-                  key={category}
-                  onClick={() => setActiveCategory(category)}
-                  className={`w-full text-left px-3 py-1.5 transition-colors ${activeCategory === category
-                    ? "text-[#208B8B] font-medium"
-                    : "text-gray-700 hover:text-gray-900"
-                    }`}
-                  style={{ fontFamily: "Poppins, sans-serif", fontSize: "11px" }}
-                >
-                  {categoryLabels[category]}
-                </button>
-              ))}
+              {categoryOrder.map((category) => {
+                const selectedCount = filters[category].length;
+                const isActive = activeCategory === category;
+                const hasSelection = selectedCount > 0;
+
+                return (
+                  <button
+                    key={category}
+                    onClick={() => setActiveCategory(category)}
+                    className={`w-full text-left px-3 py-1.5 transition-colors rounded-md flex items-center justify-between ${isActive
+                        ? "bg-[#204B73] text-white font-medium"
+                        : hasSelection
+                          ? "bg-[#E3F2FD] text-[#204B73] font-medium border border-[#204B73]"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    style={{ fontFamily: "Poppins, sans-serif", fontSize: "11px" }}
+                  >
+                    <span>{categoryLabels[category]}</span>
+                    {hasSelection && (
+                      <span
+                        className={`ml-2 px-2 py-0.5 rounded-md text-[10px] font-semibold ${isActive
+                            ? "bg-white text-[#204B73]"
+                            : "bg-[#204B73] text-white"
+                          }`}
+                      >
+                        {selectedCount}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
