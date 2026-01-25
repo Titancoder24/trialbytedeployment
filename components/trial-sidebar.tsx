@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { ChevronDown } from "lucide-react";
 import Image from "next/image";
+import { useTranslation } from "react-i18next";
 
 interface TrialSidebarProps {
   activeSection: string;
@@ -14,24 +15,24 @@ interface TrialSidebarProps {
 }
 
 const sidebarSections = [
-  { id: "overview", label: "Overview", icon: "/pngs/sidebar1.png" },
-  { id: "objectives", label: "Objectives", icon: "/pngs/sidebar2.png" },
-  { id: "treatmentPlan", label: "Treatment Plan", icon: "/pngs/sidebar3.png" },
-  { id: "patientDescription", label: "Patient Description", icon: "/pngs/sidebar4.png" },
-  { id: "timing", label: "Timing", icon: "/pngs/sidebar5.png" },
-  { id: "outcome", label: "Outcome", icon: "/pngs/sidebar6.png" },
-  { id: "publishedResults", label: "Published Results", icon: "/pngs/sidebar7.png" },
-  { id: "sites", label: "Sites", icon: "/pngs/sidebar8.png" },
-  { id: "otherSources", label: "Other Sources", icon: "/pngs/sidebar9.png" },
-  { id: "associatedStudies", label: "Associated Studies", icon: "/pngs/sidebar10.png" },
-  { id: "logs", label: "Logs", icon: "/pngs/sidebar11.png" },
+  { id: "overview", labelKey: "sidebar.overview", icon: "/pngs/sidebar1.png" },
+  { id: "objectives", labelKey: "sidebar.objectives", icon: "/pngs/sidebar2.png" },
+  { id: "treatmentPlan", labelKey: "sidebar.treatmentPlan", icon: "/pngs/sidebar3.png" },
+  { id: "patientDescription", labelKey: "sidebar.patientDescription", icon: "/pngs/sidebar4.png" },
+  { id: "timing", labelKey: "sidebar.timing", icon: "/pngs/sidebar5.png" },
+  { id: "outcome", labelKey: "sidebar.outcome", icon: "/pngs/sidebar6.png" },
+  { id: "publishedResults", labelKey: "sidebar.publishedResults", icon: "/pngs/sidebar7.png" },
+  { id: "sites", labelKey: "sidebar.sites", icon: "/pngs/sidebar8.png" },
+  { id: "otherSources", labelKey: "sidebar.otherSources", icon: "/pngs/sidebar9.png" },
+  { id: "associatedStudies", labelKey: "sidebar.associatedStudies", icon: "/pngs/sidebar10.png" },
+  { id: "logs", labelKey: "sidebar.logs", icon: "/pngs/sidebar11.png" },
 ];
 
 const otherSourcesSubItems = [
-  { id: "pipelineData", label: "Pipeline Data" },
-  { id: "pressRelease", label: "Press Release" },
-  { id: "publications", label: "Publications" },
-  { id: "trialRegistries", label: "Trial Registries" },
+  { id: "pipelineData", labelKey: "sidebar.pipelineData" },
+  { id: "pressRelease", labelKey: "sidebar.pressRelease" },
+  { id: "publications", labelKey: "sidebar.publications" },
+  { id: "trialRegistries", labelKey: "sidebar.trialRegistries" },
 ];
 
 export function TrialSidebar({
@@ -41,6 +42,7 @@ export function TrialSidebar({
   onAssociatedStudiesClick,
   onLogsClick,
 }: TrialSidebarProps) {
+  const { t } = useTranslation();
   const [otherSourcesExpanded, setOtherSourcesExpanded] = useState(
     activeSection === "otherSources"
   );
@@ -99,7 +101,7 @@ export function TrialSidebar({
                       >
                         <Image
                           src={section.icon}
-                          alt={section.label}
+                          alt={t(section.labelKey)}
                           width={20}
                           height={20}
                           className="object-contain"
@@ -119,7 +121,7 @@ export function TrialSidebar({
                           textTransform: "capitalize",
                         }}
                       >
-                        {section.label}
+                        {t(section.labelKey)}
                       </span>
                     </div>
                     <ChevronDown
@@ -135,7 +137,7 @@ export function TrialSidebar({
                           <button
                             className={`w-full text-left pl-14 px-4 py-2 transition-colors ${activeSection === subItem.id
                               ? "text-[#204B73] font-medium bg-gray-50"
-                              : "text-gray-600 hover:bg-gray-50"
+                              : "text-gray-600 hover:bg-[#204B73] hover:text-white"
                               }`}
                             onClick={() => onSectionClick(subItem.id)}
                             style={{
@@ -149,7 +151,7 @@ export function TrialSidebar({
                               minHeight: "32px",
                             }}
                           >
-                            {subItem.label}
+                            {t(subItem.labelKey)}
                           </button>
                           {/* Border between sub-items */}
                           {subIndex < otherSourcesSubItems.length - 1 && (
@@ -205,7 +207,7 @@ export function TrialSidebar({
               <div key={section.id} className="relative">
                 <button
                   onClick={handleClick}
-                  className="w-full text-left px-4 py-3 transition-all flex items-center gap-3 text-gray-700 hover:bg-gray-50"
+                  className="w-full text-left px-4 py-3 transition-all flex items-center gap-3 text-gray-700 hover:bg-[#204B73] hover:text-white group"
                   style={{
                     width: "249px",
                     height: "73.86px",
@@ -214,11 +216,11 @@ export function TrialSidebar({
                   }}
                 >
                   <div
-                    className="relative w-5 h-5 flex-shrink-0"
+                    className="relative w-5 h-5 flex-shrink-0 group-hover:brightness-0 group-hover:invert transition-all"
                   >
                     <Image
                       src={section.icon}
-                      alt={section.label}
+                      alt={t(section.labelKey)}
                       width={20}
                       height={20}
                       className="object-contain"
@@ -235,7 +237,7 @@ export function TrialSidebar({
                       textTransform: "capitalize",
                     }}
                   >
-                    {section.label}
+                    {t(section.labelKey)}
                   </span>
                 </button>
                 {/* Border between items - after each section */}

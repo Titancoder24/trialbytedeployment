@@ -25,6 +25,8 @@ import NotesSection, { NoteItem } from "@/components/notes-section";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { TrialSidebar } from "@/components/trial-sidebar";
+import { LanguageSelector } from "@/components/language-selector";
+import { useTranslation } from "react-i18next";
 
 import {
   ChevronLeft,
@@ -223,6 +225,7 @@ function ClinicalTrialsPage() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const { openLinkPreview } = useLinkPreview();
+  const { t } = useTranslation();
 
   // Refs for each section
   const overviewRef = useRef<HTMLDivElement>(null);
@@ -1165,7 +1168,7 @@ function ClinicalTrialsPage() {
                 onClick={() => router.back()}
               >
                 <ChevronLeft className="h-4 w-4 mr-1 text-black" />
-                Back
+                {t("common.back")}
               </Button>
               {/* Separator line */}
               <div style={{ width: "1.5px", height: "20px", backgroundColor: "#7FCFF2" }} />
@@ -1180,7 +1183,7 @@ function ClinicalTrialsPage() {
                 }}
                 onClick={() => router.forward()}
               >
-                Forward
+                {t("common.forward")}
               </Button>
               {/* TrialByte button with logo */}
               <div
@@ -1202,7 +1205,7 @@ function ClinicalTrialsPage() {
                 className="h-8 rounded-[12px] px-7 py-5 text-[14px] font-semibold"
               >
                 <Calendar className="h-4 w-4" />
-                Record History
+                {t("common.recordHistory")}
               </Button>
               <Button
                 variant="outline"
@@ -1211,7 +1214,7 @@ function ClinicalTrialsPage() {
                 className="h-8 rounded-[12px] px-7 py-5 text-[14px] font-semibold"
               >
                 <Image src="/pngs/exporticon.png" alt="Export" width={16} height={16} />
-                Export
+                {t("common.export")}
               </Button>
             </div>
           </div>
@@ -1286,6 +1289,8 @@ function ClinicalTrialsPage() {
                 <Plus className="h-4 w-4" strokeWidth={2} />
               </Button>
             </div>
+            {/* Language Selector */}
+            <LanguageSelector />
           </div>
         </div>
 

@@ -1,0 +1,50 @@
+{
+    "common": {
+        "back": "Back",
+        "forward": "Forward",
+        "search": "Search..",
+        "logout": "Logout"
+    },
+    "sidebar": {
+        "overview": "Overview",
+        "objectives": "Objectives",
+        "treatmentPlan": "Treatment Plan",
+        "patientDescription": "Patient Description",
+        "timing": "Timing",
+        "outcome": "Outcome",
+        "publishedResults": "Published Results",
+        "sites": "Sites",
+        "otherSources": "Other Sources",
+        "associatedStudies": "Associated Studies",
+        "logs": "Logs",
+        "pipelineData": "Pipeline Data",
+        "pressRelease": "Press Release",
+        "publications": "Publications",
+        "trialRegistries": "Trial Registries"
+    },
+    "trials": {
+        "trialsSearch": "Trials Search",
+        "trials": "Trials",
+        "recordHistory": "Record History",
+        "export": "Export",
+        "status": "Status",
+        "phase": "Phase",
+        "keyInformation": "Key Information",
+        "studyDesign": "Study Design",
+        "primaryDrugs": "Primary Drugs",
+        "otherDrugs": "Other Drugs",
+        "primaryEndpoint": "Primary Endpoint",
+        "studyDetails": "Study Details",
+        "references": "References",
+        "noDataAvailable": "No data available"
+    },
+    "language": {
+        "select": "Select Language",
+        "english": "English",
+        "spanish": "Español",
+        "french": "Français",
+        "german": "Deutsch",
+        "chinese": "中文",
+        "japanese": "日本語"
+    }
+}

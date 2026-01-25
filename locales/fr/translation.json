@@ -1,0 +1,50 @@
+{
+    "common": {
+        "back": "Retour",
+        "forward": "Suivant",
+        "search": "Rechercher..",
+        "logout": "Déconnexion"
+    },
+    "sidebar": {
+        "overview": "Aperçu",
+        "objectives": "Objectifs",
+        "treatmentPlan": "Plan de Traitement",
+        "patientDescription": "Description du Patient",
+        "timing": "Calendrier",
+        "outcome": "Résultat",
+        "publishedResults": "Résultats Publiés",
+        "sites": "Sites",
+        "otherSources": "Autres Sources",
+        "associatedStudies": "Études Associées",
+        "logs": "Journaux",
+        "pipelineData": "Données Pipeline",
+        "pressRelease": "Communiqué de Presse",
+        "publications": "Publications",
+        "trialRegistries": "Registres d'Essais"
+    },
+    "trials": {
+        "trialsSearch": "Recherche d'Essais",
+        "trials": "Essais",
+        "recordHistory": "Historique des Enregistrements",
+        "export": "Exporter",
+        "status": "Statut",
+        "phase": "Phase",
+        "keyInformation": "Informations Clés",
+        "studyDesign": "Conception de l'Étude",
+        "primaryDrugs": "Médicaments Primaires",
+        "otherDrugs": "Autres Médicaments",
+        "primaryEndpoint": "Critère Principal",
+        "studyDetails": "Détails de l'Étude",
+        "references": "Références",
+        "noDataAvailable": "Données non disponibles"
+    },
+    "language": {
+        "select": "Choisir la Langue",
+        "english": "English",
+        "spanish": "Español",
+        "french": "Français",
+        "german": "Deutsch",
+        "chinese": "中文",
+        "japanese": "日本語"
+    }
+}
