@@ -187,11 +187,26 @@ export function QueryHistoryModal({
   }
 
   const startEditQuery = (query: SavedQuery) => {
+    // If onEditQuery callback is provided, use it to open the original modal
+    // (Filter or Advanced Search) with pre-populated values
+    if (onEditQuery && query.query_data) {
+      onEditQuery({
+        ...query.query_data,
+        queryId: query.id,
+        queryTitle: query.title,
+        queryDescription: query.description,
+        queryCreatedAt: query.created_at
+      })
+      onOpenChange(false) // Close this modal
+      return
+    }
+
+    // Fallback to inline edit mode if no callback provided
     setEditingQuery(query)
     setEditTitle(query.title || "")
     setEditDescription(query.description || "")
-    // Format date for input (YYYY-MM-DD)
-    const date = query.created_at ? new Date(query.created_at) : new Date()
+    // Format date for input (YYYY-MM-DD) - use current date
+    const date = new Date()
     setEditDate(date.toISOString().split('T')[0])
     setIsEditMode(true)
   }

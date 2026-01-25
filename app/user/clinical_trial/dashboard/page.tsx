@@ -50,7 +50,7 @@ import { ClinicalTrialFilterModal, ClinicalTrialFilterState } from "@/components
 import { ClinicalTrialAdvancedSearchModal, ClinicalTrialSearchCriteria } from "@/components/clinical-trial-advanced-search-modal";
 import { SaveQueryModal } from "@/components/save-query-modal";
 import { QueryHistoryModal } from "@/components/query-history-modal";
-import { CustomizeColumnModal, ColumnSettings, DEFAULT_COLUMN_SETTINGS } from "@/components/customize-column-modal";
+import { CustomizeColumnModal, ColumnSettings, DEFAULT_COLUMN_SETTINGS, COLUMN_OPTIONS } from "@/components/customize-column-modal";
 import { FavoriteTrialsModal } from "@/components/favorite-trials-modal";
 import { ExportTrialsModal } from "@/components/export-trials-modal";
 import { GlobalSearchModal } from "@/components/global-search-modal";
@@ -163,6 +163,25 @@ interface ApiResponse {
   trials: TherapeuticTrial[];
 }
 
+// Default empty filter state
+const DEFAULT_FILTER_STATE: ClinicalTrialFilterState = {
+  therapeuticAreas: [],
+  statuses: [],
+  diseaseTypes: [],
+  primaryDrugs: [],
+  otherDrugs: [],
+  trialPhases: [],
+  patientSegments: [],
+  lineOfTherapy: [],
+  countries: [],
+  sponsorsCollaborators: [],
+  sponsorFieldActivity: [],
+  associatedCro: [],
+  trialTags: [],
+  sex: [],
+  healthyVolunteers: []
+};
+
 export default function ClinicalTrialDashboard() {
   const router = useRouter();
   const [trials, setTrials] = useState<TherapeuticTrial[]>([]);
@@ -178,23 +197,7 @@ export default function ClinicalTrialDashboard() {
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [showLogoutDropdown, setShowLogoutDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [appliedFilters, setAppliedFilters] = useState<ClinicalTrialFilterState>({
-    therapeuticAreas: [],
-    statuses: [],
-    diseaseTypes: [],
-    primaryDrugs: [],
-    otherDrugs: [],
-    trialPhases: [],
-    patientSegments: [],
-    lineOfTherapy: [],
-    countries: [],
-    sponsorsCollaborators: [],
-    sponsorFieldActivity: [],
-    associatedCro: [],
-    trialTags: [],
-    sex: [],
-    healthyVolunteers: []
-  });
+  const [appliedFilters, setAppliedFilters] = useState<ClinicalTrialFilterState>(DEFAULT_FILTER_STATE);
   const [appliedSearchCriteria, setAppliedSearchCriteria] = useState<ClinicalTrialSearchCriteria[]>([]);
   const [viewType, setViewType] = useState<'list' | 'card'>('list');
   const [viewTypeExpanded, setViewTypeExpanded] = useState(true);
@@ -203,10 +206,16 @@ export default function ClinicalTrialDashboard() {
   const [columnSettings, setColumnSettings] = useState<ColumnSettings>(DEFAULT_COLUMN_SETTINGS);
   const [favoriteTrialsModalOpen, setFavoriteTrialsModalOpen] = useState(false);
   const [favoriteTrials, setFavoriteTrials] = useState<string[]>([]);
+  // State for editing queries
+  const [editingQueryId, setEditingQueryId] = useState<string | null>(null);
+  const [editingQueryTitle, setEditingQueryTitle] = useState<string>("");
+  const [editingQueryDescription, setEditingQueryDescription] = useState<string>("");
 
   // Sorting state
   const [sortField, setSortField] = useState<string>("");
+
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
 
   // Pagination state
   const [resultsPerPage, setResultsPerPage] = useState<number>(12);
@@ -214,7 +223,7 @@ export default function ClinicalTrialDashboard() {
   const [selectedTrials, setSelectedTrials] = useState<string[]>([]);
 
   // Fetch trials data using the therapeutics API with caching
-  const fetchTrials = async (isRefresh = false) => {
+  const fetchTrials = async (isRefresh = false, showToast = false) => {
     try {
       if (isRefresh) {
         setRefreshing(true);
@@ -272,7 +281,7 @@ export default function ClinicalTrialDashboard() {
       setTrials(data.trials);
       setTotalTrialCount(data.total_trials || data.trials.length);
 
-      if (isRefresh) {
+      if (isRefresh && showToast) {
         toast({
           title: "Refreshed",
           description: "Clinical trials data has been updated",
@@ -387,15 +396,72 @@ export default function ClinicalTrialDashboard() {
   };
 
   // Sorting functions
+  const parseAge = (ageStr: string | null | undefined): number => {
+    if (!ageStr) return -1;
+    const match = ageStr.match(/(\d+)/);
+    return match ? parseInt(match[1], 10) : -1;
+  };
+
+  const parseDate = (dateStr: string | null | undefined): number => {
+    if (!dateStr) return -1;
+    return new Date(dateStr).getTime();
+  };
+
   const getSortValue = (trial: TherapeuticTrial, field: string): string | number => {
     switch (field) {
-      case "trial_id": return trial.trial_id;
-      case "therapeutic_area": return trial.overview.therapeutic_area;
-      case "disease_type": return trial.overview.disease_type;
-      case "primary_drug": return trial.overview.primary_drugs;
-      case "trial_status": return trial.overview.status;
+      // Basic Info Section
+      case "trial_id": return trial.overview.trial_id || trial.trial_id || "";
+      case "therapeutic_area": return trial.overview.therapeutic_area || "";
+      case "disease_type": return trial.overview.disease_type || "";
+      case "primary_drug": return trial.overview.primary_drugs || "";
+      case "trial_status": return trial.overview.status || "";
       case "sponsor": return trial.overview.sponsor_collaborators || "";
-      case "phase": return trial.overview.trial_phase;
+      case "phase": return trial.overview.trial_phase || "";
+      case "title": return trial.overview.title || "";
+      case "patientSegment": return trial.overview.patient_segment || "";
+      case "lineOfTherapy": return trial.overview.line_of_therapy || "";
+      case "countries": return trial.overview.countries || "";
+      case "fieldOfActivity": return trial.overview.sponsor_field_activity || "";
+      case "associatedCro": return trial.overview.associated_cro || "";
+      case "trialTags": return trial.overview.trial_tags || "";
+      case "otherDrugs": return trial.overview.other_drugs || "";
+      case "regions": return trial.overview.region || "";
+
+      // Eligibility Section
+      case "inclusion_criteria": return trial.criteria[0]?.inclusion_criteria || "";
+      case "exclusion_criteria": return trial.criteria[0]?.exclusion_criteria || "";
+      case "age_from": return parseAge(trial.criteria[0]?.age_from);
+      case "age_to": return parseAge(trial.criteria[0]?.age_to);
+      case "subject_type": return trial.criteria[0]?.subject_type || "";
+      case "sex": return trial.criteria[0]?.sex || "";
+      case "healthy_volunteers": return trial.criteria[0]?.healthy_volunteers || "";
+      case "target_no_volunteers": return trial.criteria[0]?.target_no_volunteers || 0;
+      case "actual_enrolled_volunteers": return trial.criteria[0]?.actual_enrolled_volunteers || 0;
+
+      // Study Design Section
+      case "purpose_of_trial": return trial.outcomes[0]?.purpose_of_trial || "";
+      case "summary": return trial.outcomes[0]?.summary || "";
+      case "primary_outcome_measures": return trial.outcomes[0]?.primary_outcome_measure || "";
+      case "other_outcome_measures": return trial.outcomes[0]?.other_outcome_measure || "";
+      case "study_design_keywords": return trial.outcomes[0]?.study_design_keywords || "";
+      case "study_design": return trial.outcomes[0]?.study_design || "";
+      case "treatment_regimen": return trial.outcomes[0]?.treatment_regimen || "";
+      case "number_of_arms": return trial.outcomes[0]?.number_of_arms || 0;
+
+      // Timing Section
+      case "start_date_estimated": return parseDate(trial.timing[0]?.start_date_estimated);
+      case "trial_end_date_estimated": return parseDate(trial.timing[0]?.trial_end_date_estimated);
+
+      // Results Section
+      case "trial_outcome": return trial.results[0]?.trial_outcome || "";
+      case "adverse_events_reported": return trial.results[0]?.adverse_event_reported || "";
+      case "adverse_event_type": return trial.results[0]?.adverse_event_type || "";
+      case "treatment_for_adverse_events": return trial.results[0]?.treatment_for_adverse_events || "";
+
+      // Sites Section
+      case "total_sites": return trial.sites[0]?.total || 0;
+      case "site_notes": return trial.sites[0]?.notes || "";
+
       default: return "";
     }
   };
@@ -406,7 +472,7 @@ export default function ClinicalTrialDashboard() {
         // Toggle to descending
         setSortDirection("desc");
       } else {
-        // Clear sort if already descending
+        // Toggle to none (reset)
         setSortField("");
         setSortDirection("asc");
       }
@@ -420,12 +486,37 @@ export default function ClinicalTrialDashboard() {
   // Helper function to normalize strings for comparison (handles case and underscores)
   const normalizeForComparison = (value: string): string => {
     if (!value) return '';
-    return value
-      .toLowerCase()
-      .replace(/_/g, ' ')  // Replace underscores with spaces
-      .replace(/[-]/g, ' ') // Replace hyphens with spaces
-      .trim();
+    return value.toLowerCase().replace(/_/g, " ").replace(/\s+/g, " ").trim();
   };
+
+  // Helper function to recursively search for term in object
+  const searchInObject = (obj: any, term: string): boolean => {
+    if (!obj) return false;
+    const normalizedTerm = normalizeForComparison(term);
+
+    // Check direct match if string
+    if (typeof obj === 'string') {
+      return normalizeForComparison(obj).includes(normalizedTerm);
+    }
+
+    // If array, check each element
+    if (Array.isArray(obj)) {
+      return obj.some(item => searchInObject(item, term));
+    }
+
+    // If object, check all values
+    if (typeof obj === 'object') {
+      return Object.values(obj).some(val => searchInObject(val, term));
+    }
+
+    // Convert numbers/booleans to string and check
+    if (typeof obj === 'number' || typeof obj === 'boolean') {
+      return normalizeForComparison(String(obj)).includes(normalizedTerm);
+    }
+
+    return false;
+  };
+
 
   // Helper function to evaluate search criteria
   const evaluateCriteria = (fieldValue: string | null | undefined, operator: string, searchValue: string): boolean => {
@@ -476,15 +567,15 @@ export default function ClinicalTrialDashboard() {
   const getStatusColor = (status: string) => {
     const normalizedStatus = status?.toLowerCase() || '';
     const statusColors: Record<string, string> = {
-      confirmed: "bg-orange-500 text-white",      // Orange = Attention, confirmed
-      terminated: "bg-red-500 text-white",        // Red = Stop, danger, terminated
-      open: "bg-green-500 text-white",            // Green = Go, active, open
-      closed: "bg-gray-600 text-white",           // Gray = Inactive, closed
-      completed: "bg-emerald-500 text-white",     // Emerald = Success, completed
-      active: "bg-green-500 text-white",          // Green = Active, ongoing
-      planned: "bg-blue-500 text-white",          // Blue = Planned, upcoming
-      suspended: "bg-amber-500 text-white",       // Amber = Warning, suspended
-      draft: "bg-slate-400 text-white",           // Slate = Draft, pending
+      confirmed: "bg-orange-500 text-white hover:bg-orange-600",      // Orange = Attention, confirmed
+      terminated: "bg-red-500 text-white hover:bg-red-600",        // Red = Stop, danger, terminated
+      open: "bg-yellow-500 text-white hover:bg-yellow-600",            // Purple = Open, distinct from active
+      closed: "bg-gray-600 text-white hover:bg-gray-700",           // Gray = Inactive, closed
+      completed: "bg-emerald-500 text-white hover:bg-emerald-600",     // Emerald = Success, completed
+      active: "bg-green-500 text-white hover:bg-green-600",          // Green = Active, ongoing
+      planned: "bg-blue-500 text-white hover:bg-blue-600",          // Blue = Planned, upcoming
+      suspended: "bg-amber-500 text-white hover:bg-amber-600",       // Amber = Warning, suspended
+      draft: "bg-slate-400 text-white hover:bg-slate-500",           // Slate = Draft, pending
     };
     return statusColors[normalizedStatus] || "bg-gray-400 text-white";
   };
@@ -492,13 +583,7 @@ export default function ClinicalTrialDashboard() {
   // Apply filters and search criteria, then sort
   const filteredTrials = trials.filter((trial) => {
     // Basic search filter - use normalize for consistent matching
-    const normalizedSearchTerm = normalizeForComparison(searchTerm);
-    const matchesSearch = searchTerm === "" ||
-      normalizeForComparison(trial.trial_id || '').includes(normalizedSearchTerm) ||
-      normalizeForComparison(trial.overview.therapeutic_area || '').includes(normalizedSearchTerm) ||
-      normalizeForComparison(trial.overview.disease_type || '').includes(normalizedSearchTerm) ||
-      normalizeForComparison(trial.overview.primary_drugs || '').includes(normalizedSearchTerm) ||
-      normalizeForComparison(trial.overview.title || '').includes(normalizedSearchTerm);
+    const matchesSearch = searchTerm === "" || searchInObject(trial, searchTerm);
 
     // Apply filters - use normalize for consistent matching with underscores and case
     const matchesFilters = (
@@ -576,23 +661,7 @@ export default function ClinicalTrialDashboard() {
   };
 
   const clearAllFilters = () => {
-    setAppliedFilters({
-      therapeuticAreas: [],
-      statuses: [],
-      diseaseTypes: [],
-      primaryDrugs: [],
-      otherDrugs: [],
-      trialPhases: [],
-      patientSegments: [],
-      lineOfTherapy: [],
-      countries: [],
-      sponsorsCollaborators: [],
-      sponsorFieldActivity: [],
-      associatedCro: [],
-      trialTags: [],
-      sex: [],
-      healthyVolunteers: []
-    });
+    setAppliedFilters(DEFAULT_FILTER_STATE);
     setAppliedSearchCriteria([]);
   };
 
@@ -606,11 +675,40 @@ export default function ClinicalTrialDashboard() {
     return filterCount + appliedSearchCriteria.length;
   };
 
+  // Function to format filter label for display
+  const formatFilterLabel = (key: string): string => {
+    const labelMap: Record<string, string> = {
+      therapeuticAreas: "Therapeutic Area",
+      diseaseTypes: "Disease Type",
+      primaryDrugs: "Primary Drug",
+      trialPhases: "Trial Phase",
+      statuses: "Status",
+      sponsorsCollaborators: "Sponsor",
+      countries: "Countries",
+      patientSegments: "Patient Segment",
+      lineOfTherapy: "Line of Therapy",
+      regions: "Regions",
+      otherDrugs: "Other Drugs",
+      fieldOfActivity: "Field of Activity",
+      associatedCro: "Associated CRO",
+      trialTags: "Trial Tags",
+      sex: "Sex",
+      healthyVolunteers: "Healthy Volunteers",
+      subjectType: "Subject Type",
+      trialRecordStatus: "Trial Record Status"
+    };
+    return labelMap[key] || key;
+  };
+
   const handleSaveQuerySuccess = () => {
     toast({
       title: "Success",
       description: "Query saved successfully",
     });
+    // Reset editing state after successful save
+    setEditingQueryId(null);
+    setEditingQueryTitle("");
+    setEditingQueryDescription("");
   };
 
   const handleLoadQuery = (queryData: any) => {
@@ -618,7 +716,8 @@ export default function ClinicalTrialDashboard() {
       setSearchTerm(queryData.searchTerm);
     }
     if (queryData.filters) {
-      setAppliedFilters(queryData.filters);
+      // Merge with default state to ensure all keys exist
+      setAppliedFilters({ ...DEFAULT_FILTER_STATE, ...queryData.filters });
     }
     if (queryData.searchCriteria) {
       setAppliedSearchCriteria(queryData.searchCriteria);
@@ -1108,29 +1207,9 @@ export default function ClinicalTrialDashboard() {
             className="flex items-center justify-between px-6 py-3"
             style={{ backgroundColor: "transparent" }}
           >
-            {/* Left side - Back/Forward */}
+            {/* Left side - Header Text */}
             <div className="flex items-center space-x-4">
-              <Link
-                href="/user"
-                className="flex items-center text-[#2B4863] hover:opacity-80"
-                style={{ fontFamily: "Poppins", fontSize: "14px" }}
-              >
-                <ChevronLeft className="h-4 w-4 mr-1" style={{ color: "#000000" }} />
-                <span>Back</span>
-              </Link>
-              <div
-                style={{
-                  width: "1.5px",
-                  height: "20px",
-                  backgroundColor: "#7FCFF2",
-                }}
-              />
-              <span
-                className="text-[#424242]"
-                style={{ fontFamily: "Poppins", fontSize: "14px" }}
-              >
-                Forward
-              </span>
+              {/* Navigation removed */}
             </div>
 
             {/* Right side - Action Buttons */}
@@ -1223,40 +1302,9 @@ export default function ClinicalTrialDashboard() {
 
           <div className="flex">
             {/* Sidebar - TrialsListing Style */}
-            <div className="w-64 flex-shrink-0 h-fit rounded-[12px] bg-white" style={{ fontFamily: "Poppins, sans-serif", marginLeft: "20px", width: "256px" }}>
+            <div className="w-64 flex-shrink-0 h-fit rounded-[12px] bg-white sticky top-[100px] self-start z-50" style={{ fontFamily: "Poppins, sans-serif", marginLeft: "20px", width: "256px" }}>
               {/* Search Button */}
-              <div className="relative" style={{ height: "73.86px", display: "flex", alignItems: "center", padding: "0 16px" }}>
-                <button
-                  onClick={() => setSearchModalOpen(true)}
-                  className="w-full flex items-center justify-start gap-3 hover:bg-gray-50 transition-colors"
-                  style={{
-                    backgroundColor: "transparent",
-                    border: "none",
-                    padding: "0",
-                  }}
-                >
-                  <Image
-                    src="/pngs/trialsearchicon.png"
-                    alt="Search"
-                    width={18}
-                    height={18}
-                    style={{ filter: "brightness(0) saturate(100%) invert(27%) sepia(51%) saturate(1234%) hue-rotate(181deg) brightness(95%) contrast(89%)" }}
-                  />
-                  <span style={{ color: "#374151", fontFamily: "Poppins", fontSize: "14px", fontWeight: 400 }}>Search</span>
-                </button>
-                <div
-                  className="absolute"
-                  style={{
-                    width: "256px",
-                    height: "0px",
-                    bottom: "0px",
-                    left: "0px",
-                    borderTopWidth: "1px",
-                    borderTopStyle: "solid",
-                    borderTopColor: "rgb(224, 224, 224)",
-                  }}
-                />
-              </div>
+              {/* Search Button Removed */}
 
               {/* View Type Section - Collapsible */}
               <div className="relative">
@@ -1264,8 +1312,8 @@ export default function ClinicalTrialDashboard() {
                   className="w-full flex items-center justify-between gap-2 py-3 px-4"
                   style={{
                     backgroundColor: "#204B73",
-                    height: "56px",
-                    borderRadius: "0",
+                    height: "74px",
+                    borderRadius: "12px 12px 0 0",
                   }}
                   onClick={() => setViewTypeExpanded(!viewTypeExpanded)}
                 >
@@ -1313,7 +1361,7 @@ export default function ClinicalTrialDashboard() {
                   className="w-full flex items-center justify-between gap-2 py-3 px-4"
                   style={{
                     backgroundColor: "#204B73",
-                    height: "56px",
+                    height: "74px",
                     borderRadius: "0",
                   }}
                   onClick={() => setSortByExpanded(!sortByExpanded)}
@@ -1332,17 +1380,9 @@ export default function ClinicalTrialDashboard() {
                 </button>
                 {sortByExpanded && (
                   <div className="py-3 px-4 space-y-1">
-                    {/* Display only the columns selected in Customize Column View */}
-                    {[
-                      { key: "trial_id", label: "Trial ID", setting: "trialId" as keyof typeof columnSettings },
-                      { key: "therapeutic_area", label: "Therapeutic Area", setting: "therapeuticArea" as keyof typeof columnSettings },
-                      { key: "disease_type", label: "Disease Type", setting: "diseaseType" as keyof typeof columnSettings },
-                      { key: "primary_drug", label: "Primary Drug", setting: "primaryDrug" as keyof typeof columnSettings },
-                      { key: "trial_status", label: "Trial Status", setting: "trialRecordStatus" as keyof typeof columnSettings },
-                      { key: "sponsor", label: "Sponsor", setting: "sponsorsCollaborators" as keyof typeof columnSettings },
-                      { key: "phase", label: "Phase", setting: "trialPhase" as keyof typeof columnSettings },
-                    ]
-                      .filter(item => columnSettings[item.setting])
+                    {/* Display all columns enabled in settings */}
+                    {COLUMN_OPTIONS
+                      .filter(item => columnSettings[item.key])
                       .map(({ key, label }) => (
                         <label
                           key={key}
@@ -1381,7 +1421,9 @@ export default function ClinicalTrialDashboard() {
                 <div className="relative">
                   <button
                     onClick={() => setSaveQueryModalOpen(true)}
-                    className="w-full text-left px-4 py-3 transition-all flex items-center gap-3 text-gray-700 hover:bg-gray-50"
+                    onMouseEnter={() => setHoveredButton("save")}
+                    onMouseLeave={() => setHoveredButton(null)}
+                    className="w-full text-left px-4 py-3 transition-all flex items-center gap-3"
                     style={{
                       width: "256px",
                       height: "73.86px",
@@ -1390,6 +1432,8 @@ export default function ClinicalTrialDashboard() {
                       borderTopWidth: "1.5px",
                       borderTopStyle: "solid",
                       borderTopColor: "rgb(224, 224, 224)",
+                      backgroundColor: hoveredButton === "save" ? "#204B73" : "transparent",
+                      color: hoveredButton === "save" ? "white" : "#374151"
                     }}
                   >
                     <div className="relative w-5 h-5 flex-shrink-0">
@@ -1399,6 +1443,7 @@ export default function ClinicalTrialDashboard() {
                         width={18}
                         height={18}
                         className="object-contain"
+                        style={{ filter: hoveredButton === "save" ? "brightness(0) invert(1)" : "none" }}
                       />
                     </div>
                     <span
@@ -1433,12 +1478,16 @@ export default function ClinicalTrialDashboard() {
                 <div className="relative">
                   <button
                     onClick={() => setQueryHistoryModalOpen(true)}
-                    className="w-full text-left px-4 py-3 transition-all flex items-center gap-3 text-gray-700 hover:bg-gray-50"
+                    onMouseEnter={() => setHoveredButton("history")}
+                    onMouseLeave={() => setHoveredButton(null)}
+                    className="w-full text-left px-4 py-3 transition-all flex items-center gap-3"
                     style={{
                       width: "256px",
                       height: "73.86px",
                       display: "flex",
                       alignItems: "center",
+                      backgroundColor: hoveredButton === "history" ? "#204B73" : "transparent",
+                      color: hoveredButton === "history" ? "white" : "#374151"
                     }}
                   >
                     <div className="relative w-5 h-5 flex-shrink-0">
@@ -1448,6 +1497,7 @@ export default function ClinicalTrialDashboard() {
                         width={18}
                         height={18}
                         className="object-contain"
+                        style={{ filter: hoveredButton === "history" ? "brightness(0) invert(1)" : "none" }}
                       />
                     </div>
                     <span
@@ -1482,12 +1532,16 @@ export default function ClinicalTrialDashboard() {
                 <div className="relative">
                   <button
                     onClick={() => setFavoriteTrialsModalOpen(true)}
-                    className="w-full text-left px-4 py-3 transition-all flex items-center gap-3 text-gray-700 hover:bg-gray-50"
+                    onMouseEnter={() => setHoveredButton("favorites")}
+                    onMouseLeave={() => setHoveredButton(null)}
+                    className="w-full text-left px-4 py-3 transition-all flex items-center gap-3"
                     style={{
                       width: "256px",
                       height: "73.86px",
                       display: "flex",
                       alignItems: "center",
+                      backgroundColor: hoveredButton === "favorites" ? "#204B73" : "transparent",
+                      color: hoveredButton === "favorites" ? "white" : "#374151"
                     }}
                   >
                     <div className="relative w-5 h-5 flex-shrink-0">
@@ -1497,6 +1551,7 @@ export default function ClinicalTrialDashboard() {
                         width={18}
                         height={18}
                         className="object-contain"
+                        style={{ filter: hoveredButton === "favorites" ? "brightness(0) invert(1)" : "none" }}
                       />
                     </div>
                     <span
@@ -1531,12 +1586,16 @@ export default function ClinicalTrialDashboard() {
                 <div className="relative">
                   <button
                     onClick={() => setCustomizeColumnModalOpen(true)}
-                    className="w-full text-left px-4 py-3 transition-all flex items-center gap-3 text-gray-700 hover:bg-gray-50"
+                    onMouseEnter={() => setHoveredButton("columns")}
+                    onMouseLeave={() => setHoveredButton(null)}
+                    className="w-full text-left px-4 py-3 transition-all flex items-center gap-3"
                     style={{
                       width: "256px",
                       height: "73.86px",
                       display: "flex",
                       alignItems: "center",
+                      backgroundColor: hoveredButton === "columns" ? "#204B73" : "transparent",
+                      color: hoveredButton === "columns" ? "white" : "#374151"
                     }}
                   >
                     <div className="relative w-5 h-5 flex-shrink-0">
@@ -1546,6 +1605,7 @@ export default function ClinicalTrialDashboard() {
                         width={18}
                         height={18}
                         className="object-contain"
+                        style={{ filter: hoveredButton === "columns" ? "brightness(0) invert(1)" : "none" }}
                       />
                     </div>
                     <span
@@ -1574,7 +1634,7 @@ export default function ClinicalTrialDashboard() {
               <div className="mb-1 flex items-center justify-between">
 
                 {hasActiveFilters() && (
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-3">
                     <span className="text-sm text-gray-600">Active filters:</span>
                     <div className="flex flex-wrap gap-1">
                       {Object.entries(appliedFilters).map(([key, values]) =>
@@ -1598,6 +1658,17 @@ export default function ClinicalTrialDashboard() {
                         </Badge>
                       ))}
                     </div>
+                    <button
+                      onClick={clearAllFilters}
+                      className="ml-2 px-3 py-1 rounded text-white text-xs font-medium transition-colors"
+                      style={{
+                        backgroundColor: "#0070d8ff",
+                        fontFamily: "Poppins",
+                        height: "24px"
+                      }}
+                    >
+                      Clear
+                    </button>
                   </div>
                 )}
               </div>
@@ -1817,7 +1888,19 @@ export default function ClinicalTrialDashboard() {
                           {columnSettings.title && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[180px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Title</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Title</span>
+                                  {sortField === "title" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("title")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
@@ -1825,7 +1908,19 @@ export default function ClinicalTrialDashboard() {
                           {columnSettings.patientSegment && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[100px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Patient Segment</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Patient Segment</span>
+                                  {sortField === "patient_segment" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("patient_segment")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
@@ -1833,7 +1928,19 @@ export default function ClinicalTrialDashboard() {
                           {columnSettings.lineOfTherapy && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[100px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Line of Therapy</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Line of Therapy</span>
+                                  {sortField === "line_of_therapy" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("line_of_therapy")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
@@ -1841,7 +1948,19 @@ export default function ClinicalTrialDashboard() {
                           {columnSettings.countries && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Countries</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Countries</span>
+                                  {sortField === "countries" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("countries")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
@@ -1849,7 +1968,19 @@ export default function ClinicalTrialDashboard() {
                           {columnSettings.otherDrugs && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[100px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Other Drugs</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Other Drugs</span>
+                                  {sortField === "other_drugs" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("other_drugs")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
@@ -1857,7 +1988,19 @@ export default function ClinicalTrialDashboard() {
                           {columnSettings.regions && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[100px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Regions</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Regions</span>
+                                  {sortField === "regions" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("regions")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
@@ -1865,7 +2008,19 @@ export default function ClinicalTrialDashboard() {
                           {columnSettings.fieldOfActivity && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Field of Activity</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Field of Activity</span>
+                                  {sortField === "field_of_activity" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("field_of_activity")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
@@ -1873,7 +2028,19 @@ export default function ClinicalTrialDashboard() {
                           {columnSettings.associatedCro && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[100px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Associated CRO</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Associated CRO</span>
+                                  {sortField === "associated_cro" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("associated_cro")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
@@ -1881,7 +2048,19 @@ export default function ClinicalTrialDashboard() {
                           {columnSettings.trialTags && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[100px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Trial Tags</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Trial Tags</span>
+                                  {sortField === "trial_tags" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("trial_tags")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
@@ -1889,63 +2068,171 @@ export default function ClinicalTrialDashboard() {
                           {columnSettings.inclusionCriteria && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[150px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Inclusion Criteria</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Inclusion Criteria</span>
+                                  {sortField === "inclusion_criteria" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("inclusion_criteria")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.exclusionCriteria && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[150px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Exclusion Criteria</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Exclusion Criteria</span>
+                                  {sortField === "exclusion_criteria" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("exclusion_criteria")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.ageFrom && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[80px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Age From</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Age From</span>
+                                  {sortField === "age_from" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("age_from")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.ageTo && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[80px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Age To</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Age To</span>
+                                  {sortField === "age_to" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("age_to")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.subjectType && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[100px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Subject Type</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Subject Type</span>
+                                  {sortField === "subject_type" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("subject_type")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.sex && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[80px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Sex</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Sex</span>
+                                  {sortField === "sex" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("sex")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.healthyVolunteers && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Healthy Volunteers</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Healthy Volunteers</span>
+                                  {sortField === "healthy_volunteers" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("healthy_volunteers")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.targetNoVolunteers && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Target Volunteers</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Target Volunteers</span>
+                                  {sortField === "target_no_volunteers" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("target_no_volunteers")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.actualEnrolledVolunteers && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Enrolled Volunteers</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Enrolled Volunteers</span>
+                                  {sortField === "actual_enrolled_volunteers" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("actual_enrolled_volunteers")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
@@ -1953,56 +2240,152 @@ export default function ClinicalTrialDashboard() {
                           {columnSettings.purposeOfTrial && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[150px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Purpose of Trial</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Purpose of Trial</span>
+                                  {sortField === "purpose_of_trial" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("purpose_of_trial")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.summary && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[180px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Summary</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Summary</span>
+                                  {sortField === "summary" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("summary")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.primaryOutcomeMeasures && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[150px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Primary Outcome</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Primary Outcome</span>
+                                  {sortField === "primary_outcome_measures" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("primary_outcome_measures")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.otherOutcomeMeasures && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[150px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Other Outcome</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Other Outcome</span>
+                                  {sortField === "other_outcome_measures" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("other_outcome_measures")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.studyDesignKeywords && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[130px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Design Keywords</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Design Keywords</span>
+                                  {sortField === "study_design_keywords" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("study_design_keywords")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.studyDesign && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[130px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Study Design</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Study Design</span>
+                                  {sortField === "study_design" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("study_design")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.treatmentRegimen && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[130px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Treatment Regimen</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Treatment Regimen</span>
+                                  {sortField === "treatment_regimen" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("treatment_regimen")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.numberOfArms && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[100px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>No. of Arms</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>No. of Arms</span>
+                                  {sortField === "number_of_arms" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("number_of_arms")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
@@ -2010,14 +2393,38 @@ export default function ClinicalTrialDashboard() {
                           {columnSettings.startDateEstimated && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Start Date</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Start Date</span>
+                                  {sortField === "start_date_estimated" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("start_date_estimated")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.trialEndDateEstimated && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>End Date</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>End Date</span>
+                                  {sortField === "trial_end_date_estimated" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("trial_end_date_estimated")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
@@ -2025,56 +2432,152 @@ export default function ClinicalTrialDashboard() {
                           {columnSettings.resultsAvailable && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[100px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Results Available</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Results Available</span>
+                                  {sortField === "results_available" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("results_available")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.endpointsMet && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[100px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Endpoints Met</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Endpoints Met</span>
+                                  {sortField === "endpoints_met" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("endpoints_met")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.adverseEventsReported && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Adverse Events</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Adverse Events</span>
+                                  {sortField === "adverse_events_reported" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("adverse_events_reported")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.trialOutcome && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Trial Outcome</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Trial Outcome</span>
+                                  {sortField === "trial_outcome" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("trial_outcome")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.trialOutcomeContent && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[150px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Outcome Content</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Outcome Content</span>
+                                  {sortField === "trial_outcome_content" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("trial_outcome_content")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.adverseEventReported && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>AE Reported</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>AE Reported</span>
+                                  {sortField === "adverse_event_reported" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("adverse_event_reported")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.adverseEventType && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>AE Type</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>AE Type</span>
+                                  {sortField === "adverse_event_type" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("adverse_event_type")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.treatmentForAdverseEvents && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[130px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>AE Treatment</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>AE Treatment</span>
+                                  {sortField === "treatment_for_adverse_events" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("treatment_for_adverse_events")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
@@ -2082,14 +2585,38 @@ export default function ClinicalTrialDashboard() {
                           {columnSettings.totalSites && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[80px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Total Sites</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Total Sites</span>
+                                  {sortField === "total_sites" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("total_sites")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
                           {columnSettings.siteNotes && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[150px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
-                                <span style={{ fontSize: "13px" }}>Site Notes</span>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Site Notes</span>
+                                  {sortField === "site_notes" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("site_notes")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
                             </th>
                           )}
@@ -2256,12 +2783,12 @@ export default function ClinicalTrialDashboard() {
                             )}
                             {columnSettings.ageFrom && (
                               <td className="p-4 align-middle w-[80px]">
-                                <span>{trial.criteria?.[0]?.age_from || "N/A"}</span>
+                                <span>{trial.criteria?.[0]?.age_from?.replace(/,/g, ' ') || "N/A"}</span>
                               </td>
                             )}
                             {columnSettings.ageTo && (
                               <td className="p-4 align-middle w-[80px]">
-                                <span>{trial.criteria?.[0]?.age_to || "N/A"}</span>
+                                <span>{trial.criteria?.[0]?.age_to?.replace(/,/g, ' ') || "N/A"}</span>
                               </td>
                             )}
                             {columnSettings.subjectType && (
@@ -2581,6 +3108,9 @@ export default function ClinicalTrialDashboard() {
                 onOpenChange={setFilterModalOpen}
                 onApplyFilters={handleApplyFilters}
                 currentFilters={appliedFilters}
+                editingQueryId={editingQueryId}
+                editingQueryTitle={editingQueryTitle}
+                editingQueryDescription={editingQueryDescription}
               />
 
               {/* Advanced Search Modal */}
@@ -2589,6 +3119,10 @@ export default function ClinicalTrialDashboard() {
                 onOpenChange={setAdvancedSearchModalOpen}
                 onApplySearch={handleApplyAdvancedSearch}
                 onOpenSavedQueries={() => setQueryHistoryModalOpen(true)}
+                currentSearchCriteria={appliedSearchCriteria}
+                editingQueryId={editingQueryId}
+                editingQueryTitle={editingQueryTitle}
+                editingQueryDescription={editingQueryDescription}
               />
 
               {/* Save Query Modal */}
@@ -2599,6 +3133,9 @@ export default function ClinicalTrialDashboard() {
                 currentFilters={appliedFilters}
                 currentSearchCriteria={appliedSearchCriteria}
                 searchTerm={searchTerm}
+                editingQueryId={editingQueryId}
+                editingQueryTitle={editingQueryTitle}
+                editingQueryDescription={editingQueryDescription}
               />
 
               {/* Query History Modal */}
@@ -2609,9 +3146,29 @@ export default function ClinicalTrialDashboard() {
                 onEditQuery={(queryData) => {
                   // Close the query history modal
                   setQueryHistoryModalOpen(false);
-                  // Apply the filters and criteria from the query
+
+                  // Check if query has filters (Filter modal) or searchCriteria (Advanced Search modal)
+                  const hasFilters = queryData.filters && Object.values(queryData.filters).some(
+                    (arr: any) => Array.isArray(arr) && arr.length > 0
+                  );
+                  const hasSearchCriteria = queryData.searchCriteria && queryData.searchCriteria.length > 0;
+
+                  // Capture editing details
+                  if (queryData.queryId) {
+                    setEditingQueryId(queryData.queryId);
+                    setEditingQueryTitle(queryData.queryTitle || "");
+                    setEditingQueryDescription(queryData.queryDescription || "");
+                  } else {
+                    // Reset if new or not provided (just in case)
+                    setEditingQueryId(null);
+                    setEditingQueryTitle("");
+                    setEditingQueryDescription("");
+                  }
+
+                  // Pre-populate the data
                   if (queryData.filters) {
-                    setAppliedFilters(queryData.filters);
+                    // Merge with default state to ensure all keys exist
+                    setAppliedFilters({ ...DEFAULT_FILTER_STATE, ...queryData.filters });
                   }
                   if (queryData.searchCriteria) {
                     setAppliedSearchCriteria(queryData.searchCriteria);
@@ -2619,8 +3176,15 @@ export default function ClinicalTrialDashboard() {
                   if (queryData.searchTerm) {
                     setSearchTerm(queryData.searchTerm);
                   }
-                  // Open the advanced search modal with the criteria for editing
-                  setAdvancedSearchModalOpen(true);
+
+                  // Open the appropriate modal based on query type
+                  if (hasFilters && !hasSearchCriteria) {
+                    // Open Filter modal with pre-populated filters
+                    setFilterModalOpen(true);
+                  } else {
+                    // Open Advanced Search modal (default for search criteria or mixed)
+                    setAdvancedSearchModalOpen(true);
+                  }
                 }}
               />
 

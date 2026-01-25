@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,12 +11,17 @@ import { X, Plus, Minus, CalendarIcon } from "lucide-react"
 import { FaBook, FaBookmark } from "react-icons/fa"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
+import { SaveQueryModal } from "@/components/save-query-modal"
 
 interface ClinicalTrialAdvancedSearchModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onApplySearch: (criteria: ClinicalTrialSearchCriteria[]) => void
   onOpenSavedQueries?: () => void
+  currentSearchCriteria?: ClinicalTrialSearchCriteria[]
+  editingQueryId?: string | null
+  editingQueryTitle?: string
+  editingQueryDescription?: string
 }
 
 export interface ClinicalTrialSearchCriteria {
@@ -37,11 +42,22 @@ const searchFields = [
   { value: "trial_status", label: "Trial Status", type: "dropdown" },
   { value: "sponsor_collaborators", label: "Sponsor", type: "dropdown" },
   { value: "countries", label: "Countries", type: "dropdown" },
+  { value: "regions", label: "Regions", type: "dropdown" },
   { value: "patient_segment", label: "Patient Segment", type: "dropdown" },
   { value: "line_of_therapy", label: "Line of Therapy", type: "dropdown" },
+  { value: "subject_type", label: "Subject Type", type: "dropdown" },
+  { value: "actual_enrolled_volunteers", label: "Actual Enrolled Volunteers", type: "number" },
+  { value: "target_enrolled_volunteers", label: "Target Enrolled Volunteers", type: "number" },
+  { value: "total_number_of_sites", label: "Total Number of Sites", type: "number" },
   { value: "trial_identifier", label: "Trial Identifier", type: "text" },
-  { value: "start_date", label: "Start Date", type: "date" },
-  { value: "end_date", label: "End Date", type: "date" },
+  { value: "actual_start_date", label: "Actual Start Date", type: "date" },
+  { value: "estimated_start_date", label: "Estimated Start Date", type: "date" },
+  { value: "actual_enrollment_closed_date", label: "Actual Enrollment Closed Date", type: "date" },
+  { value: "estimated_enrollment_closed_date", label: "Estimated Enrollment Closed Date", type: "date" },
+  { value: "actual_trial_end_date", label: "Actual Trial End Date", type: "date" },
+  { value: "estimated_trial_end_date", label: "Estimated Trial End Date", type: "date" },
+  { value: "actual_result_published_date", label: "Actual Result Published Date", type: "date" },
+  { value: "estimated_result_published_date", label: "Estimated Result Published Date", type: "date" },
   { value: "title", label: "Title", type: "text" }
 ]
 
@@ -123,6 +139,18 @@ const fieldOptions: Record<string, { value: string; label: string }[]> = {
     { value: "AstraZeneca", label: "AstraZeneca" },
     { value: "Roche", label: "Roche" },
     { value: "Bristol-Myers Squibb", label: "Bristol-Myers Squibb" }
+  ],
+  regions: [
+    { value: "North America", label: "North America" },
+    { value: "Europe", label: "Europe" },
+    { value: "Asia Pacific", label: "Asia Pacific" },
+    { value: "Latin America", label: "Latin America" },
+    { value: "Africa", label: "Africa" },
+    { value: "Middle East", label: "Middle East" }
+  ],
+  subject_type: [
+    { value: "Human", label: "Human" },
+    { value: "Animal", label: "Animal" }
   ]
 }
 
@@ -138,7 +166,16 @@ const operators = [
   { value: "not_equals", label: "!=" }
 ]
 
-export function ClinicalTrialAdvancedSearchModal({ open, onOpenChange, onApplySearch, onOpenSavedQueries }: ClinicalTrialAdvancedSearchModalProps) {
+export function ClinicalTrialAdvancedSearchModal({
+  open,
+  onOpenChange,
+  onApplySearch,
+  onOpenSavedQueries,
+  currentSearchCriteria,
+  editingQueryId,
+  editingQueryTitle,
+  editingQueryDescription
+}: ClinicalTrialAdvancedSearchModalProps) {
   // Start with a single empty criteria row - NO default selections
   const [criteria, setCriteria] = useState<ClinicalTrialSearchCriteria[]>([
     {
@@ -149,6 +186,23 @@ export function ClinicalTrialAdvancedSearchModal({ open, onOpenChange, onApplySe
       logic: "AND",
     }
   ])
+  const [saveQueryModalOpen, setSaveQueryModalOpen] = useState(false)
+
+  // Sync internal state with props when modal opens or currentSearchCriteria change
+  useEffect(() => {
+    if (open && currentSearchCriteria && currentSearchCriteria.length > 0) {
+      setCriteria(currentSearchCriteria)
+    } else if (open && (!currentSearchCriteria || currentSearchCriteria.length === 0)) {
+      // Reset to empty if no criteria provided
+      setCriteria([{
+        id: "1",
+        field: "",
+        operator: "",
+        value: "",
+        logic: "AND",
+      }])
+    }
+  }, [open, currentSearchCriteria])
 
   const addCriteria = () => {
     const newCriteria: ClinicalTrialSearchCriteria = {
@@ -191,19 +245,7 @@ export function ClinicalTrialAdvancedSearchModal({ open, onOpenChange, onApplySe
   }
 
   const handleSaveQuery = () => {
-    const validCriteria = criteria.filter(c => c.field && c.value.trim() !== "");
-    const queryName = `Advanced Search (${validCriteria.length} criteria) - ${new Date().toLocaleDateString()}`;
-    const savedQueries = JSON.parse(localStorage.getItem('clinicalTrialSearchQueries') || '[]');
-    const newQuery = {
-      id: Date.now().toString(),
-      name: queryName,
-      criteria: criteria,
-      createdAt: new Date().toISOString()
-    };
-
-    savedQueries.push(newQuery);
-    localStorage.setItem('clinicalTrialSearchQueries', JSON.stringify(savedQueries));
-    alert(`Query saved as: ${queryName}`);
+    setSaveQueryModalOpen(true)
   }
 
   // Get field type for determining input type
@@ -300,188 +342,202 @@ export function ClinicalTrialAdvancedSearchModal({ open, onOpenChange, onApplySe
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="max-w-4xl max-h-[80vh] p-0 rounded-lg overflow-hidden [&>button]:hidden"
-        style={{ fontFamily: "Poppins, sans-serif" }}
-      >
-        {/* Header - Light Blue Background */}
-        <DialogHeader
-          className="px-6 py-4 border-b relative"
-          style={{ backgroundColor: "#C3E9FB" }}
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
+          className="max-w-4xl max-h-[80vh] p-0 rounded-lg overflow-hidden [&>button]:hidden"
+          style={{ fontFamily: "Poppins, sans-serif" }}
         >
-          <div className="flex items-center justify-between">
-            <DialogTitle
-              className="text-lg font-semibold"
-              style={{ fontFamily: "Poppins, sans-serif", color: "#204B73" }}
-            >
-              Advanced search
-            </DialogTitle>
-            <button
-              onClick={() => onOpenChange(false)}
-              className="absolute right-4 top-4 rounded-full p-1 hover:bg-gray-200"
-              style={{ backgroundColor: "#204B73" }}
-            >
-              <X className="h-5 w-5 text-white" />
-            </button>
-          </div>
-        </DialogHeader>
+          {/* Header - Light Blue Background */}
+          <DialogHeader
+            className="px-6 py-4 border-b relative"
+            style={{ backgroundColor: "#C3E9FB" }}
+          >
+            <div className="flex items-center justify-between">
+              <DialogTitle
+                className="text-lg font-semibold"
+                style={{ fontFamily: "Poppins, sans-serif", color: "#204B73" }}
+              >
+                Advanced search
+              </DialogTitle>
+              <button
+                onClick={() => onOpenChange(false)}
+                className="absolute right-4 top-4 rounded-full p-1 hover:bg-gray-200"
+                style={{ backgroundColor: "#204B73" }}
+              >
+                <X className="h-5 w-5 text-white" />
+              </button>
+            </div>
+          </DialogHeader>
 
-        {/* Search Criteria Rows */}
-        <div className="p-6 space-y-4 max-h-[400px] overflow-y-auto bg-white">
-          {criteria.map((criterion, index) => (
-            <div key={criterion.id} className="space-y-3">
-              <div className="flex items-center gap-3">
-                {/* Field Dropdown */}
-                <div className="w-[140px]">
-                  <Select
-                    value={criterion.field}
-                    onValueChange={(value) => updateCriteria(criterion.id, "field", value)}
-                  >
-                    <SelectTrigger
-                      className="bg-white border border-gray-300 rounded-lg text-center justify-center"
-                      style={{ fontFamily: "Poppins, sans-serif" }}
+          {/* Search Criteria Rows */}
+          <div className="p-6 space-y-4 max-h-[400px] overflow-y-auto bg-white">
+            {criteria.map((criterion, index) => (
+              <div key={criterion.id} className="space-y-3">
+                <div className="flex items-center gap-3">
+                  {/* Field Dropdown */}
+                  <div className="w-[140px]">
+                    <Select
+                      value={criterion.field}
+                      onValueChange={(value) => updateCriteria(criterion.id, "field", value)}
                     >
-                      <SelectValue placeholder="Choose Field" />
-                    </SelectTrigger>
-                    <SelectContent position="popper" side="bottom" style={{ fontFamily: "Poppins, sans-serif" }}>
-                      {searchFields.map((field) => (
-                        <SelectItem key={field.value} value={field.value}>
-                          {field.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                      <SelectTrigger
+                        className="bg-white border border-gray-300 rounded-lg text-center justify-center"
+                        style={{ fontFamily: "Poppins, sans-serif" }}
+                      >
+                        <SelectValue placeholder="Choose Field" />
+                      </SelectTrigger>
+                      <SelectContent position="popper" side="bottom" style={{ fontFamily: "Poppins, sans-serif" }}>
+                        {searchFields.map((field) => (
+                          <SelectItem key={field.value} value={field.value}>
+                            {field.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                {/* Operator Dropdown - Teal Color #208B8B */}
-                <div className="w-[100px]">
-                  <Select
-                    value={criterion.operator}
-                    onValueChange={(value) => updateCriteria(criterion.id, "operator", value)}
-                    disabled={!criterion.field}
-                  >
-                    <SelectTrigger
-                      className="text-white border-0 rounded-lg text-center justify-center disabled:opacity-50"
-                      style={{ backgroundColor: "#208B8B", fontFamily: "Poppins, sans-serif" }}
+                  {/* Operator Dropdown - Teal Color #208B8B */}
+                  <div className="w-[100px]">
+                    <Select
+                      value={criterion.operator}
+                      onValueChange={(value) => updateCriteria(criterion.id, "operator", value)}
+                      disabled={!criterion.field}
                     >
-                      <SelectValue placeholder="Operator" />
-                    </SelectTrigger>
-                    <SelectContent position="popper" side="bottom" style={{ fontFamily: "Poppins, sans-serif" }}>
-                      {operators.map((op) => (
-                        <SelectItem key={op.value} value={op.value}>
-                          {op.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                      <SelectTrigger
+                        className="text-white border-0 rounded-lg text-center justify-center disabled:opacity-50"
+                        style={{ backgroundColor: "#208B8B", fontFamily: "Poppins, sans-serif" }}
+                      >
+                        <SelectValue placeholder="Operator" />
+                      </SelectTrigger>
+                      <SelectContent position="popper" side="bottom" style={{ fontFamily: "Poppins, sans-serif" }}>
+                        {operators.map((op) => (
+                          <SelectItem key={op.value} value={op.value}>
+                            {op.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                {/* Search Term Input - Dynamic based on field type */}
-                <div className="flex-1">
-                  {criterion.field ? (
-                    renderValueInput(criterion)
-                  ) : (
-                    <Input
-                      placeholder="Select a field first"
-                      disabled
-                      className="border border-gray-300 rounded-lg text-center"
-                      style={{ fontFamily: "Poppins, sans-serif" }}
-                    />
-                  )}
-                </div>
+                  {/* Search Term Input - Dynamic based on field type */}
+                  <div className="flex-1">
+                    {criterion.field ? (
+                      renderValueInput(criterion)
+                    ) : (
+                      <Input
+                        placeholder="Select a field first"
+                        disabled
+                        className="border border-gray-300 rounded-lg text-center"
+                        style={{ fontFamily: "Poppins, sans-serif" }}
+                      />
+                    )}
+                  </div>
 
-                {/* Boolean Dropdown - Orange #FFB547 */}
-                <div className="w-[100px]">
-                  <Select
-                    value={criterion.logic}
-                    onValueChange={(value) => updateCriteria(criterion.id, "logic", value as "AND" | "OR")}
-                  >
-                    <SelectTrigger
-                      className="text-white border-0 rounded-lg text-center justify-center"
-                      style={{ backgroundColor: "#FFB547", fontFamily: "Poppins, sans-serif" }}
+                  {/* Boolean Dropdown - Orange #FFB547 */}
+                  <div className="w-[100px]">
+                    <Select
+                      value={criterion.logic}
+                      onValueChange={(value) => updateCriteria(criterion.id, "logic", value as "AND" | "OR")}
                     >
-                      <SelectValue placeholder="Boolean" />
-                    </SelectTrigger>
-                    <SelectContent position="popper" side="bottom" style={{ fontFamily: "Poppins, sans-serif" }}>
-                      <SelectItem value="AND">AND</SelectItem>
-                      <SelectItem value="OR">OR</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                      <SelectTrigger
+                        className="text-white border-0 rounded-lg text-center justify-center"
+                        style={{ backgroundColor: "#FFB547", fontFamily: "Poppins, sans-serif" }}
+                      >
+                        <SelectValue placeholder="Boolean" />
+                      </SelectTrigger>
+                      <SelectContent position="popper" side="bottom" style={{ fontFamily: "Poppins, sans-serif" }}>
+                        <SelectItem value="AND">AND</SelectItem>
+                        <SelectItem value="OR">OR</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                {/* Plus/Minus Buttons */}
-                <div className="flex gap-1">
-                  {/* Plus Button - Green #4FD09D */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={addCriteria}
-                    className="border-0 h-8 w-8 p-0 rounded"
-                    style={{ backgroundColor: "#4FD09D" }}
-                  >
-                    <Plus className="h-4 w-4 text-white" />
-                  </Button>
-                  {/* Minus Button - Red/Coral #F67F77 */}
-                  {criteria.length > 1 && (
+                  {/* Plus/Minus Buttons */}
+                  <div className="flex gap-1">
+                    {/* Plus Button - Green #4FD09D */}
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => removeCriteria(criterion.id)}
+                      onClick={addCriteria}
                       className="border-0 h-8 w-8 p-0 rounded"
-                      style={{ backgroundColor: "#F67F77" }}
+                      style={{ backgroundColor: "#4FD09D" }}
                     >
-                      <Minus className="h-4 w-4 text-white" />
+                      <Plus className="h-4 w-4 text-white" />
                     </Button>
-                  )}
+                    {/* Minus Button - Red/Coral #F67F77 */}
+                    {criteria.length > 1 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeCriteria(criterion.id)}
+                        className="border-0 h-8 w-8 p-0 rounded"
+                        style={{ backgroundColor: "#F67F77" }}
+                      >
+                        <Minus className="h-4 w-4 text-white" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
+
+                {/* Divider line between rows */}
+                {index < criteria.length - 1 && (
+                  <div style={{ borderBottom: "1px solid #DFE1E7", marginTop: "16px" }}></div>
+                )}
               </div>
+            ))}
+          </div>
 
-              {/* Divider line between rows */}
-              {index < criteria.length - 1 && (
-                <div style={{ borderBottom: "1px solid #DFE1E7", marginTop: "16px" }}></div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Footer with Action Buttons */}
-        <div
-          className="flex items-center justify-end gap-3 px-6 py-4 border-t"
-        >
-          {/* Open Saved Queries Button */}
-          <Button
-            variant="outline"
-            onClick={handleOpenSavedQueries}
-            className="border-0 rounded-lg px-4 py-2 flex items-center gap-2 hover:opacity-80 transition-opacity"
-            style={{ backgroundColor: "#204B73", fontFamily: "Poppins, sans-serif", color: "white" }}
+          {/* Footer with Action Buttons */}
+          <div
+            className="flex items-center justify-end gap-3 px-6 py-4 border-t"
           >
-            <FaBook className="h-4 w-4" />
-            Open saved queries
-          </Button>
+            {/* Open Saved Queries Button */}
+            <Button
+              variant="outline"
+              onClick={handleOpenSavedQueries}
+              className="border-0 rounded-lg px-4 py-2 flex items-center gap-2 hover:opacity-80 transition-opacity"
+              style={{ backgroundColor: "#204B73", fontFamily: "Poppins, sans-serif", color: "white" }}
+            >
+              <FaBook className="h-4 w-4" />
+              Open saved queries
+            </Button>
 
-          {/* Save This Query Button */}
-          <Button
-            variant="outline"
-            onClick={handleSaveQuery}
-            className="border-0 rounded-lg px-4 py-2 flex items-center gap-2 hover:opacity-80 transition-opacity"
-            style={{ backgroundColor: "#204B73", fontFamily: "Poppins, sans-serif", color: "white" }}
-          >
-            <FaBookmark className="h-4 w-4" />
-            Save this Query
-          </Button>
+            {/* Save This Query Button */}
+            <Button
+              variant="outline"
+              onClick={handleSaveQuery}
+              className="border-0 rounded-lg px-4 py-2 flex items-center gap-2 hover:opacity-80 transition-opacity"
+              style={{ backgroundColor: "#204B73", fontFamily: "Poppins, sans-serif", color: "white" }}
+            >
+              <FaBookmark className="h-4 w-4" />
+              Save this Query
+            </Button>
 
-          {/* Run Button */}
-          <Button
-            onClick={handleApply}
-            className="border-0 rounded-lg px-6 py-2 hover:opacity-80 transition-opacity"
-            style={{ backgroundColor: "#204B73", fontFamily: "Poppins, sans-serif", color: "white" }}
-          >
-            Run
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+            {/* Run Button */}
+            <Button
+              onClick={handleApply}
+              className="border-0 rounded-lg px-6 py-2 hover:opacity-80 transition-opacity"
+              style={{ backgroundColor: "#204B73", fontFamily: "Poppins, sans-serif", color: "white" }}
+            >
+              Run
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Save Query Modal */}
+      <SaveQueryModal
+        open={saveQueryModalOpen}
+        onOpenChange={setSaveQueryModalOpen}
+        currentFilters={{}}
+        currentSearchCriteria={criteria}
+        searchTerm=""
+        editingQueryId={editingQueryId}
+        editingQueryTitle={editingQueryTitle}
+        editingQueryDescription={editingQueryDescription}
+      />
+    </>
   )
 }
 

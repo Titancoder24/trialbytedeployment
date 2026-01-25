@@ -375,7 +375,7 @@ export default function AdminTherapeuticsPage() {
     }
   };
 
-  const fetchTrials = async (isRefresh = false) => {
+  const fetchTrials = async (isRefresh = false, showToast = false) => {
     try {
       if (isRefresh) {
         setRefreshing(true);
@@ -424,7 +424,7 @@ export default function AdminTherapeuticsPage() {
       // Pre-populate user name mapping cache
       populateUserNameMap(trialsWithLocalUpdates);
 
-      if (isRefresh) {
+      if (isRefresh && showToast) {
         toast({
           title: "Refreshed",
           description: "Clinical trials data has been updated",
@@ -2161,7 +2161,7 @@ export default function AdminTherapeuticsPage() {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         console.log('Page became visible, refreshing data...');
-        fetchTrials(true); // Force refresh to get latest data
+        fetchTrials(true, false); // Refresh without toast
         fetchDrugsAndBuildMapping(); // Rebuild drug mapping
       }
     };
@@ -2171,7 +2171,7 @@ export default function AdminTherapeuticsPage() {
     // Also refresh when window gains focus (alternative to visibility change)
     const handleFocus = () => {
       console.log('Window gained focus, refreshing data...');
-      fetchTrials(true);
+      fetchTrials(true, false); // Refresh without toast
       fetchDrugsAndBuildMapping(); // Rebuild drug mapping
     };
 
@@ -2180,7 +2180,7 @@ export default function AdminTherapeuticsPage() {
     // Listen for custom refresh event from edit pages
     const handleRefreshFromEdit = () => {
       console.log('Refresh triggered from edit page, refreshing data...');
-      fetchTrials(true);
+      fetchTrials(true, false); // Refresh without toast
       fetchDrugsAndBuildMapping(); // Rebuild drug mapping
     };
 
@@ -2384,7 +2384,7 @@ export default function AdminTherapeuticsPage() {
           </Button>
           <Button
             variant="outline"
-            onClick={() => fetchTrials(true)}
+            onClick={() => fetchTrials(true, true)}
             disabled={loading || refreshing}
             className="flex items-center gap-2"
           >

@@ -154,25 +154,46 @@ const therapeuticSearchFields = [
   { value: "patient_segment", label: "Patient Segment" },
   { value: "line_of_therapy", label: "Line of Therapy" },
   { value: "sponsor_collaborators", label: "Sponsor Collaborators" },
-  { value: "sponsor_field_activity", label: "Sponsor Field Activity" },
+  { value: "sponsor_field_activity", label: "Sponsor Field of Activity" },
   { value: "associated_cro", label: "Associated CRO" },
   { value: "countries", label: "Countries" },
-  { value: "region", label: "Region" },
+  { value: "regions", label: "Regions" },
   { value: "trial_record_status", label: "Trial Record Status" },
   { value: "trial_tags", label: "Trial Tags" },
 
   // Eligibility criteria dropdown fields (Step 5-3)
+  { value: "subject_type", label: "Subject Type" },
   { value: "gender", label: "Gender" },
   { value: "healthy_volunteers", label: "Healthy Volunteers" },
+  { value: "actual_enrolled_volunteers", label: "Actual Enrolled Volunteers" },
+  { value: "target_enrolled_volunteers", label: "Target Enrolled Volunteers" },
 
   // Results dropdown fields (Step 5-5)
   { value: "trial_outcome", label: "Trial Outcome" },
 
-  // Additional data dropdown fields (Step 5-7)
-  { value: "registry_name", label: "Registry Name" },
-
   // Study design keywords (Step 5-2) - dropdown
   { value: "study_design_keywords", label: "Study Design Keywords" },
+
+  // Date fields - Actual
+  { value: "actual_start_date", label: "Actual Start Date" },
+  { value: "actual_enrollment_closed_date", label: "Actual Enrollment Closed Date" },
+  { value: "actual_trial_end_date", label: "Actual Trial End Date" },
+  { value: "actual_result_published_date", label: "Actual Result Published Date" },
+
+  // Date fields - Estimated
+  { value: "estimated_start_date", label: "Estimated Start Date" },
+  { value: "estimated_enrollment_closed_date", label: "Estimated Enrollment Closed Date" },
+  { value: "estimated_trial_end_date", label: "Estimated Trial End Date" },
+  { value: "estimated_result_published_date", label: "Estimated Result Published Date" },
+
+  // Sites
+  { value: "total_number_of_sites", label: "Total Number of Sites" },
+
+  // Admin-only fields
+  { value: "full_review_user", label: "Full Review User" },
+  { value: "last_modified_user", label: "Last Modified User" },
+  { value: "next_review_date", label: "Next Review Date" },
+  { value: "internal_note", label: "Internal Note" },
 
   // Text fields that are commonly used for search
   { value: "title", label: "Title" },
@@ -370,8 +391,8 @@ const fieldOptions: Record<string, { value: string; label: string }[]> = {
     { value: "norway", label: "Norway" },
     { value: "denmark", label: "Denmark" }
   ],
-  // Region - Exact options from creation phase
-  region: [
+  // Regions - Exact options from creation phase
+  regions: [
     { value: "north_america", label: "North America" },
     { value: "europe", label: "Europe" },
     { value: "asia_pacific", label: "Asia Pacific" },
@@ -422,36 +443,6 @@ const fieldOptions: Record<string, { value: string; label: string }[]> = {
     { value: "Moderate", label: "Moderate" },
     { value: "Severe", label: "Severe" }
   ],
-  // Step 5-7: Additional Data dropdowns
-  publication_type: [
-    { value: "company_presentation", label: "Company Presentation" },
-    { value: "sec_filing", label: "SEC Filing" },
-    { value: "company_conference_report", label: "Company Conference Report" },
-    { value: "revenue_reports", label: "Revenue Reports" },
-    { value: "others", label: "Others" }
-  ],
-  registry_name: [
-    { value: "euctr", label: "EUCTR" },
-    { value: "ctri", label: "CTRI" },
-    { value: "anzctr", label: "ANZCTR" },
-    { value: "slctr", label: "SLCTR" },
-    { value: "chictr", label: "ChiCTR" },
-    { value: "chinese_fda", label: "Chinese FDA" },
-    { value: "canadian_cancer_trials", label: "Canadian Cancer Trials" },
-    { value: "health_canada", label: "Health Canada" },
-    { value: "brazil_ctr", label: "Brazil CTR" },
-    { value: "german_ctr", label: "German CTR" },
-    { value: "cuban_ctr", label: "Cuban CTR" },
-    { value: "iran_ctr", label: "Iran CTR" },
-    { value: "lebanon_ctr", label: "Lebanon CTR" },
-    { value: "pactr", label: "PACTR" },
-    { value: "umin", label: "UMIN" }
-  ],
-  study_type: [
-    { value: "follow_up_study", label: "Follow up Study" },
-    { value: "observational_study", label: "Observational study" },
-    { value: "other_study", label: "Other Study" }
-  ],
   // Step 5-2: Study Design Keywords
   study_design_keywords: [
     { value: "Placebo-control", label: "Placebo-control" },
@@ -474,9 +465,17 @@ const fieldOptions: Record<string, { value: string; label: string }[]> = {
     { value: "Prospective", label: "Prospective" },
     { value: "Cohort", label: "Cohort" }
   ],
-  // Logs fields - Last Modified User
+  // Logs fields - Last Modified User and Full Review User
   last_modified_user: [
     { value: "Admin", label: "Admin" }
+  ],
+  full_review_user: [
+    { value: "Admin", label: "Admin" }
+  ],
+  // Subject Type from criteria
+  subject_type: [
+    { value: "human", label: "Human" },
+    { value: "animal", label: "Animal" }
   ]
 }
 
@@ -484,7 +483,16 @@ const fieldOptions: Record<string, { value: string; label: string }[]> = {
 const dateFields = [
   "created_at",
   "updated_at",
-  "last_modified_date"
+  "last_modified_date",
+  "actual_start_date",
+  "estimated_start_date",
+  "actual_enrollment_closed_date",
+  "estimated_enrollment_closed_date",
+  "actual_trial_end_date",
+  "estimated_trial_end_date",
+  "actual_result_published_date",
+  "estimated_result_published_date",
+  "next_review_date"
 ]
 
 export function TherapeuticAdvancedSearchModal({
@@ -521,9 +529,9 @@ export function TherapeuticAdvancedSearchModal({
   const dropdownCategories = [
     'therapeutic_area', 'trial_phase', 'trial_status', 'disease_type', 'patient_segment',
     'line_of_therapy', 'trial_record_status', 'sex', 'healthy_volunteers', 'trial_outcome',
-    'adverse_event_reported', 'adverse_event_type', 'publication_type', 'registry_name',
-    'study_type', 'study_design_keywords', 'trial_tags', 'sponsor_collaborators',
-    'sponsor_field_activity', 'associated_cro', 'country', 'region'
+    'adverse_event_reported', 'adverse_event_type', 'study_design_keywords', 'trial_tags',
+    'sponsor_collaborators', 'sponsor_field_activity', 'associated_cro', 'country', 'regions',
+    'subject_type', 'full_review_user', 'last_modified_user'
   ]
 
   // Map category names to field names for fallback options lookup
@@ -635,6 +643,7 @@ export function TherapeuticAdvancedSearchModal({
           case 'countries':
             fieldValue = trial.overview?.countries || ''
             break
+          case 'regions':
           case 'region':
             fieldValue = trial.overview?.region || ''
             break
@@ -754,6 +763,7 @@ export function TherapeuticAdvancedSearchModal({
       'status': 'trial_status',
       'gender': 'sex',
       'countries': 'country',
+      'region': 'regions',
     };
     const categoryName = fieldToCategoryMap[criterion.field] || criterion.field;
 
@@ -820,17 +830,27 @@ export function TherapeuticAdvancedSearchModal({
       )
     }
 
-    // Special handling for trial_tags - use multi-tag input
+    // Special handling for trial_tags - use dropdown with dynamic values from dropdown management API
     if (criterion.field === "trial_tags") {
-      const tags = Array.isArray(criterion.value) ? criterion.value :
-        criterion.value ? [criterion.value] : [];
+      // Use dynamic dropdown values from API if available, otherwise empty array
+      const tagOptions = dynamicDropdowns['trial_tags']?.options || [];
+
       return (
-        <MultiTagInput
-          value={tags}
-          onChange={(tags) => updateCriteria(criterion.id, "value", tags)}
-          placeholder="Enter tags like 'Cancer', 'Fever' and press Enter"
-          className="w-full"
-        />
+        <Select
+          value={Array.isArray(criterion.value) ? criterion.value[0] || "" : criterion.value}
+          onValueChange={(value) => updateCriteria(criterion.id, "value", value)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select trial tag" />
+          </SelectTrigger>
+          <SelectContent>
+            {tagOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       )
     }
 
@@ -881,13 +901,20 @@ export function TherapeuticAdvancedSearchModal({
       )
     }
 
-    // Integer input for number_of_arms field
-    if (criterion.field === "number_of_arms") {
+    // Integer input for number_of_arms, actual_enrolled_volunteers, target_enrolled_volunteers, total_number_of_sites
+    if (["number_of_arms", "actual_enrolled_volunteers", "target_enrolled_volunteers", "total_number_of_sites"].includes(criterion.field)) {
+      const placeholders: Record<string, string> = {
+        "number_of_arms": "Enter number of arms (e.g., 2)",
+        "actual_enrolled_volunteers": "Enter actual enrolled volunteers",
+        "target_enrolled_volunteers": "Enter target enrolled volunteers",
+        "total_number_of_sites": "Enter total number of sites"
+      };
+
       return (
         <Input
           type="number"
-          min="1"
-          placeholder="Enter number of arms (e.g., 2)"
+          min="0"
+          placeholder={placeholders[criterion.field] || "Enter number"}
           value={Array.isArray(criterion.value) ? criterion.value[0] || "" : criterion.value}
           onChange={(e) => {
             const value = e.target.value;
@@ -902,6 +929,17 @@ export function TherapeuticAdvancedSearchModal({
               e.preventDefault();
             }
           }}
+        />
+      )
+    }
+
+    // Text input for internal_note
+    if (criterion.field === "internal_note") {
+      return (
+        <Input
+          placeholder="Enter internal note"
+          value={Array.isArray(criterion.value) ? criterion.value[0] || "" : criterion.value}
+          onChange={(e) => updateCriteria(criterion.id, "value", e.target.value)}
         />
       )
     }

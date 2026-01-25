@@ -8,12 +8,16 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { X } from "lucide-react"
 import { FaBookmark } from "react-icons/fa"
 import { useDrugNames } from "@/hooks/use-drug-names"
+import { SaveQueryModal } from "@/components/save-query-modal"
 
 interface ClinicalTrialFilterModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onApplyFilters: (filters: ClinicalTrialFilterState) => void
   currentFilters: ClinicalTrialFilterState
+  editingQueryId?: string | null
+  editingQueryTitle?: string
+  editingQueryDescription?: string
 }
 
 export interface ClinicalTrialFilterState {
@@ -85,9 +89,18 @@ const staticFilterCategories = {
   healthyVolunteers: ["Yes", "No"]
 }
 
-export function ClinicalTrialFilterModal({ open, onOpenChange, onApplyFilters, currentFilters }: ClinicalTrialFilterModalProps) {
+export function ClinicalTrialFilterModal({
+  open,
+  onOpenChange,
+  onApplyFilters,
+  currentFilters,
+  editingQueryId,
+  editingQueryTitle,
+  editingQueryDescription
+}: ClinicalTrialFilterModalProps) {
   const [filters, setFilters] = useState<ClinicalTrialFilterState>(currentFilters)
   const [activeCategory, setActiveCategory] = useState<keyof ClinicalTrialFilterState>("trialPhases")
+  const [saveQueryModalOpen, setSaveQueryModalOpen] = useState(false)
   const { getPrimaryDrugsOptions, isLoading: isDrugsLoading } = useDrugNames()
 
   // Build filter categories with dynamic drug data from API
@@ -101,6 +114,13 @@ export function ClinicalTrialFilterModal({ open, onOpenChange, onApplyFilters, c
       otherDrugs: drugLabels.length > 0 ? drugLabels : ["No drugs available - add drugs in the drug module"],
     }
   }, [getPrimaryDrugsOptions])
+
+  // Sync internal state with props when modal opens or currentFilters change
+  useEffect(() => {
+    if (open) {
+      setFilters(currentFilters)
+    }
+  }, [open, currentFilters])
 
   const handleSelectAll = (category: keyof ClinicalTrialFilterState) => {
     setFilters((prev) => ({
@@ -139,30 +159,7 @@ export function ClinicalTrialFilterModal({ open, onOpenChange, onApplyFilters, c
   }
 
   const handleSaveQuery = () => {
-    const activeFilterCount = Object.values(filters).reduce((count, arr) => count + arr.length, 0);
-    const queryName = `Filter Query (${activeFilterCount} filters) - ${formatDateToMMDDYYYY(new Date().toISOString())}`;
-
-    // Create query in the format expected by QueryHistoryModal
-    const newQuery = {
-      id: Date.now().toString(),
-      title: queryName,
-      description: `Saved from Filter modal with ${activeFilterCount} filters`,
-      query_type: "dashboard",
-      query_data: {
-        searchTerm: "",
-        filters: filters,
-        searchCriteria: [],
-        savedAt: new Date().toISOString()
-      },
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-
-    // Save to unifiedSavedQueries to match QueryHistoryModal
-    const savedQueries = JSON.parse(localStorage.getItem('unifiedSavedQueries') || '[]');
-    savedQueries.push(newQuery);
-    localStorage.setItem('unifiedSavedQueries', JSON.stringify(savedQueries));
-    alert(`Query saved as: ${queryName}`);
+    setSaveQueryModalOpen(true)
   }
 
   const categoryLabels: Record<keyof ClinicalTrialFilterState, string> = {
@@ -203,142 +200,156 @@ export function ClinicalTrialFilterModal({ open, onOpenChange, onApplyFilters, c
   ]
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="max-w-4xl max-h-[90vh] p-0 rounded-lg overflow-hidden [&>button]:hidden"
-        style={{ fontFamily: "Poppins, sans-serif", fontSize: "12px" }}
-      >
-        {/* Header - Light Blue Background */}
-        <DialogHeader
-          className="px-6 py-4 border-b relative"
-          style={{ backgroundColor: "#C3E9FB" }}
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
+          className="max-w-4xl max-h-[90vh] p-0 rounded-lg overflow-hidden [&>button]:hidden"
+          style={{ fontFamily: "Poppins, sans-serif", fontSize: "12px" }}
         >
-          <div className="flex items-center justify-between">
-            <DialogTitle
-              className="text-lg font-semibold"
-              style={{ fontFamily: "Poppins, sans-serif", color: "#204B73" }}
-            >
-              Filters
-            </DialogTitle>
-            <button
-              onClick={() => onOpenChange(false)}
-              className="absolute right-4 top-4 rounded-full p-1 hover:opacity-80"
-              style={{ backgroundColor: "#204B73" }}
-            >
-              <X className="h-5 w-5 text-white" />
-            </button>
-          </div>
-        </DialogHeader>
-
-        <div className="flex h-[370px]"
-          style={{ marginTop: "-15px", marginBottom: "-10px" }}>
-          {/* Left sidebar with filter categories */}
-          <div
-            className="w-56 p-4 overflow-y-auto"
-            style={{ borderRight: "3px solid #204B73" }}
+          {/* Header - Light Blue Background */}
+          <DialogHeader
+            className="px-6 py-4 border-b relative"
+            style={{ backgroundColor: "#C3E9FB" }}
           >
-            <div className="space-y-1">
-              {categoryOrder.map((category) => {
-                const selectedCount = filters[category].length;
-                const isActive = activeCategory === category;
-                const hasSelection = selectedCount > 0;
+            <div className="flex items-center justify-between">
+              <DialogTitle
+                className="text-lg font-semibold"
+                style={{ fontFamily: "Poppins, sans-serif", color: "#204B73" }}
+              >
+                Filters
+              </DialogTitle>
+              <button
+                onClick={() => onOpenChange(false)}
+                className="absolute right-4 top-4 rounded-full p-1 hover:opacity-80"
+                style={{ backgroundColor: "#204B73" }}
+              >
+                <X className="h-5 w-5 text-white" />
+              </button>
+            </div>
+          </DialogHeader>
 
-                return (
-                  <button
-                    key={category}
-                    onClick={() => setActiveCategory(category)}
-                    className={`w-full text-left px-3 py-1.5 transition-colors rounded-md flex items-center justify-between ${isActive
+          <div className="flex h-[370px]"
+            style={{ marginTop: "-15px", marginBottom: "-10px" }}>
+            {/* Left sidebar with filter categories */}
+            <div
+              className="w-56 p-4 overflow-y-auto"
+              style={{ borderRight: "3px solid #204B73" }}
+            >
+              <div className="space-y-1">
+                {categoryOrder.map((category) => {
+                  const selectedCount = filters[category].length;
+                  const isActive = activeCategory === category;
+                  const hasSelection = selectedCount > 0;
+
+                  return (
+                    <button
+                      key={category}
+                      onClick={() => setActiveCategory(category)}
+                      className={`w-full text-left px-3 py-1.5 transition-colors rounded-md flex items-center justify-between ${isActive
                         ? "bg-[#204B73] text-white font-medium"
                         : hasSelection
                           ? "bg-[#E3F2FD] text-[#204B73] font-medium border border-[#204B73]"
                           : "text-gray-700 hover:bg-gray-100"
-                      }`}
-                    style={{ fontFamily: "Poppins, sans-serif", fontSize: "11px" }}
-                  >
-                    <span>{categoryLabels[category]}</span>
-                    {hasSelection && (
-                      <span
-                        className={`ml-2 px-2 py-0.5 rounded-md text-[10px] font-semibold ${isActive
+                        }`}
+                      style={{ fontFamily: "Poppins, sans-serif", fontSize: "11px" }}
+                    >
+                      <span>{categoryLabels[category]}</span>
+                      {hasSelection && (
+                        <span
+                          className={`ml-2 px-2 py-0.5 rounded-md text-[10px] font-semibold ${isActive
                             ? "bg-white text-[#204B73]"
                             : "bg-[#204B73] text-white"
-                          }`}
-                      >
-                        {selectedCount}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+                            }`}
+                        >
+                          {selectedCount}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
 
-          {/* Right content area */}
-          <div className="flex-1 p-6 overflow-y-auto">
-            {/* Select All/Deselect All Header */}
-            <div
-              className="flex items-center gap-3 p-3 rounded-lg mb-4"
-              style={{ backgroundColor: "#204B73" }}
-            >
-              <Checkbox
-                id="select-all"
-                checked={filters[activeCategory].length === filterCategories[activeCategory].length}
-                onCheckedChange={() => handleToggleSelectAll(activeCategory)}
-                className="border-white data-[state=checked]:bg-white data-[state=checked]:text-[#204B73]"
-              />
-              <label
-                htmlFor="select-all"
-                className="text-sm font-medium text-white cursor-pointer"
-                style={{ fontFamily: "Poppins, sans-serif" }}
+            {/* Right content area */}
+            <div className="flex-1 p-6 overflow-y-auto">
+              {/* Select All/Deselect All Header */}
+              <div
+                className="flex items-center gap-3 p-3 rounded-lg mb-4"
+                style={{ backgroundColor: "#204B73" }}
               >
-                Select All/Deselect All
-              </label>
-            </div>
+                <Checkbox
+                  id="select-all"
+                  checked={filters[activeCategory].length === filterCategories[activeCategory].length}
+                  onCheckedChange={() => handleToggleSelectAll(activeCategory)}
+                  className="border-white data-[state=checked]:bg-white data-[state=checked]:text-[#204B73]"
+                />
+                <label
+                  htmlFor="select-all"
+                  className="text-sm font-medium text-white cursor-pointer"
+                  style={{ fontFamily: "Poppins, sans-serif" }}
+                >
+                  Select All/Deselect All
+                </label>
+              </div>
 
-            {/* Filter Options */}
-            <div className="space-y-3 max-h-[262px] overflow-y-auto">
-              {filterCategories[activeCategory].map((item) => (
-                <div key={item} className="flex items-center gap-3">
-                  <Checkbox
-                    id={`${activeCategory}-${item}`}
-                    checked={filters[activeCategory].includes(item)}
-                    onCheckedChange={() => handleItemToggle(activeCategory, item)}
-                    className="border-gray-400"
-                  />
-                  <label
-                    htmlFor={`${activeCategory}-${item}`}
-                    className="cursor-pointer"
-                    style={{ fontFamily: "Poppins, sans-serif", color: "#333", fontSize: "11px" }}
-                  >
-                    {item}
-                  </label>
-                </div>
-              ))}
+              {/* Filter Options */}
+              <div className="space-y-3 max-h-[262px] overflow-y-auto">
+                {filterCategories[activeCategory].map((item) => (
+                  <div key={item} className="flex items-center gap-3">
+                    <Checkbox
+                      id={`${activeCategory}-${item}`}
+                      checked={filters[activeCategory].includes(item)}
+                      onCheckedChange={() => handleItemToggle(activeCategory, item)}
+                      className="border-gray-400"
+                    />
+                    <label
+                      htmlFor={`${activeCategory}-${item}`}
+                      className="cursor-pointer"
+                      style={{ fontFamily: "Poppins, sans-serif", color: "#333", fontSize: "11px" }}
+                    >
+                      {item}
+                    </label>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Footer with Action Buttons */}
-        <div
-          className="flex items-center justify-end gap-3 px-6 py-2 border-t"
-        >
-          <Button
-            variant="outline"
-            onClick={handleSaveQuery}
-            className="border-0 rounded-lg px-4 py-2 flex items-center gap-2 hover:opacity-80 transition-opacity"
-            style={{ backgroundColor: "#204B73", fontFamily: "Poppins, sans-serif", color: "white" }}
+          {/* Footer with Action Buttons */}
+          <div
+            className="flex items-center justify-end gap-3 px-6 py-2 border-t"
           >
-            <FaBookmark className="h-4 w-4" />
-            Save this Query
-          </Button>
-          <Button
-            onClick={handleApply}
-            className="border-0 rounded-lg px-6 py-2 hover:opacity-80 transition-opacity"
-            style={{ backgroundColor: "#204B73", fontFamily: "Poppins, sans-serif", color: "white" }}
-          >
-            Run
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+            <Button
+              variant="outline"
+              onClick={handleSaveQuery}
+              className="border-0 rounded-lg px-4 py-2 flex items-center gap-2 hover:opacity-80 transition-opacity"
+              style={{ backgroundColor: "#204B73", fontFamily: "Poppins, sans-serif", color: "white" }}
+            >
+              <FaBookmark className="h-4 w-4" />
+              Save this Query
+            </Button>
+            <Button
+              onClick={handleApply}
+              className="border-0 rounded-lg px-6 py-2 hover:opacity-80 transition-opacity"
+              style={{ backgroundColor: "#204B73", fontFamily: "Poppins, sans-serif", color: "white" }}
+            >
+              Run
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Save Query Modal */}
+      <SaveQueryModal
+        open={saveQueryModalOpen}
+        onOpenChange={setSaveQueryModalOpen}
+        currentFilters={filters as unknown as Record<string, string[]>}
+        currentSearchCriteria={[]}
+        searchTerm=""
+        editingQueryId={editingQueryId}
+        editingQueryTitle={editingQueryTitle}
+        editingQueryDescription={editingQueryDescription}
+      />
+    </>
   )
 }

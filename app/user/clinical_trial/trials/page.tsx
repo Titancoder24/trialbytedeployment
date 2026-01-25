@@ -55,8 +55,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { Suspense } from "react";
-import { useLinkPreview } from "@/components/ui/link-preview-panel";
-import { PreviewLink } from "@/components/ui/preview-link";
+
 
 // API Response interface
 interface ApiResponse {
@@ -133,6 +132,10 @@ interface TherapeuticTrial {
     endpoints_met?: boolean;
     result_posted?: boolean;
     result_date?: string;
+    trial_outcome_content?: string;
+    trial_outcome_link?: string;
+    trial_outcome_attachment?: string | { url: string; name: string } | null;
+    trial_outcome_reference_date?: string;
   }>;
   sites: Array<{
     id: string;
@@ -182,15 +185,14 @@ function ClinicalTrialsPage() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [expandedOtherSources, setExpandedOtherSources] = useState<Record<number, boolean>>({ 0: true });
+  const [expandedSites, setExpandedSites] = useState<Record<string, boolean>>({}); // Key is index-itemIdx
   const [expandedTimingRefs, setExpandedTimingRefs] = useState<Record<number, boolean>>({ 0: true }); // First card expanded by default
   const [zoomLevel, setZoomLevel] = useState(100); // Zoom level in percentage
   const [favoriteTrials, setFavoriteTrials] = useState<string[]>([]); // Favorite trials from localStorage
 
   // Modal states for View Source and Attachments
-  const [showSourceModal, setShowSourceModal] = useState(false);
-  const [sourceUrl, setSourceUrl] = useState<string>("");
-  const [showAttachmentsModal, setShowAttachmentsModal] = useState(false);
-  const [attachmentUrl, setAttachmentUrl] = useState<string>("");
+  // Modal states for View Source and Attachments
+  // Removed showSourceModal and showAttachmentsModal as per user request to open links in new tab
 
   // Load favorites from localStorage on mount
   useEffect(() => {
@@ -221,10 +223,17 @@ function ClinicalTrialsPage() {
       [index]: !prev[index]
     }));
   };
+
+  const toggleSiteInfo = (key: string) => {
+    setExpandedSites(prev => ({
+      ...prev,
+      [key]: prev[key] === undefined ? true : !prev[key] // Default to open on first click if undefined? Actuallt default is false (closed) in render logic unless key exists. Let's toggle.
+    }));
+  };
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { openLinkPreview } = useLinkPreview();
+
   const { t } = useTranslation();
 
   // Refs for each section
@@ -1304,35 +1313,37 @@ function ClinicalTrialsPage() {
           }}
         >
           {/* Left Sidebar - CSS-based with icons */}
-          <TrialSidebar
-            activeSection={activeSection}
-            onSectionClick={scrollToSection}
-            isSectionVisible={isSectionVisible}
-            onAssociatedStudiesClick={() => {
-              // Scroll to Other Sources section which contains Associated Studies
-              scrollToSection("otherSources");
-              toast({
-                title: "Associated Studies",
-                description: "Scrolled to Other Sources section containing Associated Studies.",
-              });
-            }}
-            onLogsClick={() => {
-              if (currentTrial.logs && currentTrial.logs.length > 0) {
-                const logMessages = currentTrial.logs
-                  .map((log) => log.trial_changes_log)
-                  .join("\n");
+          <div className="sticky top-[100px] h-fit self-start z-50">
+            <TrialSidebar
+              activeSection={activeSection}
+              onSectionClick={scrollToSection}
+              isSectionVisible={isSectionVisible}
+              onAssociatedStudiesClick={() => {
+                // Scroll to Other Sources section which contains Associated Studies
+                scrollToSection("otherSources");
                 toast({
-                  title: "Trial Logs",
-                  description: logMessages,
+                  title: "Associated Studies",
+                  description: "Scrolled to Other Sources section containing Associated Studies.",
                 });
-              } else {
-                toast({
-                  title: "No Logs Available",
-                  description: "No log entries found for this trial.",
-                });
-              }
-            }}
-          />
+              }}
+              onLogsClick={() => {
+                if (currentTrial.logs && currentTrial.logs.length > 0) {
+                  const logMessages = currentTrial.logs
+                    .map((log) => log.trial_changes_log)
+                    .join("\n");
+                  toast({
+                    title: "Trial Logs",
+                    description: logMessages,
+                  });
+                } else {
+                  toast({
+                    title: "No Logs Available",
+                    description: "No log entries found for this trial.",
+                  });
+                }
+              }}
+            />
+          </div>
 
 
           {/* Main Content - with left margin to account for sidebar */}
@@ -1667,7 +1678,7 @@ function ClinicalTrialsPage() {
                         Scientific Title
                       </h3>
                       <p
-                        className="text-gray-700 text-sm leading-relaxed"
+                        className="text-gray-900 text-sm leading-relaxed"
                         style={{ fontFamily: "Poppins" }}
                       >
                         {currentTrial.outcomes[0]?.purpose_of_trial ||
@@ -1684,7 +1695,7 @@ function ClinicalTrialsPage() {
                         Summary
                       </h3>
                       <p
-                        className="text-gray-700 text-sm leading-relaxed"
+                        className="text-gray-900 text-sm leading-relaxed"
                         style={{ fontFamily: "Poppins" }}
                       >
                         {currentTrial.outcomes[0]?.summary ||
@@ -1707,7 +1718,7 @@ function ClinicalTrialsPage() {
                             <span className="text-sm font-medium text-gray-600 min-w-[100px] flex-shrink-0" style={{ fontFamily: "Poppins" }}>
                               Disease Type :
                             </span>
-                            <span className="text-sm text-gray-700 text-right" style={{ fontFamily: "Poppins" }}>
+                            <span className="text-sm text-gray-900 text-right" style={{ fontFamily: "Poppins" }}>
                               {currentTrial.overview.disease_type || "N/A"}
                             </span>
                           </div>
@@ -1715,7 +1726,7 @@ function ClinicalTrialsPage() {
                             <span className="text-sm font-medium text-gray-600 min-w-[100px] flex-shrink-0" style={{ fontFamily: "Poppins" }}>
                               Patient Segment :
                             </span>
-                            <span className="text-sm text-gray-700 text-right" style={{ fontFamily: "Poppins" }}>
+                            <span className="text-sm text-gray-900 text-right" style={{ fontFamily: "Poppins" }}>
                               {currentTrial.overview.patient_segment || "N/A"}
                             </span>
                           </div>
@@ -1723,7 +1734,7 @@ function ClinicalTrialsPage() {
                             <span className="text-sm font-medium text-gray-600 min-w-[100px] flex-shrink-0" style={{ fontFamily: "Poppins" }}>
                               Primary Drug :
                             </span>
-                            <span className="text-sm text-gray-700 text-right" style={{ fontFamily: "Poppins" }}>
+                            <span className="text-sm text-gray-900 text-right" style={{ fontFamily: "Poppins" }}>
                               {currentTrial.overview.primary_drugs || "N/A"}
                             </span>
                           </div>
@@ -1731,7 +1742,7 @@ function ClinicalTrialsPage() {
                             <span className="text-sm font-medium text-gray-600 min-w-[100px] flex-shrink-0" style={{ fontFamily: "Poppins" }}>
                               Secondary Drug :
                             </span>
-                            <span className="text-sm text-gray-700 text-right" style={{ fontFamily: "Poppins" }}>
+                            <span className="text-sm text-gray-900 text-right" style={{ fontFamily: "Poppins" }}>
                               {currentTrial.overview.other_drugs || "N/A"}
                             </span>
                           </div>
@@ -1740,7 +1751,7 @@ function ClinicalTrialsPage() {
                               Trial Phase :
                             </span>
                             <Badge className="bg-green-600 text-white" style={{ fontFamily: "Poppins" }}>
-                              Phase {currentTrial.overview.trial_phase || "N/A"}
+                              {currentTrial.overview.trial_phase?.startsWith("Phase") ? currentTrial.overview.trial_phase : `Phase ${currentTrial.overview.trial_phase || "N/A"}`}
                             </Badge>
                           </div>
                         </div>
@@ -1787,7 +1798,7 @@ function ClinicalTrialsPage() {
                             <Badge
                               key={index}
                               variant="outline"
-                              className="text-gray-700 bg-[#F0F0F0] rounded-[6px] px-2 py-1 text-[14px] hover:bg-red-500 hover:text-white hover:border-red-500 transition-all duration-200 cursor-pointer"
+                              className="text-gray-900 bg-[#F0F0F0] rounded-[6px] px-2 py-1 text-[14px] hover:bg-red-500 hover:text-white hover:border-red-500 transition-all duration-200 cursor-pointer"
                             >
                               {country.trim()}
                             </Badge>
@@ -1811,7 +1822,7 @@ function ClinicalTrialsPage() {
                           <span className="text-sm font-medium text-[#204B73]">
                             Region :
                           </span>
-                          <span className="text-sm text-gray-700 ml-2" style={{ fontFamily: "Poppins" }}>
+                          <span className="text-sm text-gray-900 ml-2" style={{ fontFamily: "Poppins" }}>
                             {currentTrial.overview.region || "N/A"}
                           </span>
                         </div>
@@ -1819,7 +1830,7 @@ function ClinicalTrialsPage() {
                           <span className="text-sm font-medium text-[#204B73]" style={{ fontFamily: "Poppins" }}>
                             Sponsors & Collaborators :
                           </span>
-                          <span className="text-sm text-gray-700 ml-2" style={{ fontFamily: "Poppins" }}>
+                          <span className="text-sm text-gray-900 ml-2" style={{ fontFamily: "Poppins" }}>
                             {currentTrial.overview.sponsor_collaborators || "N/A"}
                           </span>
                         </div>
@@ -1827,7 +1838,7 @@ function ClinicalTrialsPage() {
                           <span className="text-sm font-medium text-[#204B73]" style={{ fontFamily: "Poppins" }}>
                             Sponsor Field of Activity :
                           </span>
-                          <span className="text-sm text-gray-700 ml-2" style={{ fontFamily: "Poppins" }}>
+                          <span className="text-sm text-gray-900 ml-2" style={{ fontFamily: "Poppins" }}>
                             {currentTrial.overview.sponsor_field_activity ||
                               "N/A"}
                           </span>
@@ -1836,7 +1847,7 @@ function ClinicalTrialsPage() {
                           <span className="text-sm font-medium text-[#204B73]" style={{ fontFamily: "Poppins" }}>
                             Associated CRO :
                           </span>
-                          <span className="text-sm text-gray-700 ml-2" style={{ fontFamily: "Poppins" }}>
+                          <span className="text-sm text-gray-900 ml-2" style={{ fontFamily: "Poppins" }}>
                             {currentTrial.overview.associated_cro || "N/A"}
                           </span>
                         </div>
@@ -1844,7 +1855,7 @@ function ClinicalTrialsPage() {
                           <span className="text-sm font-medium text-[#204B73]" style={{ fontFamily: "Poppins" }}>
                             Trial Tags :
                           </span>
-                          <span className="text-sm text-gray-700 ml-2" style={{ fontFamily: "Poppins" }}>
+                          <span className="text-sm text-gray-900 ml-2" style={{ fontFamily: "Poppins" }}>
                             {currentTrial.overview.trial_tags || "N/A"}
                           </span>
                         </div>
@@ -1887,7 +1898,7 @@ function ClinicalTrialsPage() {
                           <span className="text-sm font-medium text-[#204B73]">
                             Trial Record Status :
                           </span>
-                          <span className="text-sm text-gray-700">
+                          <span className="text-sm text-gray-900">
                             {currentTrial.overview.trial_record_status || "N/A"}
                           </span>
                           <div className="w-4 h-4 bg-gray-400 rounded-full"></div>
@@ -1928,48 +1939,98 @@ function ClinicalTrialsPage() {
                       <h3 className="text-base font-semibold text-[#204B73] mb-3">
                         Purpose of the trial
                       </h3>
-                      <p className="text-sm text-gray-700 leading-relaxed">
+                      <p className="text-sm text-gray-900 leading-relaxed">
                         {currentTrial.outcomes[0]?.purpose_of_trial ||
                           "No purpose description available"}
                       </p>
                     </div>
 
                     {/* Primary Outcome */}
-                    <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="text-base font-semibold text-[#204B73] mb-4">
-                        Primary Outcome
-                      </h3>
-                      <div className="space-y-3">
-                        <div>
-                          <span className="text-sm font-semibold text-[#204B73]">
-                            Outcome Measure :
-                          </span>
-                          <p className="text-sm text-gray-700 mt-1">
-                            {currentTrial.outcomes[0]?.primary_outcome_measure ||
-                              "No primary outcome measure available"}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-sm font-semibold text-[#204B73]">
-                            Measure Description :
-                          </span>
-                          <p className="text-sm text-gray-700 mt-1 leading-relaxed">
-                            {currentTrial.outcomes[0]?.summary ||
-                              "No measure description available"}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-sm font-semibold text-[#204B73]">
-                            Time Frame :
-                          </span>
-                          <p className="text-sm text-gray-700 mt-1">
-                            {currentTrial.timing[0]?.primary_completion_date ||
-                              currentTrial.timing[0]?.study_duration ||
-                              "Not specified"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+                    {(() => {
+                      const primaryOutcome = currentTrial.outcomes[0]?.primary_outcome_measure;
+
+                      if (!primaryOutcome) {
+                        return (
+                          <div className="border border-gray-200 rounded-lg p-4">
+                            <h3 className="text-base font-semibold text-[#204B73] mb-4">
+                              Primary Outcome
+                            </h3>
+                            <p className="text-sm text-gray-900">No primary outcome measure available</p>
+                          </div>
+                        );
+                      }
+
+                      // Parse the primary outcome string similarly to other outcomes
+                      const outcomeText = primaryOutcome.trim();
+                      let outcomes: string[] = [];
+
+                      // Check if text contains multiple "Outcome Measure:" patterns
+                      if (outcomeText.toLowerCase().includes('outcome measure:')) {
+                        const parts = outcomeText.split(/(?=Outcome Measure:)/gi).filter(p => p.trim());
+                        outcomes = parts.length > 0 ? parts : [outcomeText];
+                      } else {
+                        outcomes = [outcomeText];
+                      }
+
+                      return outcomes.map((outcome, index) => {
+                        // Parse measure description and time frame
+                        let measureText = outcome;
+                        let description = "";
+                        let timeFrame = "";
+
+                        const measureMatch = outcome.match(/Outcome Measure:\s*([^]*?)(?:Measure Description:|Time Frame:|$)/i);
+                        const descMatch = outcome.match(/Measure Description:\s*([^]*?)(?:Time Frame:|$)/i);
+                        const timeMatch = outcome.match(/Time Frame:\s*([^]*?)$/i);
+
+                        if (measureMatch) measureText = measureMatch[1].replace(/\|\|\|/g, "").trim();
+                        if (descMatch) description = descMatch[1].replace(/\|\|\|/g, "").trim();
+                        if (timeMatch) timeFrame = timeMatch[1].replace(/\|\|\|/g, "").trim();
+
+                        // Fallback logic if parsing fails but plain text exists (e.g. if it was just a simple string)
+                        if (!measureMatch && !descMatch && !timeMatch) {
+                          measureText = outcome;
+                        }
+
+                        return (
+                          <div key={index} className="border border-gray-200 rounded-lg p-4 mb-4 last:mb-0">
+                            <h3 className="text-base font-semibold text-[#204B73] mb-4">
+                              Primary Outcome {outcomes.length > 1 ? `: ${index + 1}` : ''}
+                            </h3>
+                            <div className="space-y-3">
+                              <div>
+                                <span className="text-sm font-semibold text-[#204B73]">
+                                  Outcome Measure :
+                                </span>
+                                <p className="text-sm text-gray-900 mt-1">
+                                  {measureText}
+                                </p>
+                              </div>
+                              {description && (
+                                <div>
+                                  <span className="text-sm font-semibold text-[#204B73]">
+                                    Measure Description :
+                                  </span>
+                                  <p className="text-sm text-gray-900 mt-1 leading-relaxed">
+                                    {description}
+                                  </p>
+                                </div>
+                              )}
+                              <div>
+                                <span className="text-sm font-semibold text-[#204B73]">
+                                  Time Frame :
+                                </span>
+                                <p className="text-sm text-gray-900 mt-1">
+                                  {timeFrame ||
+                                    currentTrial.timing[0]?.primary_completion_date ||
+                                    currentTrial.timing[0]?.study_duration ||
+                                    "Not specified"}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
 
                     {/* Other Outcomes - Parse and display as separate numbered cards */}
                     {(() => {
@@ -2025,7 +2086,7 @@ function ClinicalTrialsPage() {
                                     <span className="text-sm font-semibold text-[#204B73]">
                                       Outcome Measure :
                                     </span>
-                                    <p className="text-sm text-gray-700 mt-1">
+                                    <p className="text-sm text-gray-900 mt-1">
                                       {measureText || outcome}
                                     </p>
                                   </div>
@@ -2034,7 +2095,7 @@ function ClinicalTrialsPage() {
                                       <span className="text-sm font-semibold text-[#204B73]">
                                         Measure Description :
                                       </span>
-                                      <p className="text-sm text-gray-700 mt-1 leading-relaxed">
+                                      <p className="text-sm text-gray-900 mt-1 leading-relaxed">
                                         {description}
                                       </p>
                                     </div>
@@ -2043,7 +2104,7 @@ function ClinicalTrialsPage() {
                                     <span className="text-sm font-semibold text-[#204B73]">
                                       Time Frame :
                                     </span>
-                                    <p className="text-sm text-gray-700 mt-1">
+                                    <p className="text-sm text-gray-900 mt-1">
                                       {timeFrame || currentTrial.timing[0]?.study_end_date ||
                                         currentTrial.timing[0]?.study_duration ||
                                         "Not specified"}
@@ -2082,7 +2143,7 @@ function ClinicalTrialsPage() {
                               <Badge
                                 key={index}
                                 variant="outline"
-                                className="bg-[#F0F0F0] text-gray-700 border-gray-300 px-4 py-1.5 rounded-md"
+                                className="bg-[#F0F0F0] text-gray-900 border-gray-300 px-4 py-1.5 rounded-md"
                               >
                                 {keyword.trim()}
                               </Badge>
@@ -2105,7 +2166,7 @@ function ClinicalTrialsPage() {
                           <span className="text-sm font-semibold text-[#204B73] min-w-[180px] flex-shrink-0">
                             Primary Purpose :
                           </span>
-                          <span className="text-sm text-gray-700">
+                          <span className="text-sm text-gray-900">
                             {currentTrial.outcomes[0]?.purpose_of_trial?.split(' ').slice(0, 3).join(' ') || "Treatment"}
                           </span>
                         </div>
@@ -2113,7 +2174,7 @@ function ClinicalTrialsPage() {
                           <span className="text-sm font-semibold text-[#204B73] min-w-[180px] flex-shrink-0">
                             Allocation :
                           </span>
-                          <span className="text-sm text-gray-700">
+                          <span className="text-sm text-gray-900">
                             {currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('randomized') ? 'Randomized' :
                               currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('non-randomized') ? 'Non-Randomized' : 'N/A'}
                           </span>
@@ -2122,7 +2183,7 @@ function ClinicalTrialsPage() {
                           <span className="text-sm font-semibold text-[#204B73] min-w-[180px] flex-shrink-0">
                             Interventional Model :
                           </span>
-                          <span className="text-sm text-gray-700">
+                          <span className="text-sm text-gray-900">
                             {currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('parallel') ? 'Parallel Assignment' :
                               currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('single group') ? 'Single Group Assignment' :
                                 currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('crossover') ? 'Crossover Assignment' : 'N/A'}
@@ -2132,14 +2193,14 @@ function ClinicalTrialsPage() {
                           <span className="text-sm font-semibold text-[#204B73] min-w-[180px] flex-shrink-0">
                             Masking :
                           </span>
-                          <span className="text-sm text-gray-700">
+                          <span className="text-sm text-gray-900">
                             {currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('open') ? 'None (Open Label)' :
                               currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('double') ? 'Double Blind' :
                                 currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('single') && currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('blind') ? 'Single Blind' : 'N/A'}
                           </span>
                         </div>
                       </div>
-                      <p className="text-sm text-gray-700 mt-4 leading-relaxed">
+                      <p className="text-sm text-gray-900 mt-4 leading-relaxed">
                         {currentTrial.outcomes[0]?.summary ||
                           currentTrial.outcomes[0]?.study_design ||
                           "No detailed study design description available"}
@@ -2152,7 +2213,7 @@ function ClinicalTrialsPage() {
                         Treatment Regimen
                       </h3>
                       <div className="space-y-3">
-                        <p className="text-sm text-gray-700 leading-relaxed">
+                        <p className="text-sm text-gray-900 leading-relaxed">
                           {currentTrial.outcomes[0]?.treatment_regimen ||
                             "No treatment regimen description available"}
                         </p>
@@ -2161,7 +2222,7 @@ function ClinicalTrialsPage() {
 
                     {/* Number of Arms - Outside cards */}
                     <div className="pt-2">
-                      <span className="text-sm text-gray-700">
+                      <span className="text-sm text-gray-900">
                         Number of arms: {currentTrial.outcomes[0]?.number_of_arms || "N/A"}
                       </span>
                     </div>
@@ -2192,7 +2253,7 @@ function ClinicalTrialsPage() {
                                 .split(/[•\n]/)
                                 .filter((item: string) => item.trim())
                                 .map((item: string, index: number) => (
-                                  <li key={index} className="flex items-start text-sm text-gray-700">
+                                  <li key={index} className="flex items-start text-sm text-gray-900">
                                     <span className="text-gray-500 mr-2 mt-0.5">•</span>
                                     <span>{item.trim()}</span>
                                   </li>
@@ -2216,7 +2277,7 @@ function ClinicalTrialsPage() {
                                 .split(/[•\n]/)
                                 .filter((item: string) => item.trim())
                                 .map((item: string, index: number) => (
-                                  <li key={index} className="flex items-start text-sm text-gray-700">
+                                  <li key={index} className="flex items-start text-sm text-gray-900">
                                     <span className="text-gray-500 mr-2 mt-0.5">•</span>
                                     <span>{item.trim()}</span>
                                   </li>
@@ -2236,8 +2297,8 @@ function ClinicalTrialsPage() {
                           <h4 className="text-sm font-bold text-[#204B73] mb-1">
                             Ages Eligible for Study
                           </h4>
-                          <p className="text-sm text-gray-700">
-                            {currentTrial.criteria[0]?.age_from || "18"} Years
+                          <p className="text-sm text-gray-900">
+                            {(currentTrial.criteria[0]?.age_from?.replace(/,/g, ' ').replace(/years/i, '').trim()) || "18"} Years
                           </p>
                         </div>
 
@@ -2245,7 +2306,7 @@ function ClinicalTrialsPage() {
                           <h4 className="text-sm font-bold text-[#204B73] mb-1">
                             Sexes Eligible for Study
                           </h4>
-                          <p className="text-sm text-gray-700">
+                          <p className="text-sm text-gray-900">
                             {currentTrial.criteria[0]?.sex || "Both"}
                           </p>
                         </div>
@@ -2254,7 +2315,7 @@ function ClinicalTrialsPage() {
                           <h4 className="text-sm font-bold text-[#204B73] mb-1">
                             Subject Type
                           </h4>
-                          <p className="text-sm text-gray-700">
+                          <p className="text-sm text-gray-900">
                             {currentTrial.criteria[0]?.subject_type ||
                               currentTrial.overview.disease_type ||
                               "N/A"}
@@ -2265,7 +2326,7 @@ function ClinicalTrialsPage() {
                           <h4 className="text-sm font-bold text-[#204B73] mb-1">
                             Healthy Volunteers
                           </h4>
-                          <p className="text-sm text-gray-700">
+                          <p className="text-sm text-gray-900">
                             {currentTrial.criteria[0]?.healthy_volunteers === "false"
                               ? "No"
                               : currentTrial.criteria[0]?.healthy_volunteers === "true"
@@ -2278,7 +2339,7 @@ function ClinicalTrialsPage() {
                           <h4 className="text-sm font-bold text-[#204B73] mb-1">
                             Target No of Volunteers
                           </h4>
-                          <p className="text-sm text-gray-700">
+                          <p className="text-sm text-gray-900">
                             {currentTrial.criteria[0]?.target_no_volunteers || "N/A"}
                           </p>
                         </div>
@@ -2287,7 +2348,7 @@ function ClinicalTrialsPage() {
                           <h4 className="text-sm font-bold text-[#204B73] mb-1">
                             Actual enrolled Volunteers
                           </h4>
-                          <p className="text-sm text-gray-700">
+                          <p className="text-sm text-gray-900">
                             {currentTrial.criteria[0]?.actual_enrolled_volunteers || "N/A"}
                           </p>
                         </div>
@@ -2380,7 +2441,7 @@ function ClinicalTrialsPage() {
                       {/* Overall Duration Stats */}
                       <div className="flex items-center justify-end space-x-6">
                         <div className="flex items-center space-x-2">
-                          <span className="text-sm text-gray-700 italic">
+                          <span className="text-sm text-gray-900 italic">
                             Overall duration to Complete :
                           </span>
                           <Badge className="bg-[#28B463] text-white px-2 py-0.5 text-xs rounded">
@@ -2389,7 +2450,7 @@ function ClinicalTrialsPage() {
                           <span className="text-xs text-gray-500">(months)</span>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <span className="text-sm text-gray-700 italic">
+                          <span className="text-sm text-gray-900 italic">
                             Overall duration to publish result :
                           </span>
                           <Badge className="bg-[#28B463] text-white px-2 py-0.5 text-xs rounded">
@@ -2426,12 +2487,12 @@ function ClinicalTrialsPage() {
                               <div key={index} className="border border-gray-200 rounded-lg p-4 min-w-[320px] flex-shrink-0">
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center space-x-3">
-                                    <span className="text-sm text-gray-700">
+                                    <span className="text-sm text-gray-900">
                                       {currentTrial.results[0]?.result_date
                                         ? formatDateToMMDDYYYY(currentTrial.results[0].result_date)
                                         : "N/A"}
                                     </span>
-                                    <span className="text-sm font-medium text-gray-700 bg-[#F0F0F0] px-3 py-1 rounded border border-gray-200">
+                                    <span className="text-sm font-medium text-gray-900 bg-[#F0F0F0] px-3 py-1 rounded border border-gray-200">
                                       {getSourceType(link)}
                                     </span>
                                   </div>
@@ -2472,16 +2533,14 @@ function ClinicalTrialsPage() {
                                       </p>
                                     </div>
                                     <div className="flex items-center space-x-2 mt-4">
-                                      <Button variant="outline" size="sm" className="bg-[#204B73] text-white hover:bg-[#1a3d5c] rounded-lg text-xs" onClick={() => { setSourceUrl(link); setShowSourceModal(true); }}>
+                                      <Button variant="outline" size="sm" className="bg-[#204B73] text-white hover:bg-[#1a3d5c] rounded-lg text-xs" onClick={() => window.open(link, '_blank')}>
                                         View source
                                       </Button>
-                                      <Button variant="outline" size="sm" className="bg-[#204B73] text-white hover:bg-[#1a3d5c] rounded-lg text-xs" onClick={() => { setAttachmentUrl(link); setShowAttachmentsModal(true); }}>
+                                      <Button variant="outline" size="sm" className="bg-[#204B73] text-white hover:bg-[#1a3d5c] rounded-lg text-xs" onClick={() => window.open(link, '_blank')}>
                                         <FileText className="h-3 w-3 mr-1" />
                                         Attachments
                                       </Button>
-                                      <Button variant="ghost" size="sm" className="text-[#204B73] p-1 h-auto" onClick={() => window.open(link, '_blank')}>
-                                        <Download className="h-4 w-4" />
-                                      </Button>
+
                                     </div>
                                   </>
                                 )}
@@ -2509,7 +2568,7 @@ function ClinicalTrialsPage() {
                       <div className="border border-gray-200 rounded-lg p-4">
                         {/* Results Available Toggle */}
                         <div className="flex items-center space-x-3 mb-6">
-                          <span className="text-sm font-medium text-gray-700">
+                          <span className="text-sm font-medium text-gray-900">
                             Results available
                           </span>
                           <Switch
@@ -2521,7 +2580,7 @@ function ClinicalTrialsPage() {
 
                         {/* Trial Outcome */}
                         <div>
-                          <span className="text-sm font-medium text-gray-700 block mb-2">
+                          <span className="text-sm font-medium text-gray-900 block mb-2">
                             Trial Outcome :
                           </span>
                           <Badge className="bg-[#28B463] text-white px-3 py-1.5 text-xs rounded-lg">
@@ -2537,24 +2596,38 @@ function ClinicalTrialsPage() {
                           <h3 className="text-lg font-semibold text-[#204B73]">
                             Trial Outcome Reference
                           </h3>
-                          <span className="text-sm text-gray-700 bg-[#F0F0F0] px-4 py-1.5 rounded-lg border border-gray-300">
-                            {currentTrial.results[0]?.result_date
-                              ? formatDateToMMDDYYYY(currentTrial.results[0].result_date)
-                              : currentTrial.timing[0]?.trial_end_date_estimated
-                                ? formatDateToMMDDYYYY(currentTrial.timing[0].trial_end_date_estimated)
-                                : currentTrial.logs[0]?.trial_added_date
-                                  ? formatDateToMMDDYYYY(currentTrial.logs[0].trial_added_date)
-                                  : "N/A"}
+                          <span className="text-sm text-gray-900 bg-[#F0F0F0] px-4 py-1.5 rounded-lg border border-gray-300">
+                            {(() => {
+                              const res = currentTrial.results[0];
+                              const outcomeDate = res?.trial_outcome_reference_date;
+
+                              if (outcomeDate) return formatDateToMMDDYYYY(outcomeDate);
+
+                              // Check if reference is a date string (YYYY-MM-DD)
+                              const ref = res?.reference?.trim();
+                              if (ref && /^\d{4}-\d{2}-\d{2}$/.test(ref)) {
+                                // Manual parse to avoid timezone shifts
+                                const [year, month, day] = ref.split('-');
+                                return `${month}-${day}-${year}`;
+                              }
+
+                              const dateToDisplay = res?.result_date
+                                || currentTrial.timing[0]?.trial_end_date_estimated
+                                || currentTrial.logs[0]?.trial_added_date;
+
+                              return dateToDisplay ? formatDateToMMDDYYYY(dateToDisplay) : "N/A";
+                            })()}
                           </span>
                         </div>
 
                         {(() => {
-                          const refText = currentTrial.results[0]?.reference || currentTrial.outcomes[0]?.summary || "";
+                          const resultsContent = currentTrial.results[0]?.trial_outcome_content || currentTrial.results[0]?.trial_results?.join('\n\n') || "";
+                          const refText = resultsContent || currentTrial.results[0]?.reference || currentTrial.outcomes[0]?.summary || "";
                           // Don't show if it's just a date or empty
                           const isJustDate = /^\d{4}-\d{2}-\d{2}$/.test(refText.trim()) || /^\d{2}\/\d{2}\/\d{4}$/.test(refText.trim());
                           if (refText && !isJustDate) {
                             return (
-                              <p className="text-sm text-gray-700 leading-relaxed mb-6">
+                              <p className="text-sm text-gray-900 leading-relaxed mb-6 whitespace-pre-line">
                                 {refText}
                               </p>
                             );
@@ -2565,51 +2638,49 @@ function ClinicalTrialsPage() {
                         {/* Action Buttons - Right aligned */}
                         <div className="flex items-center justify-end space-x-3">
                           <Button
-                            variant="outline"
+                            variant="default"
                             size="sm"
-                            className="bg-[#204B73] text-white hover:bg-[#1a3d5c] rounded-lg px-4"
+                            className="bg-[#204B73] hover:bg-[#1a3d5c] text-white rounded-md px-4 h-9 font-medium"
                             onClick={() => {
                               // Try multiple sources for the URL
-                              const refLink = currentTrial.overview.reference_links?.[0]
+                              const refLink = currentTrial.results[0]?.trial_outcome_link
+                                || currentTrial.overview.reference_links?.[0]
                                 || currentTrial.notes?.[0]?.link
                                 || currentTrial.results?.[0]?.reference
                                 || `https://clinicaltrials.gov/study/${currentTrial.overview.trial_identifier?.[0] || currentTrial.trial_id}`;
-                              setSourceUrl(refLink);
-                              setShowSourceModal(true);
+                              window.open(refLink, '_blank');
                             }}
                           >
                             View source
                           </Button>
+
+                          {/* Attachments Button */}
                           <Button
-                            variant="outline"
+                            variant="default"
                             size="sm"
-                            className="bg-[#204B73] text-white hover:bg-[#1a3d5c] rounded-lg px-4"
+                            className="bg-[#204B73] hover:bg-[#1a3d5c] text-white rounded-md px-4 h-9 font-medium"
                             onClick={() => {
-                              // Try multiple sources for the URL
-                              const refLink = currentTrial.overview.reference_links?.[0]
+                              let attachmentUrl = "";
+                              const attachment = currentTrial.results[0]?.trial_outcome_attachment;
+
+                              if (attachment) {
+                                if (typeof attachment === 'string') {
+                                  attachmentUrl = attachment;
+                                } else if (typeof attachment === 'object' && attachment !== null && 'url' in attachment) {
+                                  attachmentUrl = attachment.url;
+                                }
+                              }
+
+                              const refLink = attachmentUrl
+                                || currentTrial.overview.reference_links?.[0]
                                 || currentTrial.notes?.[0]?.link
                                 || currentTrial.results?.[0]?.reference
                                 || `https://clinicaltrials.gov/study/${currentTrial.overview.trial_identifier?.[0] || currentTrial.trial_id}`;
-                              setAttachmentUrl(refLink);
-                              setShowAttachmentsModal(true);
+                              window.open(refLink, '_blank');
                             }}
                           >
-                            <FileText className="h-4 w-4 mr-2" />
                             Attachments
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-[#204B73] border border-gray-300 rounded-lg"
-                            onClick={() => {
-                              const refLink = currentTrial.overview.reference_links?.[0]
-                                || currentTrial.notes?.[0]?.link
-                                || currentTrial.results?.[0]?.reference
-                                || `https://clinicaltrials.gov/study/${currentTrial.overview.trial_identifier?.[0] || currentTrial.trial_id}`;
-                              if (refLink) window.open(refLink, '_blank');
-                            }}
-                          >
-                            <Download className="h-4 w-4" />
+                            <FileText className="h-4 w-4 ml-2" />
                           </Button>
                         </div>
                       </div>
@@ -2660,7 +2731,7 @@ function ClinicalTrialsPage() {
                                   </h4>
                                   <ul className="space-y-2">
                                     {result.trial_results.map((res, idx) => (
-                                      <li key={idx} className="text-sm text-gray-700 leading-relaxed flex items-start">
+                                      <li key={idx} className="text-sm text-gray-900 leading-relaxed flex items-start">
                                         <span className="text-blue-600 mr-2">•</span>
                                         {res}
                                       </li>
@@ -2675,7 +2746,7 @@ function ClinicalTrialsPage() {
                                   <h4 className="text-sm font-semibold text-gray-800 mb-2">
                                     Reference :
                                   </h4>
-                                  <p className="text-sm text-gray-700 leading-relaxed">
+                                  <p className="text-sm text-gray-900 leading-relaxed">
                                     {result.reference}
                                   </p>
                                 </div>
@@ -2737,7 +2808,7 @@ function ClinicalTrialsPage() {
                 <Card key={`${currentTrial.trial_id}-sites`} className="mt-6" ref={sitesRef}>
                   <div className="bg-sky-200 p-4 rounded-t-lg flex items-center justify-between">
                     <h2 className="text-lg font-semibold text-gray-800">Sites</h2>
-                    <span className="text-sm font-medium text-gray-700">
+                    <span className="text-sm font-medium text-gray-900">
                       Total No of Sites : {currentTrial.sites[0]?.total || "N/A"}
                     </span>
                   </div>
@@ -2761,24 +2832,332 @@ function ClinicalTrialsPage() {
                           Site Information
                         </h3>
 
-                        {currentTrial.sites[0]?.notes ? (
-                          <div className="bg-gray-50 rounded-lg p-4">
-                            <div className="space-y-2 mb-4">
-                              <p className="text-sm font-medium text-gray-800">
-                                Site Notes
-                              </p>
-                              <p className="text-sm text-gray-600 whitespace-pre-wrap">
-                                {currentTrial.sites[0].notes}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+                          {currentTrial.sites && currentTrial.sites.length > 0 ? (
+                            currentTrial.sites.map((site, index) => {
+                              let siteItems: any[] = [];
+
+                              // 1. Try JSON parsing first
+                              let isJson = false;
+                              try {
+                                if (site.notes && (site.notes.startsWith('{') || site.notes.startsWith('['))) {
+                                  const parsed = JSON.parse(site.notes);
+                                  const rawItems = Array.isArray(parsed) ? parsed : [parsed];
+
+                                  // Map JSON properties to expected UI properties
+                                  siteItems = rawItems.map(item => ({
+                                    date: item.date,
+                                    registry_type: item.registryType || item.registry_type,  // Handle both property names
+                                    content: item.content,
+                                    view_source_url: item.viewSource || item.view_source_url,  // Handle both property names
+                                    attachments: item.attachments,  // Keep as array
+                                    principal_investigators: item.principal_investigators,
+                                    isVisible: item.isVisible
+                                  }));
+
+                                  isJson = true;
+                                }
+                              } catch (e) {
+                                // Not JSON
+                              }
+
+                              // 2. If not JSON, try parsing the custom text format "Site Info X..."
+                              if (!isJson && site.notes && /Site\s*Info/i.test(site.notes)) {
+                                const rawText = site.notes;
+
+                                // Split by "Site Info N" pattern to get individual site blocks
+                                const siteBlocks = rawText.split(/(?=Site\s*Info\s*\d+)/i).filter(block => block.trim().length > 0);
+
+                                siteBlocks.forEach(block => {
+                                  // Skip if this is not a Site Info block
+                                  if (!/Site\s*Info\s*\d+/i.test(block)) return;
+
+                                  const item: any = {};
+                                  const lines = block.split(/\r?\n/).map(l => l.trim());
+
+                                  // Parse line by line to extract key-value pairs
+                                  for (let i = 0; i < lines.length; i++) {
+                                    const line = lines[i];
+                                    const nextLine = lines[i + 1] || '';
+
+                                    // Extract Date
+                                    if (/^Date$/i.test(line)) {
+                                      // Date value is on next line
+                                      const dateValue = nextLine.match(/(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})/);
+                                      if (dateValue) item.date = dateValue[1];
+                                    } else if (line.match(/^Date[\s:]+(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})/i)) {
+                                      // Date value is on same line
+                                      const dateValue = line.match(/(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})/);
+                                      if (dateValue) item.date = dateValue[1];
+                                    }
+
+                                    // Extract Registry Type
+                                    if (/^Registry\s*Type$/i.test(line)) {
+                                      // Registry Type value is on next line
+                                      if (nextLine && !nextLine.match(/^(Content|Date|View|Attachments|Principal|Study)/i)) {
+                                        item.registry_type = nextLine;
+                                      }
+                                    } else if (line.match(/^Registry\s*Type[\s:]+(.+)/i)) {
+                                      // Registry Type value is on same line
+                                      const match = line.match(/^Registry\s*Type[\s:]+(.+)/i);
+                                      if (match) item.registry_type = match[1].trim();
+                                    }
+
+                                    // Extract View Source URL
+                                    if (/^View\s*Source/i.test(line) || /^View\s*Source\s*\(URL\)/i.test(line)) {
+                                      // Look for URL on this line or next lines
+                                      for (let j = i; j < Math.min(i + 3, lines.length); j++) {
+                                        const urlLine = lines[j];
+                                        const urlMatch = urlLine.match(/(https?:\/\/[^\s"<>]+)/i);
+                                        if (urlMatch) {
+                                          item.view_source_url = urlMatch[1];
+                                          break;
+                                        }
+                                      }
+                                    }
+
+                                    // Also check for standalone URLs (backup)
+                                    if (line.match(/^https?:\/\//i) && !item.view_source_url) {
+                                      item.view_source_url = line;
+                                    }
+                                  }
+
+                                  // Extract Attachments
+                                  const attachMatch = block.match(/Attachments[\s\r\n]+([^\r\n]+\.(?:pdf|doc|docx|pptx?|xlsx?))/i);
+                                  if (attachMatch) {
+                                    item.attachments = attachMatch[1].trim();
+                                  }
+
+                                  // Extract Content section
+                                  const contentMatch = block.match(/Content[\s\r\n]+([\s\S]*?)(?=Principal Investigator|View Source|Attachments|$)/i);
+                                  if (contentMatch) {
+                                    item.content = contentMatch[1].trim();
+                                  }
+
+                                  // Extract Principal Investigators
+                                  const piMatches = [...block.matchAll(/Principal Investigator[\s:]*([^\n]+)/gi)];
+                                  if (piMatches.length > 0) {
+                                    item.principal_investigators = piMatches.map(m => m[1].trim()).join('\n');
+                                  }
+
+                                  // Extract Study Chair
+                                  const chairMatch = block.match(/Study Chair[\s:]*([^\n]+)/i);
+                                  if (chairMatch && item.principal_investigators) {
+                                    item.principal_investigators += '\n' + chairMatch[1].trim();
+                                  }
+
+                                  // Fallback content if nothing else extracted
+                                  if (!item.content && !item.principal_investigators) {
+                                    // Get everything after the header, removing known fields
+                                    let fallbackContent = block
+                                      .replace(/Site\s*Info\s*\d+/i, '')
+                                      .replace(/Date[\s\r\n]*\d{2}-\d{2}-\d{4}/i, '')
+                                      .replace(/Date[\s\r\n]*\d{4}-\d{2}-\d{2}/i, '')
+                                      .replace(/Registry\s*Type[\s\r\n]+[^\r\n]+/i, '')
+                                      .replace(/View\s*Source[\s\S]*?https?:\/\/[^\s]+/i, '')
+                                      .replace(/Attachments[\s\S]*/i, '')
+                                      .trim();
+                                    if (fallbackContent) item.content = fallbackContent;
+                                  }
+
+                                  siteItems.push(item);
+                                });
+                              }
+
+                              // 3. Fallback: Treat as single string object if neither (legacy)
+                              if (siteItems.length === 0) {
+                                siteItems = [{ content: site.notes }];
+                              }
+
+                              return siteItems.map((item, itemIdx) => {
+                                const uniqueKey = `${index}-${itemIdx}`;
+                                const isExpanded = expandedSites[uniqueKey] === true;
+
+                                // Generate a short preview of content for collapsed state
+                                const getContentPreview = () => {
+                                  if (item.content) {
+                                    const lines = item.content.split('\n').filter((l: string) => l.trim());
+                                    return lines.slice(0, 3).join('\n');
+                                  }
+                                  return null;
+                                };
+
+                                return (
+                                  <div
+                                    key={uniqueKey}
+                                    className={`border rounded-xl transition-all duration-300 overflow-hidden ${isExpanded ? 'bg-white shadow-md' : 'bg-white'}`}
+                                    style={{ borderColor: isExpanded ? '#2B4863' : '#E2E8F0' }}
+                                  >
+                                    {/* Header */}
+                                    <div
+                                      className="p-4 flex items-center justify-between transition-colors"
+                                      style={{ backgroundColor: isExpanded ? '#2B4863' : 'transparent' }}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        {item.date && (
+                                          <Badge variant="secondary" className={`${isExpanded ? 'bg-white' : 'bg-gray-100'} rounded-lg font-bold text-black px-3 py-1 text-xs`}>
+                                            {formatDateToMMDDYYYY(item.date)}
+                                          </Badge>
+                                        )}
+                                        {item.registry_type && (
+                                          <Badge variant="secondary" className={`${isExpanded ? 'bg-white' : 'bg-gray-100'} rounded-lg font-bold text-black px-3 py-1 text-xs`}>
+                                            {item.registry_type}
+                                          </Badge>
+                                        )}
+                                        {!item.date && !item.registry_type && (
+                                          <span className={`font-semibold ${isExpanded ? 'text-white' : 'text-gray-800'}`}>
+                                            Site Info {itemIdx + 1}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <button
+                                        onClick={() => toggleSiteInfo(uniqueKey)}
+                                        className="w-6 h-6 rounded-full flex items-center justify-center transition-colors shadow-sm"
+                                        style={{
+                                          backgroundColor: isExpanded ? 'white' : '#2B4863',
+                                          color: isExpanded ? '#2B4863' : 'white'
+                                        }}
+                                      >
+                                        {isExpanded ? (
+                                          <Minus size={14} strokeWidth={3} />
+                                        ) : (
+                                          <Plus size={14} strokeWidth={3} />
+                                        )}
+                                      </button>
+                                    </div>
+
+                                    {/* Content Preview when collapsed */}
+                                    {!isExpanded && (
+                                      <div className="p-4 pt-0 bg-white">
+                                        {/* Show content preview */}
+                                        {getContentPreview() && (
+                                          <div className="text-sm text-gray-700 whitespace-pre-wrap mb-3 line-clamp-3">
+                                            {getContentPreview()}
+                                          </div>
+                                        )}
+
+                                        {/* Principal Investigator Preview */}
+                                        {item.principal_investigators && !getContentPreview() && (
+                                          <div className="text-sm text-gray-700 mb-3">
+                                            <span className="font-medium text-[#204B73]">Name of principal Investigator:</span>
+                                            <div className="font-semibold text-gray-900">{item.principal_investigators.split('\n')[0]}</div>
+                                          </div>
+                                        )}
+
+                                        {/* View Source button always visible */}
+                                        <div className="flex items-center gap-2">
+                                          {item.view_source_url && (
+                                            <Button
+                                              size="sm"
+                                              className="h-8 px-4 text-xs font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                window.open(item.view_source_url, '_blank');
+                                              }}
+                                            >
+                                              View source
+                                            </Button>
+                                          )}
+
+                                          {/* Attachments button in collapsed state */}
+                                          {item.attachments && (Array.isArray(item.attachments) ? item.attachments.length > 0 : true) && (
+                                            <Button
+                                              size="sm"
+                                              className="h-8 px-4 text-xs font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                let url: string | undefined;
+                                                if (Array.isArray(item.attachments)) {
+                                                  url = item.attachments[0];
+                                                } else if (typeof item.attachments === 'string') {
+                                                  url = item.attachments;
+                                                } else if (item.attachments?.url) {
+                                                  url = item.attachments.url;
+                                                }
+                                                if (url) window.open(url, '_blank');
+                                              }}
+                                            >
+                                              Attachments
+                                              <FileText className="ml-2 h-3.5 w-3.5" />
+                                            </Button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Full Content Body when expanded */}
+                                    {isExpanded && (
+                                      <div className="p-4 bg-white space-y-3">
+                                        {/* Generic Fields */}
+                                        {item.content && (
+                                          <div className="text-sm text-gray-900 whitespace-pre-wrap">{item.content}</div>
+                                        )}
+
+                                        {/* Locations */}
+                                        {item.locations && (
+                                          <div className="mt-2 text-sm text-gray-900">
+                                            <span className="font-semibold text-[#204B73] block mb-1">Locations:</span>
+                                            {item.locations}
+                                          </div>
+                                        )}
+
+                                        {/* Principal Investigators */}
+                                        {item.principal_investigators && (
+                                          <div className="mt-2 text-sm text-gray-900">
+                                            <span className="font-semibold text-[#204B73] block mb-1">Principal Investigator:</span>
+                                            {item.principal_investigators}
+                                          </div>
+                                        )}
+
+                                        {/* Actions */}
+                                        <div className="flex items-center gap-2 pt-4 mt-2 border-t border-gray-100">
+                                          {item.view_source_url && (
+                                            <Button
+                                              size="sm"
+                                              className="h-8 px-4 text-xs font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
+                                              onClick={() => window.open(item.view_source_url, '_blank')}
+                                            >
+                                              View source
+                                            </Button>
+                                          )}
+
+                                          {item.attachments && (Array.isArray(item.attachments) ? item.attachments.length > 0 : true) && (
+                                            <Button
+                                              size="sm"
+                                              className="h-8 px-4 text-xs font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
+                                              onClick={() => {
+                                                // Handle attachments array of URLs or single string
+                                                let url: string | undefined;
+                                                if (Array.isArray(item.attachments)) {
+                                                  // Array of URL strings
+                                                  url = item.attachments[0];
+                                                } else if (typeof item.attachments === 'string') {
+                                                  url = item.attachments;
+                                                } else if (item.attachments?.url) {
+                                                  url = item.attachments.url;
+                                                }
+                                                if (url) window.open(url, '_blank');
+                                              }}
+                                            >
+                                              Attachments
+                                              <FileText className="ml-2 h-3.5 w-3.5" />
+                                            </Button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              });
+                            })
+                          ) : (
+                            <div className="text-center py-8">
+                              <p className="text-sm text-gray-600">
+                                No detailed site information available
                               </p>
                             </div>
-                          </div>
-                        ) : (
-                          <div className="text-center py-8">
-                            <p className="text-sm text-gray-600">
-                              No detailed site information available
-                            </p>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -2859,7 +3238,7 @@ function ClinicalTrialsPage() {
                             const Row = ({ label, value }: { label: string; value: any }) => (
                               <div className="flex text-xs py-1">
                                 <span className="font-bold text-[#204B73] min-w-[150px]">{label} :</span>
-                                <span className="text-gray-700 whitespace-pre-wrap">{value || "N/A"}</span>
+                                <span className="text-gray-900 whitespace-pre-wrap">{value || "N/A"}</span>
                               </div>
                             );
 
@@ -2951,41 +3330,24 @@ function ClinicalTrialsPage() {
                                         <Button
                                           size="sm"
                                           className="h-8 px-4 text-xs font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
-                                          onClick={() => openLinkPreview(parsedData.url, "View Source")}
+                                          onClick={() => window.open(parsedData.url, '_blank')}
                                         >
                                           View source
                                         </Button>
                                       )}
 
                                       {(parsedData.fileUrl || (parsedData.url && (parsedData.url.includes('utfs.io') || parsedData.url.includes('edgestore')))) && (
-                                        <div className="flex items-center h-8 rounded-md shadow-sm overflow-hidden bg-[#204B73]">
-                                          <Button
-                                            size="sm"
-                                            className="h-full px-3 text-xs font-medium text-white border-r border-[#ffffff33] rounded-none bg-transparent hover:bg-white/10"
-                                            onClick={() => {
-                                              const url = parsedData.fileUrl || parsedData.url;
-                                              if (url) window.open(url, '_blank');
-                                            }}
-                                          >
-                                            Attachments
-                                            <FileText className="ml-2 h-3.5 w-3.5" />
-                                          </Button>
-                                          <Button
-                                            size="sm"
-                                            className="h-full px-2 text-white rounded-none bg-transparent hover:bg-white/10"
-                                            onClick={() => {
-                                              const url = parsedData.fileUrl || parsedData.url;
-                                              if (url) {
-                                                const link = document.createElement('a');
-                                                link.href = url;
-                                                link.download = parsedData.file || 'attachment';
-                                                link.click();
-                                              }
-                                            }}
-                                          >
-                                            <Download className="h-3.5 w-3.5" />
-                                          </Button>
-                                        </div>
+                                        <Button
+                                          size="sm"
+                                          className="h-8 px-4 text-xs font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
+                                          onClick={() => {
+                                            const url = parsedData.fileUrl || parsedData.url;
+                                            if (url) window.open(url, '_blank');
+                                          }}
+                                        >
+                                          Attachments
+                                          <FileText className="ml-2 h-3.5 w-3.5" />
+                                        </Button>
                                       )}
                                     </div>
                                   </div>
@@ -3022,7 +3384,7 @@ function ClinicalTrialsPage() {
                     <div className="flex flex-wrap gap-x-24 gap-y-4">
                       <div className="flex items-center gap-2">
                         <span className="text-[15px] font-bold text-[#204B73]">Trial added Date :</span>
-                        <span className="text-[15px] text-gray-700">
+                        <span className="text-[15px] text-gray-900">
                           {currentTrial.logs && currentTrial.logs.length > 0 && currentTrial.logs[0].trial_added_date
                             ? formatDateToMMDDYYYY(currentTrial.logs[0].trial_added_date)
                             : "N/A"}
@@ -3030,7 +3392,7 @@ function ClinicalTrialsPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-[15px] font-bold text-[#204B73]">Last Modified Date :</span>
-                        <span className="text-[15px] text-gray-700">
+                        <span className="text-[15px] text-gray-900">
                           {currentTrial.logs && currentTrial.logs.length > 0 && currentTrial.logs[0].last_modified_date
                             ? formatDateToMMDDYYYY(currentTrial.logs[0].last_modified_date)
                             : "N/A"}
@@ -3151,7 +3513,7 @@ function ClinicalTrialsPage() {
                             : "N/A"}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-700 mb-2 whitespace-pre-wrap">
+                      <p className="text-sm text-gray-900 mb-2 whitespace-pre-wrap">
                         {log.trial_changes_log}
                       </p>
                       <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
@@ -3356,82 +3718,7 @@ function ClinicalTrialsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* View Source Modal */}
-      <Dialog open={showSourceModal} onOpenChange={setShowSourceModal}>
-        <DialogContent className="max-w-4xl h-[80vh] p-0 overflow-hidden [&>button]:hidden">
-          <DialogTitle className="sr-only">Source</DialogTitle>
-          <div className="flex flex-col h-full">
-            <div className="bg-[#204B73] text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
-              <h2 className="text-lg font-semibold">Source</h2>
-              <button
-                onClick={() => setShowSourceModal(false)}
-                className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center"
-              >
-                <X className="h-5 w-5 text-white" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-hidden bg-white">
-              {sourceUrl ? (
-                <iframe
-                  src={sourceUrl}
-                  className="w-full h-full border-0"
-                  title="Source"
-                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  No source URL available
-                </div>
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
-      {/* Attachments Modal */}
-      <Dialog open={showAttachmentsModal} onOpenChange={setShowAttachmentsModal}>
-        <DialogContent className="max-w-4xl h-[80vh] p-0 overflow-hidden [&>button]:hidden">
-          <DialogTitle className="sr-only">Attachments</DialogTitle>
-          <div className="flex flex-col h-full">
-            <div className="bg-[#204B73] text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
-              <h2 className="text-lg font-semibold">Attachments</h2>
-              <button
-                onClick={() => setShowAttachmentsModal(false)}
-                className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center"
-              >
-                <X className="h-5 w-5 text-white" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-hidden bg-white">
-              {attachmentUrl ? (
-                <iframe
-                  src={attachmentUrl}
-                  className="w-full h-full border-0"
-                  title="Attachments"
-                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  No attachments available
-                </div>
-              )}
-            </div>
-            <div className="border-t bg-white px-4 py-3 flex justify-end">
-              <Button
-                className="bg-[#204B73] text-white hover:bg-[#1a3d5c] px-6"
-                onClick={() => {
-                  if (attachmentUrl) {
-                    window.open(attachmentUrl, '_blank');
-                  }
-                }}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Download
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div >
   );
 }

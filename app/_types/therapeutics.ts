@@ -94,6 +94,10 @@ export interface TherapeuticResults {
   adverse_event_reported: string | null;
   adverse_event_type: string | null;
   treatment_for_adverse_events: string | null;
+  trial_outcome_reference_date: string | null;
+  trial_outcome_content: string | null;
+  trial_outcome_link: string | null;
+  trial_outcome_attachment: string | null;
 }
 
 export type CreateTherapeuticResultsDto = Omit<TherapeuticResults, "id">;
