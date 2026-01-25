@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,6 +12,7 @@ import { FaBook, FaBookmark } from "react-icons/fa"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { SaveQueryModal } from "@/components/save-query-modal"
+import { useDrugNames } from "@/hooks/use-drug-names"
 
 interface ClinicalTrialAdvancedSearchModalProps {
   open: boolean
@@ -37,8 +38,8 @@ const searchFields = [
   { value: "enrollment", label: "Enrollment", type: "number" },
   { value: "therapeutic_area", label: "Therapeutic Area", type: "dropdown" },
   { value: "trial_phase", label: "Trial Phase", type: "dropdown" },
-  { value: "primary_drugs", label: "Primary Drug", type: "text" },
-  { value: "secondary_drugs", label: "Secondary Drug", type: "text" },
+  { value: "primary_drugs", label: "Primary Drug", type: "dropdown" },
+  { value: "secondary_drugs", label: "Secondary Drug", type: "dropdown" },
   { value: "trial_status", label: "Trial Status", type: "dropdown" },
   { value: "sponsor_collaborators", label: "Sponsor", type: "dropdown" },
   { value: "countries", label: "Countries", type: "dropdown" },
@@ -154,17 +155,47 @@ const fieldOptions: Record<string, { value: string; label: string }[]> = {
   ]
 }
 
-const operators = [
+// Text operators (for non-numeric fields)
+const textOperators = [
   { value: "contains", label: "Contains" },
   { value: "is", label: "is" },
   { value: "is_not", label: "is not" },
-  { value: "starts_with", label: "Starts with" },
-  { value: "ends_with", label: "Ends with" },
-  { value: "greater_than", label: ">=" },
-  { value: "less_than", label: "<" },
-  { value: "equals", label: "=" },
-  { value: "not_equals", label: "!=" }
 ]
+
+// Numeric operators (for number fields)
+const numericOperators = [
+  { value: "equals", label: "=" },
+  { value: "not_equals", label: "!=" },
+  { value: "greater_than", label: ">" },
+  { value: "greater_than_equal", label: ">=" },
+  { value: "less_than", label: "<" },
+  { value: "less_than_equal", label: "<=" },
+]
+
+// Date operators
+const dateOperators = [
+  { value: "is", label: "is" },
+  { value: "is_not", label: "is not" },
+  { value: "greater_than", label: ">" },
+  { value: "greater_than_equal", label: ">=" },
+  { value: "less_than", label: "<" },
+  { value: "less_than_equal", label: "<=" },
+]
+
+// Helper function to get operators based on field type
+const getOperatorsForField = (fieldValue: string) => {
+  const field = searchFields.find(f => f.value === fieldValue)
+  if (!field) return textOperators
+
+  switch (field.type) {
+    case "number":
+      return numericOperators
+    case "date":
+      return dateOperators
+    default:
+      return textOperators
+  }
+}
 
 export function ClinicalTrialAdvancedSearchModal({
   open,
@@ -187,6 +218,23 @@ export function ClinicalTrialAdvancedSearchModal({
     }
   ])
   const [saveQueryModalOpen, setSaveQueryModalOpen] = useState(false)
+
+  // Get drug names from API
+  const { getPrimaryDrugsOptions, isLoading: isDrugsLoading } = useDrugNames()
+
+  // Build dynamic field options with drug data
+  const dynamicFieldOptions = useMemo((): Record<string, { value: string; label: string }[]> => {
+    const drugOptions = getPrimaryDrugsOptions()
+    return {
+      ...fieldOptions,
+      primary_drugs: drugOptions.length > 0
+        ? drugOptions
+        : [{ value: "no_drugs", label: "No drugs available" }],
+      secondary_drugs: drugOptions.length > 0
+        ? drugOptions
+        : [{ value: "no_drugs", label: "No drugs available" }],
+    }
+  }, [getPrimaryDrugsOptions])
 
   // Sync internal state with props when modal opens or currentSearchCriteria change
   useEffect(() => {
@@ -257,7 +305,7 @@ export function ClinicalTrialAdvancedSearchModal({
   // Render value input based on field type
   const renderValueInput = (criterion: ClinicalTrialSearchCriteria) => {
     const fieldType = getFieldType(criterion.field)
-    const options = fieldOptions[criterion.field]
+    const options = dynamicFieldOptions[criterion.field]
 
     // Date field - show date picker
     if (fieldType === "date") {
@@ -321,7 +369,7 @@ export function ClinicalTrialAdvancedSearchModal({
         <Input
           type="number"
           placeholder="Enter number"
-          value={criterion.value}
+          value={criterion.value || ""}
           onChange={(e) => updateCriteria(criterion.id, "value", e.target.value)}
           className="border border-gray-300 rounded-lg text-center"
           style={{ fontFamily: "Poppins, sans-serif" }}
@@ -333,7 +381,7 @@ export function ClinicalTrialAdvancedSearchModal({
     return (
       <Input
         placeholder="Enter the search term"
-        value={criterion.value}
+        value={criterion.value || ""}
         onChange={(e) => updateCriteria(criterion.id, "value", e.target.value)}
         className="border border-gray-300 rounded-lg text-center"
         style={{ fontFamily: "Poppins, sans-serif" }}
@@ -411,7 +459,7 @@ export function ClinicalTrialAdvancedSearchModal({
                         <SelectValue placeholder="Operator" />
                       </SelectTrigger>
                       <SelectContent position="popper" side="bottom" style={{ fontFamily: "Poppins, sans-serif" }}>
-                        {operators.map((op) => (
+                        {getOperatorsForField(criterion.field).map((op) => (
                           <SelectItem key={op.value} value={op.value}>
                             {op.label}
                           </SelectItem>

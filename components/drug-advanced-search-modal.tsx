@@ -73,19 +73,28 @@ const drugSearchFields = [
   { value: "updated_at", label: "Updated Date" }
 ]
 
-const operators = [
+// Text operators (for non-numeric fields)
+const textOperators = [
   { value: "contains", label: "Contains" },
   { value: "is", label: "is" },
   { value: "is_not", label: "is not" },
-  { value: "starts_with", label: "Starts with" },
-  { value: "ends_with", label: "Ends with" },
-  { value: "equals", label: "=" },
-  { value: "not_equals", label: "!=" },
-  { value: "greater_than", label: ">" },
-  { value: "greater_than_or_equal", label: ">=" },
-  { value: "less_than", label: "<" },
-  { value: "less_than_or_equal", label: "<=" }
 ]
+
+// Date operators
+const dateOperators = [
+  { value: "is", label: "is" },
+  { value: "is_not", label: "is not" },
+  { value: "greater_than", label: ">" },
+  { value: "greater_than_equal", label: ">=" },
+  { value: "less_than", label: "<" },
+  { value: "less_than_equal", label: "<=" },
+]
+
+// Helper function to get operators based on field type
+const getOperatorsForField = (fieldValue: string) => {
+  if (dateFields.includes(fieldValue)) return dateOperators
+  return textOperators
+}
 
 // Fields that should use date picker
 const dateFields = [
@@ -103,9 +112,9 @@ const DEFAULT_CRITERIA: DrugSearchCriteria[] = [
   }
 ]
 
-export function DrugAdvancedSearchModal({ 
-  open, 
-  onOpenChange, 
+export function DrugAdvancedSearchModal({
+  open,
+  onOpenChange,
   onApplySearch,
   initialCriteria,
   currentFilters,
@@ -158,12 +167,12 @@ export function DrugAdvancedSearchModal({
     if (dateFields.includes(field)) {
       return []
     }
-    
+
     const values = new Set<string>()
-    
+
     drugData.forEach(drug => {
       let fieldValue = ''
-      
+
       switch (field) {
         case 'drug_name':
           fieldValue = drug.drug_name || ''
@@ -211,12 +220,12 @@ export function DrugAdvancedSearchModal({
           fieldValue = drug.is_approved || ''
           break
       }
-      
+
       if (fieldValue && fieldValue.trim()) {
         values.add(fieldValue.trim())
       }
     })
-    
+
     return Array.from(values).sort()
   }
 
@@ -224,7 +233,7 @@ export function DrugAdvancedSearchModal({
   const renderValueInput = (criterion: DrugSearchCriteria) => {
     const isDateField = dateFields.includes(criterion.field)
     const dynamicValues = getFieldValues(criterion.field)
-    
+
     // Date field with custom input
     if (isDateField) {
       return (
@@ -236,7 +245,7 @@ export function DrugAdvancedSearchModal({
         />
       )
     }
-    
+
     // Dynamic dropdown for fields with data from database
     if (dynamicValues.length > 0) {
       return (
@@ -257,12 +266,12 @@ export function DrugAdvancedSearchModal({
         </Select>
       )
     }
-    
+
     // Default to text input for fields without dynamic data
     return (
       <Input
         placeholder="Enter the search term"
-        value={criterion.value}
+        value={criterion.value || ""}
         onChange={(e) => updateCriteria(criterion.id, "value", e.target.value)}
       />
     )
@@ -329,7 +338,7 @@ export function DrugAdvancedSearchModal({
           updated_at: new Date().toISOString()
         }
         localStorage.setItem('unifiedSavedQueries', JSON.stringify(existingQueries))
-        
+
         toast({
           title: "Query Updated",
           description: `"${editingQueryTitle}" has been updated successfully`,
@@ -370,7 +379,7 @@ export function DrugAdvancedSearchModal({
     } else {
       // CREATE MODE: Create new query
       const queryName = `Drug Advanced Search (${criteria.length} criteria) - ${new Date().toLocaleDateString()}`;
-      
+
       const newQuery = {
         id: Date.now().toString(),
         title: queryName,
@@ -380,15 +389,15 @@ export function DrugAdvancedSearchModal({
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
-      
+
       const savedQueries = JSON.parse(localStorage.getItem('unifiedSavedQueries') || '[]');
       savedQueries.push(newQuery);
       localStorage.setItem('unifiedSavedQueries', JSON.stringify(savedQueries));
-      
+
       // Debug: Log what we're saving
       console.log("Saving to localStorage:", savedQueries);
       console.log("Total queries in storage:", savedQueries.length);
-      
+
       // Show feedback using toast
       toast({
         title: "Query Saved",
@@ -455,94 +464,94 @@ export function DrugAdvancedSearchModal({
             </div>
           ) : (
             criteria.map((criterion, index) => (
-            <div key={criterion.id} className="space-y-3">
-              <div className="grid grid-cols-12 gap-3 items-center">
-                <div className="col-span-2">
-                  <Select
-                    value={criterion.field}
-                    onValueChange={(value) => updateCriteria(criterion.id, "field", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {drugSearchFields.map((field) => (
-                        <SelectItem key={field.value} value={field.value}>
-                          {field.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div key={criterion.id} className="space-y-3">
+                <div className="grid grid-cols-12 gap-3 items-center">
+                  <div className="col-span-2">
+                    <Select
+                      value={criterion.field}
+                      onValueChange={(value) => updateCriteria(criterion.id, "field", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {drugSearchFields.map((field) => (
+                          <SelectItem key={field.value} value={field.value}>
+                            {field.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div className="col-span-2">
-                  <Select
-                    value={criterion.operator}
-                    onValueChange={(value) => updateCriteria(criterion.id, "operator", value)}
-                  >
-                    <SelectTrigger className="bg-teal-600 text-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {operators.map((op) => (
-                        <SelectItem key={op.value} value={op.value}>
-                          {op.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <div className="col-span-2">
+                    <Select
+                      value={criterion.operator}
+                      onValueChange={(value) => updateCriteria(criterion.id, "operator", value)}
+                    >
+                      <SelectTrigger className="bg-teal-600 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getOperatorsForField(criterion.field).map((op) => (
+                          <SelectItem key={op.value} value={op.value}>
+                            {op.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div className="col-span-4">
-                  {renderValueInput(criterion)}
-                </div>
+                  <div className="col-span-4">
+                    {renderValueInput(criterion)}
+                  </div>
 
-                <div className="col-span-2">
-                  <Select
-                    value={criterion.logic}
-                    onValueChange={(value) => updateCriteria(criterion.id, "logic", value as "AND" | "OR")}
-                  >
-                    <SelectTrigger className="bg-orange-500 text-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="AND">AND</SelectItem>
-                      <SelectItem value="OR">OR</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <div className="col-span-2">
+                    <Select
+                      value={criterion.logic}
+                      onValueChange={(value) => updateCriteria(criterion.id, "logic", value as "AND" | "OR")}
+                    >
+                      <SelectTrigger className="bg-orange-500 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="AND">AND</SelectItem>
+                        <SelectItem value="OR">OR</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div className="col-span-2 flex space-x-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={addCriteria}
-                    className="bg-green-500 text-white hover:bg-green-600 h-8 w-8 p-0"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                  {criteria.length > 1 && (
+                  <div className="col-span-2 flex space-x-1">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => removeCriteria(criterion.id)}
-                      className="bg-red-500 text-white hover:bg-red-600 h-8 w-8 p-0"
+                      onClick={addCriteria}
+                      className="bg-green-500 text-white hover:bg-green-600 h-8 w-8 p-0"
                     >
-                      <Minus className="h-4 w-4" />
+                      <Plus className="h-4 w-4" />
                     </Button>
-                  )}
-                </div>
-              </div>
-              {/* Remove logic connector line for the last item */}
-              {index < criteria.length - 1 && (
-                <div className="flex justify-center">
-                  <div className="w-8 h-4 flex items-center justify-center">
-                    <div className="w-px h-4 bg-gray-300"></div>
+                    {criteria.length > 1 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeCriteria(criterion.id)}
+                        className="bg-red-500 text-white hover:bg-red-600 h-8 w-8 p-0"
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
-              )}
-            </div>
-          ))
+                {/* Remove logic connector line for the last item */}
+                {index < criteria.length - 1 && (
+                  <div className="flex justify-center">
+                    <div className="w-8 h-4 flex items-center justify-center">
+                      <div className="w-px h-4 bg-gray-300"></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))
           )}
         </div>
 
@@ -570,7 +579,7 @@ export function DrugAdvancedSearchModal({
           </Button>
         </div>
       </DialogContent>
-      
+
       <QueryHistoryModal
         open={savedQueriesOpen}
         onOpenChange={setSavedQueriesOpen}

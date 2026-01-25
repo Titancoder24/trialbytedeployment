@@ -34,8 +34,6 @@ export interface ClinicalTrialFilterState {
   sponsorFieldActivity: string[]
   associatedCro: string[]
   trialTags: string[]
-  sex: string[]
-  healthyVolunteers: string[]
 }
 
 // Static filter options that match the add trial form
@@ -84,9 +82,7 @@ const staticFilterCategories = {
     "IO/IO Combination", "IO/Other Combination", "IO/Radiotherapy Combination", "IO/Targeted Combination",
     "Microdosing", "PGX-Biomarker Identification/Evaluation", "PGX-Pathogen",
     "PGX-Patient Preselection/Stratification", "Post-Marketing Commitment", "Registration"
-  ],
-  sex: ["Male", "Female", "Both"],
-  healthyVolunteers: ["Yes", "No"]
+  ]
 }
 
 export function ClinicalTrialFilterModal({
@@ -175,9 +171,7 @@ export function ClinicalTrialFilterModal({
     sponsorsCollaborators: "Sponsors & Collaborators",
     sponsorFieldActivity: "Sponsor Field of Activity",
     associatedCro: "Associated CRO",
-    trialTags: "Trial Tags",
-    sex: "Sex",
-    healthyVolunteers: "Healthy Volunteers"
+    trialTags: "Trial Tags"
   }
 
   // Order of categories as shown in the image
@@ -194,9 +188,7 @@ export function ClinicalTrialFilterModal({
     "sponsorsCollaborators",
     "sponsorFieldActivity",
     "associatedCro",
-    "trialTags",
-    "sex",
-    "healthyVolunteers"
+    "trialTags"
   ]
 
   return (

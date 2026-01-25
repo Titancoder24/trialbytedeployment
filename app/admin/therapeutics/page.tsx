@@ -974,6 +974,90 @@ export default function AdminTherapeuticsPage() {
     }
   };
 
+  // Get available sort options (only enabled columns)
+  const getAvailableSortOptions = (): Array<{ key: keyof ColumnSettings, label: string }> => {
+    return COLUMN_OPTIONS.filter(option => columnSettings[option.key]);
+  };
+
+  // Handle sort field selection
+  const handleSort = (field: keyof ColumnSettings) => {
+    if (sortField === field) {
+      // Toggle direction if same field
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      // New field, default to ascending
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  // Get sort value from trial based on field
+  const getSortValue = (trial: TherapeuticTrial, field: string): string | number => {
+    switch (field) {
+      // Core fields
+      case "trialId": return trial.overview?.trial_id || trial.overview?.trial_identifier?.[0] || "";
+      case "title": return trial.overview?.title || "";
+      case "therapeuticArea": return trial.overview?.therapeutic_area || "";
+      case "diseaseType": return trial.overview?.disease_type || "";
+      case "primaryDrug": return trial.overview?.primary_drugs || "";
+      case "trialPhase": return trial.overview?.trial_phase || "";
+      case "patientSegment": return trial.overview?.patient_segment || "";
+      case "lineOfTherapy": return trial.overview?.line_of_therapy || "";
+      case "countries": return trial.overview?.countries || "";
+      case "sponsorsCollaborators": return trial.overview?.sponsor_collaborators || "";
+      case "fieldOfActivity": return trial.overview?.sponsor_field_activity || "";
+      case "associatedCro": return trial.overview?.associated_cro || "";
+      case "trialTags": return trial.overview?.trial_tags || "";
+      case "otherDrugs": return trial.overview?.other_drugs || "";
+      case "regions": return trial.overview?.region || "";
+      case "trialRecordStatus": return trial.overview?.trial_record_status || "";
+      case "status": return trial.overview?.status || "";
+
+      // Eligibility fields
+      case "inclusionCriteria": return trial.criteria?.[0]?.inclusion_criteria || "";
+      case "exclusionCriteria": return trial.criteria?.[0]?.exclusion_criteria || "";
+      // Numeric fields - parse as numbers
+      case "ageFrom": return parseFloat(trial.criteria?.[0]?.age_from || "0") || 0;
+      case "ageTo": return parseFloat(trial.criteria?.[0]?.age_to || "0") || 0;
+      case "subjectType": return trial.criteria?.[0]?.subject_type || "";
+      case "sex": return trial.criteria?.[0]?.sex || "";
+      case "healthyVolunteers": return trial.criteria?.[0]?.healthy_volunteers || "";
+      case "targetNoVolunteers": return parseInt(String(trial.criteria?.[0]?.target_no_volunteers || "0")) || 0;
+      case "actualEnrolledVolunteers": return parseInt(String(trial.criteria?.[0]?.actual_enrolled_volunteers || "0")) || 0;
+
+      // Study Design fields
+      case "purposeOfTrial": return trial.outcomes?.[0]?.purpose_of_trial || "";
+      case "summary": return trial.outcomes?.[0]?.summary || "";
+      case "primaryOutcomeMeasures": return trial.outcomes?.[0]?.primary_outcome_measure || "";
+      case "otherOutcomeMeasures": return trial.outcomes?.[0]?.other_outcome_measure || "";
+      case "studyDesignKeywords": return trial.outcomes?.[0]?.study_design_keywords || "";
+      case "studyDesign": return trial.outcomes?.[0]?.study_design || "";
+      case "treatmentRegimen": return trial.outcomes?.[0]?.treatment_regimen || "";
+      case "numberOfArms": return parseInt(String(trial.outcomes?.[0]?.number_of_arms || "0")) || 0;
+
+      // Timing fields
+      case "startDateEstimated": return trial.timing?.[0]?.start_date_estimated || "";
+      case "trialEndDateEstimated": return trial.timing?.[0]?.trial_end_date_estimated || "";
+      case "estimatedEnrollmentClosedDate": return ""; // TODO: Add field when available
+      case "estimatedResultPublishedDate": return ""; // TODO: Add field when available
+
+      // Results fields
+      case "resultsAvailable": return trial.results?.[0]?.trial_results?.length ? "Yes" : "No";
+      case "endpointsMet": return trial.results?.[0]?.trial_outcome || "";
+      case "trialOutcome": return trial.results?.[0]?.trial_outcome || "";
+
+      // Sites fields
+      case "totalSites": return parseInt(String(trial.sites?.[0]?.total || "0")) || 0;
+
+      // Admin-only fields
+      case "referenceLinks": return trial.overview?.reference_links?.join(", ") || "";
+      case "nextReviewDate": return trial.logs?.[0]?.next_review_date || "";
+      case "lastModifiedDate": return trial.logs?.[0]?.last_modified_date || "";
+
+      default: return "";
+    }
+  };
+
   // Apply advanced search criteria to filter trials
   const applyAdvancedSearchFilter = (trial: TherapeuticTrial, criteria: TherapeuticSearchCriteria[]): boolean => {
     // Helper to get user name synchronously (using cache)
@@ -1562,15 +1646,19 @@ export default function AdminTherapeuticsPage() {
 
       switch (operator) {
         case "contains":
-          return targetValue.includes(searchValueLower);
+          // Handle multi-value fields: split by comma, semicolon, or newline and check if any part contains the search value
+          const valueParts = targetValue.split(/[,;\n\r]+/).map(p => p.trim().toLowerCase());
+          // Check if any part contains the search value, or if the whole string contains it
+          return valueParts.some(part => part.includes(searchValueLower)) || targetValue.includes(searchValueLower);
         case "is":
-          return targetValue === searchValueLower;
+          // Exact match (case-insensitive): normalize both values
+          const normalizedTarget = targetValue.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+          const normalizedSearch = searchValueLower.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+          return normalizedTarget === normalizedSearch || targetValue === searchValueLower;
         case "is_not":
-          return targetValue !== searchValueLower;
-        case "starts_with":
-          return targetValue.startsWith(searchValueLower);
-        case "ends_with":
-          return targetValue.endsWith(searchValueLower);
+          const normalizedTargetNot = targetValue.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+          const normalizedSearchNot = searchValueLower.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+          return normalizedTargetNot !== normalizedSearchNot && targetValue !== searchValueLower;
         case "equals":
           return targetValue === searchValueLower;
         case "not_equals":
@@ -1649,117 +1737,10 @@ export default function AdminTherapeuticsPage() {
     return finalResult;
   };
 
-  // Sorting functions
-  const getSortValue = (trial: TherapeuticTrial, field: string): string | number => {
-    switch (field) {
-      // Core fields
-      case "trialId":
-      case "trial_id": return trial.overview?.trial_id || trial.trial_id || "";
-      case "title": return trial.overview?.title || "";
-      case "therapeuticArea": return trial.overview?.therapeutic_area || "";
-      case "diseaseType": return trial.overview?.disease_type || "";
-      case "primaryDrug": return trial.overview?.primary_drugs || "";
-      case "trialPhase": return trial.overview?.trial_phase || "";
-      case "patientSegment": return trial.overview?.patient_segment || "";
-      case "lineOfTherapy": return trial.overview?.line_of_therapy || "";
-      case "countries": return trial.overview?.countries || "";
-      case "sponsorsCollaborators":
-      case "sponsor": return trial.overview?.sponsor_collaborators || "";
-      case "fieldOfActivity": return trial.overview?.sponsor_field_activity || "";
-      case "associatedCro": return trial.overview?.associated_cro || "";
-      case "trialTags": return trial.overview?.trial_tags || "";
-      case "sex": return trial.criteria[0]?.sex || "";
-      case "healthyVolunteers": return trial.criteria[0]?.healthy_volunteers || "";
-      case "trialRecordStatus": return trial.overview?.trial_record_status || "";
-      case "otherDrugs": return trial.overview?.other_drugs || "";
-      case "regions": return trial.overview?.region || "";
-      case "ageMin": return trial.criteria[0]?.age_from || "";
-      case "ageMax": return trial.criteria[0]?.age_to || "";
-      case "subjectType": return trial.criteria[0]?.subject_type || "";
-
-      // Enrollment & Study data
-      case "estimatedEnrollment":
-      case "targetNoVolunteers": return trial.criteria[0]?.target_no_volunteers?.toString() || "0";
-      case "actualEnrollment":
-      case "actualEnrolledVolunteers": return trial.criteria[0]?.actual_enrolled_volunteers?.toString() || "0";
-
-      // Timing fields
-      case "studyStartDate":
-      case "startDateEstimated": return trial.timing[0]?.start_date_estimated || "";
-      case "studyEndDate":
-      case "trialEndDateEstimated": return trial.timing[0]?.trial_end_date_estimated || "";
-
-      // Outcomes fields
-      case "purposeOfTrial": return trial.outcomes[0]?.purpose_of_trial || "";
-      case "summary": return trial.outcomes[0]?.summary || "";
-      case "primaryOutcomeMeasures": return trial.outcomes[0]?.primary_outcome_measure || "";
-      case "otherOutcomeMeasures": return trial.outcomes[0]?.other_outcome_measure || "";
-      case "studyDesignKeywords": return trial.outcomes[0]?.study_design_keywords || "";
-      case "studyDesign": return trial.outcomes[0]?.study_design || "";
-      case "treatmentRegimen": return trial.outcomes[0]?.treatment_regimen || "";
-      case "numberOfArms": return trial.outcomes[0]?.number_of_arms?.toString() || "0";
-
-      // Criteria fields
-      case "inclusionCriteria": return trial.criteria[0]?.inclusion_criteria || "";
-      case "exclusionCriteria": return trial.criteria[0]?.exclusion_criteria || "";
-      case "ageFrom": return trial.criteria[0]?.age_from || "";
-      case "ageTo": return trial.criteria[0]?.age_to || "";
-      case "gender": return trial.criteria[0]?.sex || "";
-
-      // Results fields
-      case "trialOutcome":
-      case "trialOutcomeContent": return trial.results[0]?.trial_outcome || "";
-      case "trialResults": return trial.results[0]?.trial_results?.join(", ") || "";
-      case "adverseEventReported":
-      case "adverseEventsReported": return trial.results[0]?.adverse_event_reported || "";
-      case "adverseEventType": return trial.results[0]?.adverse_event_type || "";
-      case "treatmentForAdverseEvents": return trial.results[0]?.treatment_for_adverse_events || "";
-
-      // Sites fields
-      case "totalSites": return trial.sites[0]?.total?.toString() || "0";
-      case "siteNotes": return trial.sites[0]?.notes || "";
-
-      // Additional fields
-      case "publicationType": return "";
-      case "registryName": return "";
-      case "studyType": return "";
-
-      // Legacy support
-      case "therapeutic_area": return trial.overview?.therapeutic_area || "";
-      case "disease_type": return trial.overview?.disease_type || "";
-      case "primary_drug": return trial.overview?.primary_drugs || "";
-      case "trial_status": return trial.overview?.status || "";
-      case "phase": return trial.overview?.trial_phase || "";
-      case "enrollment": return trial.criteria[0]?.target_no_volunteers?.toString() || "0";
-
-      default: return "";
-    }
-  };
-
-  const handleSort = (field: string) => {
-    console.log('handleSort called with field:', field, 'current sortField:', sortField);
-    if (sortField === field) {
-      // Toggle sort direction if same field
-      const newDirection = sortDirection === "asc" ? "desc" : "asc";
-      console.log('Toggling sort direction to:', newDirection);
-      setSortDirection(newDirection);
-    } else {
-      // Set new field and default to ascending
-      console.log('Setting new sort field:', field, 'direction: asc');
-      setSortField(field);
-      setSortDirection("asc");
-    }
-  };
-
   const handleColumnSettingsChange = (newSettings: ColumnSettings) => {
     setColumnSettings(newSettings);
     // Save to localStorage
     localStorage.setItem('adminTrialColumnSettings', JSON.stringify(newSettings));
-  };
-
-  // Get available sort options based on currently visible columns
-  const getAvailableSortOptions = () => {
-    return COLUMN_OPTIONS.filter((opt) => columnSettings[opt.key]);
   };
 
   // Filter trials based on search term, advanced search criteria, and filters
@@ -2712,8 +2693,9 @@ export default function AdminTherapeuticsPage() {
                 {columnSettings.associatedCro && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Associated CRO</th>}
                 {columnSettings.trialTags && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Trial Tags</th>}
                 {columnSettings.otherDrugs && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Other Drugs</th>}
-                {columnSettings.regions && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Regions</th>}
+                {columnSettings.regions && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Region</th>}
                 {columnSettings.trialRecordStatus && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Trial Record Status</th>}
+                {columnSettings.status && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Status</th>}
                 {/* Eligibility Section */}
                 {columnSettings.inclusionCriteria && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Inclusion Criteria</th>}
                 {columnSettings.exclusionCriteria && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Exclusion Criteria</th>}
@@ -2739,15 +2721,16 @@ export default function AdminTherapeuticsPage() {
                 {/* Results Section */}
                 {columnSettings.resultsAvailable && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Results Available</th>}
                 {columnSettings.endpointsMet && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Endpoints Met</th>}
-                {columnSettings.adverseEventsReported && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Adverse Events</th>}
                 {columnSettings.trialOutcome && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Trial Outcome</th>}
-                {columnSettings.trialOutcomeContent && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Trial Outcome Content</th>}
-                {columnSettings.adverseEventReported && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Adverse Event</th>}
-                {columnSettings.adverseEventType && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Adverse Event Type</th>}
-                {columnSettings.treatmentForAdverseEvents && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Treatment for AE</th>}
                 {/* Sites Section */}
                 {columnSettings.totalSites && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Total Sites</th>}
-                {columnSettings.siteNotes && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Site Notes</th>}
+                {/* New Fields */}
+                {columnSettings.estimatedEnrollmentClosedDate && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Est. Enrollment Closed</th>}
+                {columnSettings.estimatedResultPublishedDate && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Est. Result Published</th>}
+                {columnSettings.referenceLinks && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Reference Links</th>}
+                {/* Admin-only Fields */}
+                {columnSettings.nextReviewDate && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Next Review Date</th>}
+                {columnSettings.lastModifiedDate && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Last Modified Date</th>}
                 <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Created</th>
                 <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Actions</th>
               </tr>
@@ -2826,6 +2809,9 @@ export default function AdminTherapeuticsPage() {
                     {columnSettings.trialRecordStatus && (
                       <td className="p-4 align-middle max-w-[120px] truncate">{formatDisplayValue(trial.overview.trial_record_status)}</td>
                     )}
+                    {columnSettings.status && (
+                      <td className="p-4 align-middle max-w-[120px] truncate">{formatDisplayValue(trial.overview.status)}</td>
+                    )}
                     {/* Eligibility Section */}
                     {columnSettings.inclusionCriteria && (
                       <td className="p-4 align-middle max-w-[200px] truncate">{trial.criteria[0]?.inclusion_criteria || "N/A"}</td>
@@ -2893,30 +2879,29 @@ export default function AdminTherapeuticsPage() {
                     {columnSettings.endpointsMet && (
                       <td className="p-4 align-middle">N/A</td>
                     )}
-                    {columnSettings.adverseEventsReported && (
-                      <td className="p-4 align-middle">{trial.results[0]?.adverse_event_reported || "N/A"}</td>
-                    )}
                     {columnSettings.trialOutcome && (
                       <td className="p-4 align-middle">{trial.results[0]?.trial_outcome || "N/A"}</td>
-                    )}
-                    {columnSettings.trialOutcomeContent && (
-                      <td className="p-4 align-middle max-w-[150px] truncate">{trial.results[0]?.trial_outcome || "N/A"}</td>
-                    )}
-                    {columnSettings.adverseEventReported && (
-                      <td className="p-4 align-middle">{trial.results[0]?.adverse_event_reported || "N/A"}</td>
-                    )}
-                    {columnSettings.adverseEventType && (
-                      <td className="p-4 align-middle max-w-[120px] truncate">{trial.results[0]?.adverse_event_type || "N/A"}</td>
-                    )}
-                    {columnSettings.treatmentForAdverseEvents && (
-                      <td className="p-4 align-middle max-w-[150px] truncate">{trial.results[0]?.treatment_for_adverse_events || "N/A"}</td>
                     )}
                     {/* Sites Section */}
                     {columnSettings.totalSites && (
                       <td className="p-4 align-middle">{trial.sites[0]?.total || "N/A"}</td>
                     )}
-                    {columnSettings.siteNotes && (
-                      <td className="p-4 align-middle max-w-[150px] truncate">{trial.sites[0]?.notes || "N/A"}</td>
+                    {/* New Fields */}
+                    {columnSettings.estimatedEnrollmentClosedDate && (
+                      <td className="p-4 align-middle text-sm">N/A</td>
+                    )}
+                    {columnSettings.estimatedResultPublishedDate && (
+                      <td className="p-4 align-middle text-sm">N/A</td>
+                    )}
+                    {columnSettings.referenceLinks && (
+                      <td className="p-4 align-middle max-w-[200px] truncate">{trial.overview.reference_links?.join(", ") || "N/A"}</td>
+                    )}
+                    {/* Admin-only Fields */}
+                    {columnSettings.nextReviewDate && (
+                      <td className="p-4 align-middle text-sm">{formatDate(trial.logs[0]?.next_review_date) || "N/A"}</td>
+                    )}
+                    {columnSettings.lastModifiedDate && (
+                      <td className="p-4 align-middle text-sm">{formatDate(trial.logs[0]?.last_modified_date) || "N/A"}</td>
                     )}
                     <td className="p-4 align-middle text-sm">{formatDate(trial.overview.created_at)}</td>
                     <td className="p-4 align-middle text-right">

@@ -200,19 +200,50 @@ const therapeuticSearchFields = [
   { value: "trial_identifier", label: "Trial Identifier" },
 ]
 
-const operators = [
+// Text operators (for non-numeric fields)
+const textOperators = [
   { value: "contains", label: "Contains" },
   { value: "is", label: "is" },
   { value: "is_not", label: "is not" },
-  { value: "starts_with", label: "Starts with" },
-  { value: "ends_with", label: "Ends with" },
+]
+
+// Numeric operators (for number fields)
+const numericOperators = [
+  { value: "equals", label: "=" },
+  { value: "not_equals", label: "!=" },
   { value: "greater_than", label: ">" },
   { value: "greater_than_equal", label: ">=" },
   { value: "less_than", label: "<" },
   { value: "less_than_equal", label: "<=" },
-  { value: "equals", label: "=" },
-  { value: "not_equals", label: "!=" }
 ]
+
+// Date operators
+const dateOperators = [
+  { value: "is", label: "is" },
+  { value: "is_not", label: "is not" },
+  { value: "greater_than", label: ">" },
+  { value: "greater_than_equal", label: ">=" },
+  { value: "less_than", label: "<" },
+  { value: "less_than_equal", label: "<=" },
+]
+
+// Helper function to get operators based on field type
+const getOperatorsForField = (fieldValue: string) => {
+  // Numeric fields
+  const numericFields = [
+    "actual_enrolled_volunteers", "target_enrolled_volunteers", "total_number_of_sites", "number_of_arms"
+  ]
+  // Date fields
+  const dateFieldsList = [
+    "actual_start_date", "estimated_start_date", "actual_enrollment_closed_date",
+    "estimated_enrollment_closed_date", "actual_trial_end_date", "estimated_trial_end_date",
+    "actual_result_published_date", "estimated_result_published_date", "next_review_date"
+  ]
+
+  if (numericFields.includes(fieldValue)) return numericOperators
+  if (dateFieldsList.includes(fieldValue)) return dateOperators
+  return textOperators
+}
 
 // Field-specific options for dropdowns - matching exactly what's available in trial creation
 const fieldOptions: Record<string, { value: string; label: string }[]> = {
@@ -870,7 +901,7 @@ export function TherapeuticAdvancedSearchModal({
     if (fieldOptionsForField) {
       return (
         <Select
-          value={Array.isArray(criterion.value) ? criterion.value[0] || "" : criterion.value}
+          value={Array.isArray(criterion.value) ? criterion.value[0] || "" : (criterion.value || "")}
           onValueChange={(value) => updateCriteria(criterion.id, "value", value)}
         >
           <SelectTrigger>
@@ -891,7 +922,7 @@ export function TherapeuticAdvancedSearchModal({
     if (dynamicValues.length > 0) {
       return (
         <SearchableSelect
-          value={Array.isArray(criterion.value) ? criterion.value[0] || "" : (criterion.value as string)}
+          value={Array.isArray(criterion.value) ? criterion.value[0] || "" : (criterion.value as string || "")}
           onValueChange={(value) => updateCriteria(criterion.id, "value", value)}
           options={dynamicValues.map(v => ({ value: v, label: formatDisplayValue(v) }))}
           placeholder="Select option"
@@ -915,7 +946,7 @@ export function TherapeuticAdvancedSearchModal({
           type="number"
           min="0"
           placeholder={placeholders[criterion.field] || "Enter number"}
-          value={Array.isArray(criterion.value) ? criterion.value[0] || "" : criterion.value}
+          value={Array.isArray(criterion.value) ? criterion.value[0] || "" : (criterion.value || "")}
           onChange={(e) => {
             const value = e.target.value;
             // Only allow positive integers
@@ -938,7 +969,7 @@ export function TherapeuticAdvancedSearchModal({
       return (
         <Input
           placeholder="Enter internal note"
-          value={Array.isArray(criterion.value) ? criterion.value[0] || "" : criterion.value}
+          value={Array.isArray(criterion.value) ? criterion.value[0] || "" : (criterion.value || "")}
           onChange={(e) => updateCriteria(criterion.id, "value", e.target.value)}
         />
       )
@@ -948,7 +979,7 @@ export function TherapeuticAdvancedSearchModal({
     return (
       <Input
         placeholder="Enter the search term"
-        value={Array.isArray(criterion.value) ? criterion.value[0] || "" : criterion.value}
+        value={Array.isArray(criterion.value) ? criterion.value[0] || "" : (criterion.value || "")}
         onChange={(e) => updateCriteria(criterion.id, "value", e.target.value)}
       />
     )
@@ -1269,59 +1300,11 @@ export function TherapeuticAdvancedSearchModal({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {(() => {
-                          // Define dropdown fields that should use exact matching
-                          const dropdownFields = [
-                            'therapeutic_area', 'trial_phase', 'status', 'primary_drugs', 'other_drugs',
-                            'disease_type', 'patient_segment', 'line_of_therapy', 'sponsor_collaborators',
-                            'sponsor_field_activity', 'associated_cro', 'countries', 'region', 'trial_record_status',
-                            'gender', 'healthy_volunteers', 'trial_outcome', 'adverse_event_reported', 'adverse_event_type',
-                            'publication_type', 'registry_name', 'study_type', 'study_design_keywords',
-                            'last_modified_user'
-                          ];
-
-                          // For dropdown fields, suggest exact matching operators
-                          if (dropdownFields.includes(criterion.field)) {
-                            return [
-                              { value: "is", label: "is" },
-                              { value: "is_not", label: "is not" },
-                              { value: "contains", label: "contains" },
-                              { value: "equals", label: "=" },
-                              { value: "not_equals", label: "!=" }
-                            ].map((op) => (
-                              <SelectItem key={op.value} value={op.value}>
-                                {op.label}
-                              </SelectItem>
-                            ));
-                          }
-
-                          // For date fields, show date comparison operators
-                          if (dateFields.includes(criterion.field)) {
-                            return operators.filter(op => ["equals", "is", "is_not", "not_equals", "greater_than", "greater_than_equal", "less_than", "less_than_equal", "contains"].includes(op.value))
-                              .map((op) => (
-                                <SelectItem key={op.value} value={op.value}>
-                                  {op.label}
-                                </SelectItem>
-                              ));
-                          }
-
-                          // For numeric fields, show numeric operators
-                          if (criterion.field === "number_of_arms" || criterion.field === "age_min" || criterion.field === "age_max") {
-                            return operators.filter(op => ["equals", "greater_than", "greater_than_equal", "less_than", "less_than_equal", "not_equals"].includes(op.value))
-                              .map((op) => (
-                                <SelectItem key={op.value} value={op.value}>
-                                  {op.label}
-                                </SelectItem>
-                              ));
-                          }
-
-                          // For all other fields, show all operators
-                          return operators.map((op) => (
-                            <SelectItem key={op.value} value={op.value}>
-                              {op.label}
-                            </SelectItem>
-                          ));
-                        })()}
+                        {getOperatorsForField(criterion.field).map((op) => (
+                          <SelectItem key={op.value} value={op.value}>
+                            {op.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

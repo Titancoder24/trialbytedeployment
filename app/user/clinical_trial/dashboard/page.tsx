@@ -427,18 +427,22 @@ export default function ClinicalTrialDashboard() {
       case "otherDrugs": return trial.overview.other_drugs || "";
       case "regions": return trial.overview.region || "";
 
-      // Eligibility Section
+      // Eligibility Section - numeric fields parsed properly
       case "inclusion_criteria": return trial.criteria[0]?.inclusion_criteria || "";
       case "exclusion_criteria": return trial.criteria[0]?.exclusion_criteria || "";
-      case "age_from": return parseAge(trial.criteria[0]?.age_from);
-      case "age_to": return parseAge(trial.criteria[0]?.age_to);
+      case "age_from":
+      case "ageFrom": return parseFloat(trial.criteria[0]?.age_from || "0") || 0;
+      case "age_to":
+      case "ageTo": return parseFloat(trial.criteria[0]?.age_to || "0") || 0;
       case "subject_type": return trial.criteria[0]?.subject_type || "";
       case "sex": return trial.criteria[0]?.sex || "";
       case "healthy_volunteers": return trial.criteria[0]?.healthy_volunteers || "";
-      case "target_no_volunteers": return trial.criteria[0]?.target_no_volunteers || 0;
-      case "actual_enrolled_volunteers": return trial.criteria[0]?.actual_enrolled_volunteers || 0;
+      case "target_no_volunteers":
+      case "targetNoVolunteers": return parseInt(String(trial.criteria[0]?.target_no_volunteers || "0")) || 0;
+      case "actual_enrolled_volunteers":
+      case "actualEnrolledVolunteers": return parseInt(String(trial.criteria[0]?.actual_enrolled_volunteers || "0")) || 0;
 
-      // Study Design Section
+      // Study Design Section - number_of_arms is numeric
       case "purpose_of_trial": return trial.outcomes[0]?.purpose_of_trial || "";
       case "summary": return trial.outcomes[0]?.summary || "";
       case "primary_outcome_measures": return trial.outcomes[0]?.primary_outcome_measure || "";
@@ -446,7 +450,8 @@ export default function ClinicalTrialDashboard() {
       case "study_design_keywords": return trial.outcomes[0]?.study_design_keywords || "";
       case "study_design": return trial.outcomes[0]?.study_design || "";
       case "treatment_regimen": return trial.outcomes[0]?.treatment_regimen || "";
-      case "number_of_arms": return trial.outcomes[0]?.number_of_arms || 0;
+      case "number_of_arms":
+      case "numberOfArms": return parseInt(String(trial.outcomes[0]?.number_of_arms || "0")) || 0;
 
       // Timing Section
       case "start_date_estimated": return parseDate(trial.timing[0]?.start_date_estimated);
@@ -458,8 +463,9 @@ export default function ClinicalTrialDashboard() {
       case "adverse_event_type": return trial.results[0]?.adverse_event_type || "";
       case "treatment_for_adverse_events": return trial.results[0]?.treatment_for_adverse_events || "";
 
-      // Sites Section
-      case "total_sites": return trial.sites[0]?.total || 0;
+      // Sites Section - total is numeric
+      case "total_sites":
+      case "totalSites": return parseInt(String(trial.sites[0]?.total || "0")) || 0;
       case "site_notes": return trial.sites[0]?.notes || "";
 
       default: return "";
@@ -599,6 +605,9 @@ export default function ClinicalTrialDashboard() {
       (appliedFilters.primaryDrugs.length === 0 ||
         appliedFilters.primaryDrugs.some(drug =>
           normalizeForComparison(trial.overview.primary_drugs || '').includes(normalizeForComparison(drug)))) &&
+      (appliedFilters.otherDrugs.length === 0 ||
+        appliedFilters.otherDrugs.some(drug =>
+          normalizeForComparison(trial.overview.other_drugs || '').includes(normalizeForComparison(drug)))) &&
       (appliedFilters.trialPhases.length === 0 ||
         appliedFilters.trialPhases.some(phase => {
           const trialPhase = normalizeForComparison(trial.overview.trial_phase || '');
@@ -608,9 +617,27 @@ export default function ClinicalTrialDashboard() {
             filterPhase.includes(trialPhase) ||
             `phase ${trialPhase}` === filterPhase;
         })) &&
+      (appliedFilters.patientSegments.length === 0 ||
+        appliedFilters.patientSegments.some(segment =>
+          normalizeForComparison(trial.overview.patient_segment || '').includes(normalizeForComparison(segment)))) &&
+      (appliedFilters.lineOfTherapy.length === 0 ||
+        appliedFilters.lineOfTherapy.some(lot =>
+          normalizeForComparison(trial.overview.line_of_therapy || '').includes(normalizeForComparison(lot)))) &&
       (appliedFilters.countries.length === 0 ||
         appliedFilters.countries.some(country =>
-          normalizeForComparison(trial.overview.countries || '').includes(normalizeForComparison(country))))
+          normalizeForComparison(trial.overview.countries || '').includes(normalizeForComparison(country)))) &&
+      (appliedFilters.sponsorsCollaborators.length === 0 ||
+        appliedFilters.sponsorsCollaborators.some(sponsor =>
+          normalizeForComparison(trial.overview.sponsor_collaborators || '').includes(normalizeForComparison(sponsor)))) &&
+      (appliedFilters.sponsorFieldActivity.length === 0 ||
+        appliedFilters.sponsorFieldActivity.some(activity =>
+          normalizeForComparison(trial.overview.sponsor_field_activity || '').includes(normalizeForComparison(activity)))) &&
+      (appliedFilters.associatedCro.length === 0 ||
+        appliedFilters.associatedCro.some(cro =>
+          normalizeForComparison(trial.overview.associated_cro || '').includes(normalizeForComparison(cro)))) &&
+      (appliedFilters.trialTags.length === 0 ||
+        appliedFilters.trialTags.some(tag =>
+          normalizeForComparison(trial.overview.trial_tags || '').includes(normalizeForComparison(tag))))
     );
 
     // Apply advanced search criteria

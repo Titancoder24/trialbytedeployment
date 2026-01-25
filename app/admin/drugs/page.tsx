@@ -434,13 +434,15 @@ export default function DrugsDashboardPage() {
       // Get the field value from the drug data
       switch (field) {
         case "drug_name":
-          fieldValue = drug.overview.drug_name || "";
-          break;
         case "generic_name":
-          fieldValue = drug.overview.generic_name || "";
-          break;
         case "other_name":
-          fieldValue = drug.overview.other_name || "";
+          // Search across all three name fields for better discoverability
+          // When user searches by any name field, check all three
+          fieldValue = [
+            drug.overview.drug_name || "",
+            drug.overview.generic_name || "",
+            drug.overview.other_name || ""
+          ].filter(Boolean).join(" ");
           break;
         case "primary_name":
           fieldValue = drug.overview.primary_name || "";
@@ -658,6 +660,7 @@ export default function DrugsDashboardPage() {
     const matchesSearchTerm = searchTerm === "" ||
       (drug.overview.drug_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (drug.overview.generic_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (drug.overview.other_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (drug.overview.therapeutic_area || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (drug.overview.disease_type || "").toLowerCase().includes(searchTerm.toLowerCase());
 

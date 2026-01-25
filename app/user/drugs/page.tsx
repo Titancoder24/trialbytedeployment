@@ -159,14 +159,16 @@ export default function DrugsPage() {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  
+
   // API Data state
+  const [allDrugs, setAllDrugs] = useState<DrugData[]>([]); // Store all drugs for filtering
   const [drugs, setDrugs] = useState<DrugData[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Drug codes data (will be generated from API data)
-  const [drugCodes, setDrugCodes] = useState<Array<{code: string, id: string, active: boolean}>>([]);
+  const [drugCodes, setDrugCodes] = useState<Array<{ code: string, id: string, active: boolean }>>([]);
 
   // Get current drug from API data
   const currentDrug = drugs.length > 0 ? drugs[currentDrugIndex] : null;
@@ -188,22 +190,24 @@ export default function DrugsPage() {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/drugs/all-drugs-with-data`
       );
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data: ApiResponse = await response.json();
-      setDrugs(data.drugs || []);
-      
+      const fetchedDrugs = data.drugs || [];
+      setAllDrugs(fetchedDrugs);
+      setDrugs(fetchedDrugs);
+
       // Generate drug codes from API data using unique IDs
-      const codes = (data.drugs || []).map((drug, index) => ({
+      const codes = fetchedDrugs.map((drug, index) => ({
         code: drug.overview.drug_name || `Drug-${index + 1}`,
         id: drug.overview.id, // Use unique drug ID
         active: index === 0 // First drug is active by default
       }));
       setDrugCodes(codes);
-      
+
     } catch (error) {
       console.error("Error fetching drugs:", error);
       setError("Failed to fetch drugs data");
@@ -221,6 +225,39 @@ export default function DrugsPage() {
   useEffect(() => {
     fetchDrugs();
   }, []);
+
+  // Filter drugs when search term changes
+  useEffect(() => {
+    if (allDrugs.length === 0) return;
+
+    let filtered = allDrugs;
+    const term = searchTerm.toLowerCase().trim();
+
+    if (term) {
+      filtered = allDrugs.filter(drug => {
+        const drugName = (drug.overview.drug_name || "").toLowerCase();
+        const genericName = (drug.overview.generic_name || "").toLowerCase();
+        const otherName = (drug.overview.other_name || "").toLowerCase();
+        const primaryName = (drug.overview.primary_name || "").toLowerCase();
+
+        return drugName.includes(term) ||
+          genericName.includes(term) ||
+          otherName.includes(term) ||
+          primaryName.includes(term);
+      });
+    }
+
+    setDrugs(filtered);
+
+    // Regenerate drug codes for filtered list
+    const codes = filtered.map((drug, index) => ({
+      code: drug.overview.drug_name || `Drug-${index + 1}`,
+      id: drug.overview.id,
+      active: index === 0
+    }));
+    setDrugCodes(codes);
+    setCurrentDrugIndex(0); // Reset to first result
+  }, [searchTerm, allDrugs]);
 
   // Handle scroll to update active section
   useEffect(() => {
@@ -249,10 +286,10 @@ export default function DrugsPage() {
   const handleCloseDrug = (index: number) => {
     const newDrugCodes = drugCodes.filter((_, i) => i !== index);
     const newDrugs = drugs.filter((_, i) => i !== index);
-    
+
     setDrugCodes(newDrugCodes);
     setDrugs(newDrugs);
-    
+
     if (index === currentDrugIndex && newDrugs.length > 0) {
       const newIndex = Math.min(currentDrugIndex, newDrugs.length - 1);
       setCurrentDrugIndex(newIndex);
@@ -344,16 +381,16 @@ export default function DrugsPage() {
 
     try {
       setIsExporting(true);
-      
+
       // Hide the export modal first to get a clean screenshot
       setShowExportModal(false);
-      
+
       // Wait a bit for the modal to close
       await new Promise(resolve => setTimeout(resolve, 300));
 
       // Get the main content area (excluding the sidebar and top navigation)
       const element = document.querySelector('main') || document.body;
-      
+
       // Configure html2canvas options for better quality
       const canvas = await html2canvas(element, {
         scale: 2, // Higher scale for better quality
@@ -474,7 +511,9 @@ export default function DrugsPage() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
-                placeholder="Search..."
+                placeholder="Search by drug name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -490,9 +529,8 @@ export default function DrugsPage() {
                     <User className="h-4 w-4 text-gray-600" />
                   </div>
                   <ChevronDown
-                    className={`h-4 w-4 text-gray-400 transition-transform ${
-                      showLogoutDropdown ? "rotate-180" : ""
-                    }`}
+                    className={`h-4 w-4 text-gray-400 transition-transform ${showLogoutDropdown ? "rotate-180" : ""
+                      }`}
                   />
                 </button>
 
@@ -560,14 +598,13 @@ export default function DrugsPage() {
 
       {/* Drugs Tabs */}
       <div
-        className={`bg-white border-b ${
-          isMinimized ? "px-2 py-1" : "px-6 py-2"
-        }`}
+        className={`bg-white border-b ${isMinimized ? "px-2 py-1" : "px-6 py-2"
+          }`}
       >
         <div className="flex items-center justify-between">
-                     <div className="flex items-center space-x-1 overflow-x-auto flex-1">
-             {drugCodes.map((trial, index) => (
-               <div key={trial.id || `drug-${index}`} className="flex items-center">
+          <div className="flex items-center space-x-1 overflow-x-auto flex-1">
+            {drugCodes.map((trial, index) => (
+              <div key={trial.id || `drug-${index}`} className="flex items-center">
                 <div className="relative flex items-center">
                   <Button
                     variant={index === currentDrugIndex ? "default" : "ghost"}
@@ -575,15 +612,14 @@ export default function DrugsPage() {
                     onClick={() => {
                       setCurrentDrugIndex(index);
                       // Update URL with new drug ID
-                                             router.push(`/user/drugs?drugId=${trial.id}`, {
-                         scroll: false,
-                       });
+                      router.push(`/user/drugs?drugId=${trial.id}`, {
+                        scroll: false,
+                      });
                     }}
-                    className={`flex items-center ${
-                      index === currentDrugIndex
-                        ? "bg-gray-600 text-white pr-8"
-                        : "text-gray-600 hover:bg-gray-100"
-                    }`}
+                    className={`flex items-center ${index === currentDrugIndex
+                      ? "bg-gray-600 text-white pr-8"
+                      : "text-gray-600 hover:bg-gray-100"
+                      }`}
                   >
                     <span>{trial.code}</span>
                   </Button>
@@ -619,9 +655,9 @@ export default function DrugsPage() {
                 const currentDrug = drugCodes[currentDrugIndex];
                 setDrugCodes([currentDrug]);
                 setCurrentDrugIndex(0);
-                                 router.push(`/user/drugs?drugId=${currentDrug.id}`, {
-                   scroll: false,
-                 });
+                router.push(`/user/drugs?drugId=${currentDrug.id}`, {
+                  scroll: false,
+                });
                 toast({
                   title: "Tabs Closed",
                   description: "All other tabs have been closed",
@@ -677,11 +713,10 @@ export default function DrugsPage() {
                 <button
                   key={index}
                   onClick={() => scrollToSection(item.id)}
-                  className={`w-full flex items-center px-6 py-3 text-sm font-medium transition-colors ${
-                    isActive
-                      ? "bg-blue-50 text-blue-600 border-r-2 border-blue-600"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                  }`}
+                  className={`w-full flex items-center px-6 py-3 text-sm font-medium transition-colors ${isActive
+                    ? "bg-blue-50 text-blue-600 border-r-2 border-blue-600"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    }`}
                 >
                   <Icon className="w-4 h-4 mr-3" />
                   {item.label}
@@ -820,7 +855,7 @@ export default function DrugsPage() {
                       Latest Changes :
                     </span>
                     <span className="text-gray-900 text-sm">
-                      {formatDateWithMonth(currentDrug?.overview.updated_at || null) !== "N/A" 
+                      {formatDateWithMonth(currentDrug?.overview.updated_at || null) !== "N/A"
                         ? formatDateWithMonth(currentDrug?.overview.updated_at || null)
                         : "24, July 2024"}
                     </span>
@@ -897,7 +932,7 @@ export default function DrugsPage() {
                         </span>
                       </div>
                     </div>
-                    
+
                     {/* Right Column */}
                     <div className="space-y-4">
                       <div className="flex items-start space-x-3">
@@ -1179,7 +1214,7 @@ export default function DrugsPage() {
                   <div className="bg-blue-100 rounded-lg p-4 mb-6">
                     <h2 className="text-xl font-semibold text-blue-900">Development</h2>
                   </div>
-                  
+
                   {/* Preclinical Section */}
                   <Card className="shadow-sm mb-6">
                     <CardContent className="p-6">
@@ -1189,14 +1224,14 @@ export default function DrugsPage() {
                           {currentDrug?.development?.[0]?.preclinical || "Characterization of structural, biochemical, pharmacokinetic, and pharmacodynamic properties of the LSD1 inhibitor bomedernstat in preclinical models"}
                         </p>
                         <div className="flex items-center space-x-3 pt-2">
-                          <Button 
-                            size="sm" 
+                          <Button
+                            size="sm"
                             className="bg-slate-600 hover:bg-slate-700 text-white text-xs px-4 py-2"
                           >
                             View source
                           </Button>
-                          <Button 
-                            size="sm" 
+                          <Button
+                            size="sm"
                             className="bg-slate-600 hover:bg-slate-700 text-white text-xs px-4 py-2 flex items-center space-x-2"
                           >
                             <span>Attachments</span>
@@ -1344,7 +1379,7 @@ export default function DrugsPage() {
                                 </td>
                                 <td className="px-4 py-4 text-sm text-gray-900">In-house</td>
                               </tr>
-                              
+
                               {/* Additional Immuno-oncology Rows */}
                               <tr className="bg-red-50">
                                 <td className="px-4 py-4"></td>
@@ -1443,14 +1478,14 @@ export default function DrugsPage() {
                       {/* Action Buttons */}
                       {isTableExpanded && (
                         <div className="px-6 py-4 bg-gray-50 border-t flex justify-end space-x-3">
-                          <Button 
-                            size="sm" 
+                          <Button
+                            size="sm"
                             className="bg-slate-600 hover:bg-slate-700 text-white"
                           >
                             View Pipeline
                           </Button>
-                          <Button 
-                            size="sm" 
+                          <Button
+                            size="sm"
                             className="bg-slate-600 hover:bg-slate-700 text-white flex items-center space-x-2"
                           >
                             <span>Attachments</span>
@@ -1491,22 +1526,22 @@ export default function DrugsPage() {
                       {isNewsExpanded && (
                         <div className="p-6">
                           <p className="text-sm text-gray-700 leading-relaxed mb-6">
-                            Merck (NYSE: MRK), known as MSD outside of the United States and Canada, today announced that new data for four 
-                            approved oncology medicines and four pipeline candidates in more than 25 types of cancer will be presented at the 
-                            2024 American Society of Clinical Oncology (ASCO) Annual Meeting in Chicago from May 31-June 4. New data being 
-                            shared at the meeting showcase the company's continued progress to advance clinical research for Merck's broad 
+                            Merck (NYSE: MRK), known as MSD outside of the United States and Canada, today announced that new data for four
+                            approved oncology medicines and four pipeline candidates in more than 25 types of cancer will be presented at the
+                            2024 American Society of Clinical Oncology (ASCO) Annual Meeting in Chicago from May 31-June 4. New data being
+                            shared at the meeting showcase the company's continued progress to advance clinical research for Merck's broad
                             portfolio and diverse pipeline of investigational candidates.
                           </p>
-                          
+
                           <div className="flex items-center space-x-3">
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               className="bg-slate-600 hover:bg-slate-700 text-white"
                             >
                               View source
                             </Button>
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               className="bg-slate-600 hover:bg-slate-700 text-white flex items-center space-x-2"
                             >
                               <span>Attachments</span>
@@ -1527,46 +1562,46 @@ export default function DrugsPage() {
                       <div className="bg-sky-200 rounded-lg p-4 mb-4">
                         <h3 className="text-lg font-semibold text-gray-800">Licensing & Marketing</h3>
                       </div>
-                    <div className="space-y-4">
-                      {currentDrug.licencesMarketing.map((license, index) => (
-                        <div key={license.id} className="bg-white border rounded-lg p-6">
-                          <div className="space-y-4">
-                            <div>
-                              <h4 className="text-base font-semibold text-gray-800 mb-3">Licensing availability</h4>
-                              <p className="text-sm text-gray-700 leading-relaxed">
-                                {license.licensing_availability || "No licensing availability information available"}
-                              </p>
-                            </div>
-                            <div>
-                              <h4 className="text-base font-semibold text-gray-800 mb-3">Marketing approvals</h4>
-                              <p className="text-sm text-gray-700 leading-relaxed">
-                                {license.marketing_approvals || "No marketing approvals information available"}
-                              </p>
-                            </div>
-                            <div>
-                              <h4 className="text-base font-semibold text-gray-800 mb-3">Agreement</h4>
-                              <p className="text-sm text-gray-700 leading-relaxed">
-                                {license.agreement || "No agreement information available"}
-                              </p>
-                            </div>
-                            <div className="flex space-x-2 pt-4">
-                              <Button 
-                                size="sm" 
-                                className="bg-slate-600 hover:bg-slate-700 text-white text-xs"
-                              >
-                                View source
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                className="bg-slate-600 hover:bg-slate-700 text-white text-xs"
-                              >
-                                📎 Attachments
-                              </Button>
+                      <div className="space-y-4">
+                        {currentDrug.licencesMarketing.map((license, index) => (
+                          <div key={license.id} className="bg-white border rounded-lg p-6">
+                            <div className="space-y-4">
+                              <div>
+                                <h4 className="text-base font-semibold text-gray-800 mb-3">Licensing availability</h4>
+                                <p className="text-sm text-gray-700 leading-relaxed">
+                                  {license.licensing_availability || "No licensing availability information available"}
+                                </p>
+                              </div>
+                              <div>
+                                <h4 className="text-base font-semibold text-gray-800 mb-3">Marketing approvals</h4>
+                                <p className="text-sm text-gray-700 leading-relaxed">
+                                  {license.marketing_approvals || "No marketing approvals information available"}
+                                </p>
+                              </div>
+                              <div>
+                                <h4 className="text-base font-semibold text-gray-800 mb-3">Agreement</h4>
+                                <p className="text-sm text-gray-700 leading-relaxed">
+                                  {license.agreement || "No agreement information available"}
+                                </p>
+                              </div>
+                              <div className="flex space-x-2 pt-4">
+                                <Button
+                                  size="sm"
+                                  className="bg-slate-600 hover:bg-slate-700 text-white text-xs"
+                                >
+                                  View source
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="bg-slate-600 hover:bg-slate-700 text-white text-xs"
+                                >
+                                  📎 Attachments
+                                </Button>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
                     </>
                   )}
                 </div>
@@ -1578,64 +1613,64 @@ export default function DrugsPage() {
                       <div className="bg-sky-200 rounded-lg p-4 mb-4">
                         <h3 className="text-lg font-semibold text-gray-800">Logs</h3>
                       </div>
-                    <div className="space-y-4">
-                      {currentDrug.logs.map((log, index) => (
-                        <div key={log.id} className="bg-white border rounded-lg p-6">
-                          <div className="space-y-4">
-                            <div className="flex items-start">
-                              <span className="text-sm font-medium text-gray-600 min-w-[140px]">
-                                Drug Changes Log :
-                              </span>
-                              <span className="text-sm text-gray-800 font-medium">
-                                {log.drug_changes_log || "N/A"}
-                              </span>
-                            </div>
-                            <div className="flex items-start">
-                              <span className="text-sm font-medium text-gray-600 min-w-[140px]">
-                                Created Date :
-                              </span>
-                              <span className="text-sm text-gray-800 font-medium">
-                                {log.created_date || "N/A"}
-                              </span>
-                            </div>
-                            <div className="flex items-start">
-                              <span className="text-sm font-medium text-gray-600 min-w-[140px]">
-                                Last Modified User :
-                              </span>
-                              <span className="text-sm text-gray-800 font-medium">
-                                {log.last_modified_user || "N/A"}
-                              </span>
-                            </div>
-                            <div className="flex items-start">
-                              <span className="text-sm font-medium text-gray-600 min-w-[140px]">
-                                Full Review User :
-                              </span>
-                              <span className="text-sm text-gray-800 font-medium">
-                                {log.full_review_user || "N/A"}
-                              </span>
-                            </div>
-                            <div className="flex items-start">
-                              <span className="text-sm font-medium text-gray-600 min-w-[140px]">
-                                Next Review Date :
-                              </span>
-                              <span className="text-sm text-gray-800 font-medium">
-                                {log.next_review_date || "N/A"}
-                              </span>
-                            </div>
-                            {log.notes && (
+                      <div className="space-y-4">
+                        {currentDrug.logs.map((log, index) => (
+                          <div key={log.id} className="bg-white border rounded-lg p-6">
+                            <div className="space-y-4">
                               <div className="flex items-start">
                                 <span className="text-sm font-medium text-gray-600 min-w-[140px]">
-                                  Notes :
+                                  Drug Changes Log :
                                 </span>
-                                <span className="text-sm text-gray-800 font-medium whitespace-pre-wrap">
-                                  {log.notes}
+                                <span className="text-sm text-gray-800 font-medium">
+                                  {log.drug_changes_log || "N/A"}
                                 </span>
                               </div>
-                            )}
+                              <div className="flex items-start">
+                                <span className="text-sm font-medium text-gray-600 min-w-[140px]">
+                                  Created Date :
+                                </span>
+                                <span className="text-sm text-gray-800 font-medium">
+                                  {log.created_date || "N/A"}
+                                </span>
+                              </div>
+                              <div className="flex items-start">
+                                <span className="text-sm font-medium text-gray-600 min-w-[140px]">
+                                  Last Modified User :
+                                </span>
+                                <span className="text-sm text-gray-800 font-medium">
+                                  {log.last_modified_user || "N/A"}
+                                </span>
+                              </div>
+                              <div className="flex items-start">
+                                <span className="text-sm font-medium text-gray-600 min-w-[140px]">
+                                  Full Review User :
+                                </span>
+                                <span className="text-sm text-gray-800 font-medium">
+                                  {log.full_review_user || "N/A"}
+                                </span>
+                              </div>
+                              <div className="flex items-start">
+                                <span className="text-sm font-medium text-gray-600 min-w-[140px]">
+                                  Next Review Date :
+                                </span>
+                                <span className="text-sm text-gray-800 font-medium">
+                                  {log.next_review_date || "N/A"}
+                                </span>
+                              </div>
+                              {log.notes && (
+                                <div className="flex items-start">
+                                  <span className="text-sm font-medium text-gray-600 min-w-[140px]">
+                                    Notes :
+                                  </span>
+                                  <span className="text-sm text-gray-800 font-medium whitespace-pre-wrap">
+                                    {log.notes}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
                     </>
                   )}
                 </div>
@@ -1655,7 +1690,7 @@ export default function DrugsPage() {
             <div className="text-sm text-gray-600 mb-4">
               Track all changes and updates made to this drug record over time.
             </div>
-            
+
             {/* Drug Overview Changes */}
             <Card>
               <CardContent className="p-4">
@@ -1734,7 +1769,7 @@ export default function DrugsPage() {
             <div className="text-sm text-gray-600">
               Choose your preferred export format for {currentDrug?.overview.drug_name}
             </div>
-            
+
             <div className="space-y-3">
               <Button
                 onClick={exportToPDF}
@@ -1755,7 +1790,7 @@ export default function DrugsPage() {
                   </>
                 )}
               </Button>
-              
+
               <Button
                 onClick={exportToJSON}
                 className="w-full justify-start"

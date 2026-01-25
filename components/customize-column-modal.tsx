@@ -53,15 +53,17 @@ export interface ColumnSettings {
   // Results Section
   resultsAvailable: boolean;
   endpointsMet: boolean;
-  adverseEventsReported: boolean;
   trialOutcome: boolean;
-  trialOutcomeContent: boolean;
-  adverseEventReported: boolean;
-  adverseEventType: boolean;
-  treatmentForAdverseEvents: boolean;
   // Sites Section
   totalSites: boolean;
-  siteNotes: boolean;
+  // New Fields (Admin + User)
+  status: boolean;
+  estimatedEnrollmentClosedDate: boolean;
+  estimatedResultPublishedDate: boolean;
+  referenceLinks: boolean;
+  // Admin-only Fields
+  nextReviewDate: boolean;
+  lastModifiedDate: boolean;
 }
 
 interface CustomizeColumnModalProps {
@@ -114,15 +116,17 @@ const DEFAULT_COLUMN_SETTINGS: ColumnSettings = {
   // Results Section
   resultsAvailable: false,
   endpointsMet: false,
-  adverseEventsReported: false,
   trialOutcome: false,
-  trialOutcomeContent: false,
-  adverseEventReported: false,
-  adverseEventType: false,
-  treatmentForAdverseEvents: false,
   // Sites Section
   totalSites: false,
-  siteNotes: false,
+  // New Fields (Admin + User)
+  status: false,
+  estimatedEnrollmentClosedDate: false,
+  estimatedResultPublishedDate: false,
+  referenceLinks: false,
+  // Admin-only Fields
+  nextReviewDate: false,
+  lastModifiedDate: false,
 };
 
 export const COLUMN_OPTIONS = [
@@ -138,11 +142,12 @@ export const COLUMN_OPTIONS = [
   { key: 'patientSegment' as keyof ColumnSettings, label: 'Patient Segment' },
   { key: 'lineOfTherapy' as keyof ColumnSettings, label: 'Line of Therapy' },
   { key: 'countries' as keyof ColumnSettings, label: 'Countries' },
-  { key: 'fieldOfActivity' as keyof ColumnSettings, label: 'Field of Activity' },
+  { key: 'fieldOfActivity' as keyof ColumnSettings, label: 'Sponsor field of activity' },
   { key: 'associatedCro' as keyof ColumnSettings, label: 'Associated CRO' },
   { key: 'trialTags' as keyof ColumnSettings, label: 'Trial Tags' },
   { key: 'otherDrugs' as keyof ColumnSettings, label: 'Other Drugs' },
-  { key: 'regions' as keyof ColumnSettings, label: 'Regions' },
+  { key: 'regions' as keyof ColumnSettings, label: 'Region' },
+  { key: 'status' as keyof ColumnSettings, label: 'Status' },
   // Eligibility Section
   { key: 'inclusionCriteria' as keyof ColumnSettings, label: 'Inclusion Criteria' },
   { key: 'exclusionCriteria' as keyof ColumnSettings, label: 'Exclusion Criteria' },
@@ -168,15 +173,16 @@ export const COLUMN_OPTIONS = [
   // Results Section
   { key: 'resultsAvailable' as keyof ColumnSettings, label: 'Results Available' },
   { key: 'endpointsMet' as keyof ColumnSettings, label: 'Endpoints Met' },
-  { key: 'adverseEventsReported' as keyof ColumnSettings, label: 'Adverse Events Reported' },
   { key: 'trialOutcome' as keyof ColumnSettings, label: 'Trial Outcome' },
-  { key: 'trialOutcomeContent' as keyof ColumnSettings, label: 'Trial Outcome Content' },
-  { key: 'adverseEventReported' as keyof ColumnSettings, label: 'Adverse Event Reported' },
-  { key: 'adverseEventType' as keyof ColumnSettings, label: 'Adverse Event Type' },
-  { key: 'treatmentForAdverseEvents' as keyof ColumnSettings, label: 'Treatment for Adverse Events' },
   // Sites Section
   { key: 'totalSites' as keyof ColumnSettings, label: 'Total Sites' },
-  { key: 'siteNotes' as keyof ColumnSettings, label: 'Site Notes' },
+  // New Fields (Admin + User)
+  { key: 'estimatedEnrollmentClosedDate' as keyof ColumnSettings, label: 'Estimated Enrollment Closed Date' },
+  { key: 'estimatedResultPublishedDate' as keyof ColumnSettings, label: 'Estimated Result Published Date' },
+  { key: 'referenceLinks' as keyof ColumnSettings, label: 'Reference links' },
+  // Admin-only Fields
+  { key: 'nextReviewDate' as keyof ColumnSettings, label: 'Next Review Date' },
+  { key: 'lastModifiedDate' as keyof ColumnSettings, label: 'Last Modified Date' },
 ];
 
 export function CustomizeColumnModal({
@@ -283,7 +289,7 @@ export function CustomizeColumnModal({
                 >
                   <input
                     type="checkbox"
-                    checked={isSelected}
+                    checked={!!isSelected}
                     onChange={() => handleColumnToggle(option.key)}
                     disabled={isDisabled}
                     className="w-4 h-4 rounded border-gray-400 accent-gray-700 disabled:cursor-not-allowed"

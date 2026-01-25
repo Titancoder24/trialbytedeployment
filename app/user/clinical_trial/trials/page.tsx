@@ -28,6 +28,17 @@ import { TrialSidebar } from "@/components/trial-sidebar";
 import { LanguageSelector } from "@/components/language-selector";
 import { useTranslation } from "react-i18next";
 
+// Helper to format text values (remove underscores, title case)
+const formatTextValue = (text: string | null | undefined): string => {
+  if (!text) return "N/A";
+  return text
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
+
 import {
   ChevronLeft,
   ChevronRight,
@@ -184,7 +195,7 @@ function ClinicalTrialsPage() {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [expandedOtherSources, setExpandedOtherSources] = useState<Record<number, boolean>>({ 0: true });
+  const [expandedOtherSources, setExpandedOtherSources] = useState<Record<number, boolean>>({});
   const [expandedSites, setExpandedSites] = useState<Record<string, boolean>>({}); // Key is index-itemIdx
   const [expandedTimingRefs, setExpandedTimingRefs] = useState<Record<number, boolean>>({ 0: true }); // First card expanded by default
   const [zoomLevel, setZoomLevel] = useState(100); // Zoom level in percentage
@@ -246,6 +257,7 @@ function ClinicalTrialsPage() {
   const publishedResultsRef = useRef<HTMLDivElement>(null);
   const sitesRef = useRef<HTMLDivElement>(null);
   const otherSourcesRef = useRef<HTMLDivElement>(null);
+  const associatedStudiesRef = useRef<HTMLDivElement>(null);
   const logsRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   // Helper function to fetch from API
@@ -1319,12 +1331,10 @@ function ClinicalTrialsPage() {
               onSectionClick={scrollToSection}
               isSectionVisible={isSectionVisible}
               onAssociatedStudiesClick={() => {
-                // Scroll to Other Sources section which contains Associated Studies
-                scrollToSection("otherSources");
-                toast({
-                  title: "Associated Studies",
-                  description: "Scrolled to Other Sources section containing Associated Studies.",
-                });
+                // Scroll to Associated Studies section
+                if (associatedStudiesRef.current) {
+                  associatedStudiesRef.current.scrollIntoView({ behavior: 'smooth' });
+                }
               }}
               onLogsClick={() => {
                 if (currentTrial.logs && currentTrial.logs.length > 0) {
@@ -2405,32 +2415,32 @@ function ClinicalTrialsPage() {
                                 Actual
                               </td>
                               <td className="border border-gray-300 px-3 py-3 text-center">
-                                {currentTrial.timing[0]?.start_date_estimated
-                                  ? formatDateToMMDDYYYY(currentTrial.timing[0].start_date_estimated)
+                                {currentTrial.timing[0]?.start_date_actual
+                                  ? formatDateToMMDDYYYY(currentTrial.timing[0].start_date_actual)
                                   : "N/A"}
                               </td>
                               <td className="border border-gray-300 px-3 py-3 text-center">
-                                {currentTrial.timing[0]?.inclusion_period_months || "N/A"}
+                                {currentTrial.timing[0]?.inclusion_period_actual || "N/A"}
                               </td>
                               <td className="border border-gray-300 px-3 py-3 text-center">
-                                {currentTrial.timing[0]?.enrolment_closed_date
-                                  ? formatDateToMMDDYYYY(currentTrial.timing[0].enrolment_closed_date)
+                                {currentTrial.timing[0]?.enrollment_closed_actual
+                                  ? formatDateToMMDDYYYY(currentTrial.timing[0].enrollment_closed_actual)
                                   : "N/A"}
                               </td>
                               <td className="border border-gray-300 px-3 py-3 text-center">
-                                {currentTrial.timing[0]?.treatment_duration_months || "N/A"}
+                                {currentTrial.timing[0]?.primary_outcome_duration_actual || "N/A"}
                               </td>
                               <td className="border border-gray-300 px-3 py-3 text-center">
-                                {currentTrial.timing[0]?.trial_end_date_estimated
-                                  ? formatDateToMMDDYYYY(currentTrial.timing[0].trial_end_date_estimated)
+                                {currentTrial.timing[0]?.trial_end_date_actual
+                                  ? formatDateToMMDDYYYY(currentTrial.timing[0].trial_end_date_actual)
                                   : "N/A"}
                               </td>
                               <td className="border border-gray-300 px-3 py-3 text-center">
-                                {currentTrial.timing[0]?.duration_to_publish_months || "N/A"}
+                                {currentTrial.timing[0]?.result_duration_actual || "N/A"}
                               </td>
                               <td className="border border-gray-300 px-3 py-3 text-center">
-                                {currentTrial.results[0]?.result_date
-                                  ? formatDateToMMDDYYYY(currentTrial.results[0].result_date)
+                                {currentTrial.timing[0]?.result_published_date_actual
+                                  ? formatDateToMMDDYYYY(currentTrial.timing[0].result_published_date_actual)
                                   : "N/A"}
                               </td>
                             </tr>
@@ -2441,20 +2451,20 @@ function ClinicalTrialsPage() {
                       {/* Overall Duration Stats */}
                       <div className="flex items-center justify-end space-x-6">
                         <div className="flex items-center space-x-2">
-                          <span className="text-sm text-gray-900 italic">
+                          <span className="text-sm text-gray-900 font-semibold">
                             Overall duration to Complete :
                           </span>
                           <Badge className="bg-[#28B463] text-white px-2 py-0.5 text-xs rounded">
-                            {currentTrial.timing[0]?.overall_duration_months || "N/A"}
+                            {currentTrial.timing[0]?.overall_duration_complete || "N/A"}
                           </Badge>
                           <span className="text-xs text-gray-500">(months)</span>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <span className="text-sm text-gray-900 italic">
+                          <span className="text-sm text-gray-900 font-semibold">
                             Overall duration to publish result :
                           </span>
                           <Badge className="bg-[#28B463] text-white px-2 py-0.5 text-xs rounded">
-                            {currentTrial.timing[0]?.duration_to_publish_months || "N/A"}
+                            {currentTrial.timing[0]?.overall_duration_publish || "N/A"}
                           </Badge>
                           <span className="text-xs text-gray-500">(months)</span>
                         </div>
@@ -2476,76 +2486,112 @@ function ClinicalTrialsPage() {
                               return 'Source';
                             };
 
-                            const referenceLinks = currentTrial.overview.reference_links || [];
+                            const referenceLinks = currentTrial.timing[0]?.timing_references || [];
 
                             // If no reference links, don't show anything
                             if (referenceLinks.length === 0) {
                               return null;
                             }
 
-                            return referenceLinks.map((link, index) => (
-                              <div key={index} className="border border-gray-200 rounded-lg p-4 min-w-[320px] flex-shrink-0">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center space-x-3">
-                                    <span className="text-sm text-gray-900">
-                                      {currentTrial.results[0]?.result_date
-                                        ? formatDateToMMDDYYYY(currentTrial.results[0].result_date)
-                                        : "N/A"}
-                                    </span>
-                                    <span className="text-sm font-medium text-gray-900 bg-[#F0F0F0] px-3 py-1 rounded border border-gray-200">
-                                      {getSourceType(link)}
-                                    </span>
-                                  </div>
-                                  <button
-                                    onClick={() => setExpandedTimingRefs(prev => ({ ...prev, [index]: !prev[index] }))}
-                                    className={`w-6 h-6 rounded-full flex items-center justify-center ${expandedTimingRefs[index]
-                                      ? 'bg-gray-400 text-white'
-                                      : 'bg-[#28B463] text-white'
-                                      }`}
-                                  >
-                                    {expandedTimingRefs[index] ? (
-                                      <X className="h-3 w-3" />
-                                    ) : (
-                                      <Plus className="h-3 w-3" />
-                                    )}
-                                  </button>
-                                </div>
-                                {expandedTimingRefs[index] && (
-                                  <>
-                                    <div className="space-y-1 text-sm text-gray-600 mt-3">
-                                      <p>
-                                        <span className="text-[#204B73] font-medium">Study Start (Actual) :</span>{" "}
-                                        {currentTrial.timing[0]?.start_date_estimated
-                                          ? formatDateToMMDDYYYY(currentTrial.timing[0].start_date_estimated)
-                                          : "N/A"}
-                                      </p>
-                                      <p>
-                                        <span className="text-[#204B73] font-medium">Primary Completion (Actual) :</span>{" "}
-                                        {currentTrial.timing[0]?.trial_end_date_estimated
-                                          ? formatDateToMMDDYYYY(currentTrial.timing[0].trial_end_date_estimated)
-                                          : "N/A"}
-                                      </p>
-                                      <p>
-                                        <span className="text-[#204B73] font-medium">Study Completion (Actual) :</span>{" "}
-                                        {currentTrial.timing[0]?.trial_end_date_estimated
-                                          ? formatDateToMMDDYYYY(currentTrial.timing[0].trial_end_date_estimated)
-                                          : "N/A"}
-                                      </p>
-                                    </div>
-                                    <div className="flex items-center space-x-2 mt-4">
-                                      <Button variant="outline" size="sm" className="bg-[#204B73] text-white hover:bg-[#1a3d5c] rounded-lg text-xs" onClick={() => window.open(link, '_blank')}>
-                                        View source
-                                      </Button>
-                                      <Button variant="outline" size="sm" className="bg-[#204B73] text-white hover:bg-[#1a3d5c] rounded-lg text-xs" onClick={() => window.open(link, '_blank')}>
-                                        <FileText className="h-3 w-3 mr-1" />
-                                        Attachments
-                                      </Button>
+                            return referenceLinks.map((reference: any, index: number) => {
+                              const isExpanded = expandedTimingRefs[index];
+                              // Reference object has: viewSource, registryType, date, content
+                              const link = reference.viewSource || '';
+                              const sourceType = reference.registryType || '';
+                              const displayDate = reference.date || '';
+                              const finalSourceType = sourceType || 'N/A';
 
+                              return (
+                                <div
+                                  key={index}
+                                  className={`border-2 rounded-xl transition-all duration-300 overflow-hidden min-w-[320px] flex-shrink-0 ${isExpanded ? 'bg-white shadow-md' : 'bg-white'}`}
+                                  style={{ borderColor: isExpanded ? '#2B4863' : '#E2E8F0' }}
+                                >
+                                  {/* Header */}
+                                  <div
+                                    className="p-4 flex items-center justify-between transition-colors"
+                                    style={{ backgroundColor: isExpanded ? '#2B4863' : 'transparent' }}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="secondary" className={`${isExpanded ? 'bg-white' : 'bg-gray-100'} rounded-lg font-bold text-black px-4 py-2 text-sm`}>
+                                        {displayDate ? formatDateToMMDDYYYY(displayDate) : "N/A"}
+                                      </Badge>
+                                      <Badge variant="secondary" className={`${isExpanded ? 'bg-white' : 'bg-gray-100'} rounded-lg font-bold text-black px-4 py-2 text-sm`}>
+                                        {finalSourceType}
+                                      </Badge>
                                     </div>
-                                  </>
-                                )}
-                              </div>
-                            ));
+                                    <button
+                                      onClick={() => setExpandedTimingRefs(prev => ({ ...prev, [index]: !prev[index] }))}
+                                      className="w-6 h-6 rounded-full flex items-center justify-center transition-colors shadow-sm"
+                                      style={{
+                                        backgroundColor: isExpanded ? 'white' : '#2B4863',
+                                        color: isExpanded ? '#2B4863' : 'white'
+                                      }}
+                                    >
+                                      {isExpanded ? <Minus size={14} strokeWidth={3} /> : <Plus size={14} strokeWidth={3} />}
+                                    </button>
+                                  </div>
+
+                                  {/* Content */}
+                                  {isExpanded && (
+                                    <div className="px-4 pb-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                      <div className="space-y-1 border-t pt-3">
+                                        {/* Show reference content if available */}
+                                        {reference.content && (
+                                          <div className="flex text-sm py-1">
+                                            <span className="font-bold text-[#204B73] min-w-[200px]">Details :</span>
+                                            <span className="text-gray-900 whitespace-pre-wrap">
+                                              {reference.content}
+                                            </span>
+                                          </div>
+                                        )}
+                                        <div className="flex text-sm py-1">
+                                          <span className="font-bold text-[#204B73] min-w-[200px]">Date :</span>
+                                          <span className="text-gray-900">
+                                            {displayDate ? formatDateToMMDDYYYY(displayDate) : "N/A"}
+                                          </span>
+                                        </div>
+                                        <div className="flex text-sm py-1">
+                                          <span className="font-bold text-[#204B73] min-w-[200px]">Registry Type :</span>
+                                          <span className="text-gray-900">
+                                            {sourceType || "N/A"}
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      {/* Buttons */}
+                                      <div className="flex items-center gap-2 pt-2">
+                                        {link && (
+                                          <Button
+                                            size="sm"
+                                            className="h-8 px-4 text-sm font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
+                                            onClick={() => window.open(link, '_blank')}
+                                          >
+                                            View source
+                                          </Button>
+                                        )}
+                                        {reference.attachments && reference.attachments.length > 0 && (
+                                          <Button
+                                            size="sm"
+                                            className="h-8 px-4 text-sm font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
+                                            onClick={() => {
+                                              const attachment = reference.attachments[0];
+                                              const attachmentUrl = typeof attachment === 'string' ? attachment : attachment?.url || attachment?.fileUrl || attachment;
+                                              if (attachmentUrl && typeof attachmentUrl === 'string') {
+                                                window.open(attachmentUrl, '_blank');
+                                              }
+                                            }}
+                                          >
+                                            Attachments
+                                            <FileText className="ml-2 h-3.5 w-3.5" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            });
                           })()}
                         </div>
                       </div>
@@ -2995,12 +3041,12 @@ function ClinicalTrialsPage() {
                                     >
                                       <div className="flex items-center gap-2">
                                         {item.date && (
-                                          <Badge variant="secondary" className={`${isExpanded ? 'bg-white' : 'bg-gray-100'} rounded-lg font-bold text-black px-3 py-1 text-xs`}>
+                                          <Badge variant="secondary" className={`${isExpanded ? 'bg-white' : 'bg-gray-100'} rounded-lg font-bold text-black px-4 py-2 text-sm`}>
                                             {formatDateToMMDDYYYY(item.date)}
                                           </Badge>
                                         )}
                                         {item.registry_type && (
-                                          <Badge variant="secondary" className={`${isExpanded ? 'bg-white' : 'bg-gray-100'} rounded-lg font-bold text-black px-3 py-1 text-xs`}>
+                                          <Badge variant="secondary" className={`${isExpanded ? 'bg-white' : 'bg-gray-100'} rounded-lg font-bold text-black px-4 py-2 text-sm`}>
                                             {item.registry_type}
                                           </Badge>
                                         )}
@@ -3049,7 +3095,7 @@ function ClinicalTrialsPage() {
                                           {item.view_source_url && (
                                             <Button
                                               size="sm"
-                                              className="h-8 px-4 text-xs font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
+                                              className="h-8 px-4 text-sm font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
                                               onClick={(e) => {
                                                 e.stopPropagation();
                                                 window.open(item.view_source_url, '_blank');
@@ -3063,7 +3109,7 @@ function ClinicalTrialsPage() {
                                           {item.attachments && (Array.isArray(item.attachments) ? item.attachments.length > 0 : true) && (
                                             <Button
                                               size="sm"
-                                              className="h-8 px-4 text-xs font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
+                                              className="h-8 px-4 text-sm font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
                                               onClick={(e) => {
                                                 e.stopPropagation();
                                                 let url: string | undefined;
@@ -3114,7 +3160,7 @@ function ClinicalTrialsPage() {
                                           {item.view_source_url && (
                                             <Button
                                               size="sm"
-                                              className="h-8 px-4 text-xs font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
+                                              className="h-8 px-4 text-sm font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
                                               onClick={() => window.open(item.view_source_url, '_blank')}
                                             >
                                               View source
@@ -3124,7 +3170,7 @@ function ClinicalTrialsPage() {
                                           {item.attachments && (Array.isArray(item.attachments) ? item.attachments.length > 0 : true) && (
                                             <Button
                                               size="sm"
-                                              className="h-8 px-4 text-xs font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
+                                              className="h-8 px-4 text-sm font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
                                               onClick={() => {
                                                 // Handle attachments array of URLs or single string
                                                 let url: string | undefined;
@@ -3174,188 +3220,211 @@ function ClinicalTrialsPage() {
                   </div>
                   <CardContent className="p-6">
                     <div className="space-y-6">
-                      {currentTrial.other && currentTrial.other.length > 0 ? (
-                        [...currentTrial.other]
-                          .sort((a, b) => {
-                            const order: Record<string, number> = {
-                              'pipeline_data': 1,
-                              'press_releases': 2,
-                              'publications': 3,
-                              'trial_registries': 4,
-                              'associated_studies': 5,
-                              'legacy': 10
-                            };
+                      {currentTrial.other && currentTrial.other.length > 0 ? (() => {
+                        // Filter out associated_studies and group by type
+                        const otherSourcesData = currentTrial.other.filter((source) => {
+                          try {
+                            const parsedData = typeof source.data === 'string' ? JSON.parse(source.data) : source.data;
+                            return parsedData.type !== 'associated_studies';
+                          } catch (e) {
+                            return true; // Include legacy items
+                          }
+                        });
 
-                            let typeA = 'legacy';
-                            let typeB = 'legacy';
+                        // Group items by type
+                        const groupedItems: Record<string, any[]> = {
+                          pipeline_data: [],
+                          press_releases: [],
+                          publications: [],
+                          trial_registries: []
+                        };
 
-                            try {
-                              const dataA = typeof a.data === 'string' ? JSON.parse(a.data) : a.data;
-                              typeA = dataA.type || 'legacy';
-                            } catch (e) { }
-
-                            try {
-                              const dataB = typeof b.data === 'string' ? JSON.parse(b.data) : b.data;
-                              typeB = dataB.type || 'legacy';
-                            } catch (e) { }
-
-                            return (order[typeA] || 99) - (order[typeB] || 99);
-                          })
-                          .map((source, index) => {
-                            // Parse the JSON data
-                            let parsedData: any;
-                            try {
-                              parsedData = typeof source.data === 'string' ? JSON.parse(source.data) : source.data;
-                            } catch (error) {
-                              // If not JSON, treat as plain text
-                              parsedData = { type: 'legacy', data: source.data };
+                        otherSourcesData.forEach(source => {
+                          try {
+                            const parsedData = typeof source.data === 'string' ? JSON.parse(source.data) : source.data;
+                            const type = parsedData.type || 'legacy';
+                            if (groupedItems[type]) {
+                              groupedItems[type].push({ source, parsedData });
                             }
+                          } catch (e) {
+                            // Ignore items that can't be parsed
+                          }
+                        });
 
-                            const isExpanded = expandedOtherSources[index];
+                        // Sort each group by date (latest first)
+                        Object.keys(groupedItems).forEach(type => {
+                          groupedItems[type].sort((a, b) => {
+                            const dateA = a.parsedData.date ? new Date(a.parsedData.date).getTime() : 0;
+                            const dateB = b.parsedData.date ? new Date(b.parsedData.date).getTime() : 0;
+                            return dateB - dateA; // Latest first
+                          });
+                        });
 
-                            // Helper function for header labels
-                            const getTypeHeaderLabel = (data: any) => {
-                              if (!data) return 'Other Source';
-                              const type = data.type || 'legacy';
-                              const labels: Record<string, string> = {
-                                'pipeline_data': 'Pipeline Data',
-                                'press_releases': 'Press Release',
-                                'publications': 'Publication',
-                                'trial_registries': 'Trial Registry',
-                                'associated_studies': 'Associated Study',
-                                'legacy': 'Other Source'
-                              };
+                        const groupLabels: Record<string, string> = {
+                          pipeline_data: 'Pipeline Data',
+                          press_releases: 'Press Releases',
+                          publications: 'Publications',
+                          trial_registries: 'Trial Registries'
+                        };
 
-                              const label = labels[type] || 'Other Source';
+                        const Row = ({ label, value }: { label: string; value: any }) => (
+                          <div className="flex text-sm py-1">
+                            <span className="font-bold text-[#204B73] min-w-[150px]">{label} :</span>
+                            <span className="text-gray-900 whitespace-pre-wrap">{value || "N/A"}</span>
+                          </div>
+                        );
 
-                              if (type === 'trial_registries' && data.registry) return `Trial Registry : ${data.registry}`;
-                              if (type === 'publications' && data.type && data.type !== 'publications') return `Publication : ${data.type}`;
-                              if (type === 'associated_studies' && data.type && data.type !== 'associated_studies') return `Associated Study : ${data.type}`;
+                        const getTypeHeaderLabel = (data: any) => {
+                          if (!data) return 'Other Source';
+                          const type = data.type || 'legacy';
+                          const labels: Record<string, string> = {
+                            'pipeline_data': 'Pipeline Data',
+                            'press_releases': 'Press Release',
+                            'publications': 'Publication',
+                            'trial_registries': 'Trial Registry',
+                            'legacy': 'Other Source'
+                          };
 
-                              return label;
-                            };
+                          const label = labels[type] || 'Other Source';
 
-                            const Row = ({ label, value }: { label: string; value: any }) => (
-                              <div className="flex text-xs py-1">
-                                <span className="font-bold text-[#204B73] min-w-[150px]">{label} :</span>
-                                <span className="text-gray-900 whitespace-pre-wrap">{value || "N/A"}</span>
-                              </div>
-                            );
+                          if (type === 'trial_registries' && data.registry) return `Trial Registry : ${formatTextValue(data.registry)}`;
+                          if (type === 'publications' && data.type && data.type !== 'publications') return `Publication : ${formatTextValue(data.type)}`;
 
-                            return (
-                              <div
-                                key={index}
-                                className={`border rounded-xl transition-all duration-300 overflow-hidden mb-4 ${isExpanded ? 'bg-white shadow-md' : 'bg-white'}`}
-                                style={{ borderColor: isExpanded ? '#2B4863' : '#E2E8F0' }}
-                              >
-                                {/* Header */}
-                                <div
-                                  className="p-4 flex items-center justify-between transition-colors"
-                                  style={{ backgroundColor: isExpanded ? '#2B4863' : 'transparent' }}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <Badge variant="secondary" className={`${isExpanded ? 'bg-white text-[#2B4863]' : 'bg-gray-100 text-gray-800'} hover:bg-gray-100 font-medium px-3 py-1 text-xs`}>
-                                      Date : {parsedData?.date ? formatDateToMMDDYYYY(parsedData.date) : "N/A"}
-                                    </Badge>
-                                    <Badge variant="secondary" className={`${isExpanded ? 'bg-white text-[#2B4863]' : 'bg-gray-100 text-gray-800'} hover:bg-gray-100 font-medium px-3 py-1 text-xs`}>
-                                      {getTypeHeaderLabel(parsedData)}
-                                    </Badge>
+                          return label;
+                        };
+
+                        let globalIndex = 0;
+
+                        return (
+                          <>
+                            {Object.entries(groupedItems).map(([groupType, items], groupIdx) => {
+                              if (items.length === 0) return null;
+
+                              return (
+                                <div key={groupType}>
+                                  {/* Group Header */}
+                                  <h3 className="text-md font-bold text-[#204B73] mb-3">
+                                    {groupLabels[groupType]}
+                                  </h3>
+
+                                  {/* Group Items */}
+                                  <div className="space-y-4 mb-6">
+                                    {items.map(({ source, parsedData }) => {
+                                      const currentIndex = globalIndex++;
+                                      const isExpanded = expandedOtherSources[currentIndex];
+
+                                      return (
+                                        <div
+                                          key={currentIndex}
+                                          className={`border rounded-xl transition-all duration-300 overflow-hidden ${isExpanded ? 'bg-white shadow-md' : 'bg-white'}`}
+                                          style={{ borderColor: isExpanded ? '#2B4863' : '#E2E8F0' }}
+                                        >
+                                          {/* Header */}
+                                          <div
+                                            className="p-4 flex items-center justify-between transition-colors"
+                                            style={{ backgroundColor: isExpanded ? '#2B4863' : 'transparent' }}
+                                          >
+                                            <div className="flex items-center gap-2">
+                                              <Badge variant="secondary" className={`${isExpanded ? 'bg-white' : 'bg-gray-100'} rounded-lg font-bold text-black px-4 py-2 text-sm`}>
+                                                Date : {parsedData?.date ? formatDateToMMDDYYYY(parsedData.date) : "N/A"}
+                                              </Badge>
+                                              <Badge variant="secondary" className={`${isExpanded ? 'bg-white' : 'bg-gray-100'} rounded-lg font-bold text-black px-4 py-2 text-sm`}>
+                                                {getTypeHeaderLabel(parsedData)}
+                                              </Badge>
+                                            </div>
+                                            <button
+                                              onClick={() => toggleOtherSource(currentIndex)}
+                                              className="w-6 h-6 rounded-full flex items-center justify-center transition-colors shadow-sm"
+                                              style={{
+                                                backgroundColor: isExpanded ? 'white' : '#2B4863',
+                                                color: isExpanded ? '#2B4863' : 'white'
+                                              }}
+                                            >
+                                              {isExpanded ? <Minus size={14} strokeWidth={3} /> : <Plus size={14} strokeWidth={3} />}
+                                            </button>
+                                          </div>
+
+                                          {/* Content */}
+                                          {isExpanded && parsedData && (
+                                            <div className="px-4 pb-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                              <div className="space-y-1 border-t pt-3">
+                                                {parsedData.type === 'pipeline_data' && (
+                                                  <>
+                                                    <Row label="Pipeline Date" value={parsedData.date ? formatDateToMMDDYYYY(parsedData.date) : "N/A"} />
+                                                    <Row label="Information" value={parsedData.information} />
+                                                  </>
+                                                )}
+
+                                                {parsedData.type === 'press_releases' && (
+                                                  <>
+                                                    <Row label="Date" value={parsedData.date ? formatDateToMMDDYYYY(parsedData.date) : "N/A"} />
+                                                    <Row label="Title" value={parsedData.title} />
+                                                    <Row label="Description" value={parsedData.description} />
+                                                  </>
+                                                )}
+
+                                                {parsedData.type === 'publications' && (
+                                                  <>
+                                                    <Row label="Date" value={parsedData.date ? formatDateToMMDDYYYY(parsedData.date) : "N/A"} />
+                                                    <Row label="Title" value={parsedData.title} />
+                                                    <Row label="Publication Type" value={formatTextValue(parsedData.publicationType || (parsedData.type !== 'publications' ? parsedData.type : ""))} />
+                                                    <Row label="Description" value={parsedData.description} />
+                                                  </>
+                                                )}
+
+                                                {parsedData.type === 'trial_registries' && (
+                                                  <>
+                                                    <Row label="Date" value={parsedData.date ? formatDateToMMDDYYYY(parsedData.date) : "N/A"} />
+                                                    <Row label="Registry Name" value={formatTextValue(parsedData.registry)} />
+                                                    <Row label="Registry Identifier" value={parsedData.identifier} />
+                                                    <Row label="Description" value={parsedData.description} />
+                                                  </>
+                                                )}
+                                              </div>
+
+                                              {/* Buttons */}
+                                              <div className="flex items-center gap-2 pt-2">
+                                                {parsedData.url && parsedData.url !== "N/A" && (
+                                                  <Button
+                                                    size="sm"
+                                                    className="h-8 px-4 text-xs font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
+                                                    onClick={() => window.open(parsedData.url, '_blank')}
+                                                  >
+                                                    View source
+                                                  </Button>
+                                                )}
+
+                                                {(parsedData.fileUrl || (parsedData.url && (parsedData.url.includes('utfs.io') || parsedData.url.includes('edgestore')))) && (
+                                                  <Button
+                                                    size="sm"
+                                                    className="h-8 px-4 text-xs font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
+                                                    onClick={() => {
+                                                      const url = parsedData.fileUrl || parsedData.url;
+                                                      if (url) window.open(url, '_blank');
+                                                    }}
+                                                  >
+                                                    Attachments
+                                                    <FileText className="ml-2 h-3.5 w-3.5" />
+                                                  </Button>
+                                                )}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
                                   </div>
-                                  <button
-                                    onClick={() => toggleOtherSource(index)}
-                                    className="w-6 h-6 rounded-full flex items-center justify-center transition-colors shadow-sm"
-                                    style={{
-                                      backgroundColor: isExpanded ? 'white' : '#2B4863',
-                                      color: isExpanded ? '#2B4863' : 'white'
-                                    }}
-                                  >
-                                    {isExpanded ? <Minus size={14} strokeWidth={3} /> : <Plus size={14} strokeWidth={3} />}
-                                  </button>
+
+                                  {/* Border separator between groups (not after last group) */}
+                                  {groupIdx < Object.keys(groupedItems).filter(k => groupedItems[k].length > 0).length - 1 && (
+                                    <div className="border-t-2 border-gray-300 my-6"></div>
+                                  )}
                                 </div>
-
-                                {/* Content */}
-                                {isExpanded && parsedData && (
-                                  <div className="px-4 pb-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                                    <div className="space-y-1 border-t pt-3">
-                                      {parsedData.type === 'pipeline_data' && (
-                                        <>
-                                          <Row label="Pipeline Date" value={parsedData.date ? formatDateToMMDDYYYY(parsedData.date) : "N/A"} />
-                                          <Row label="Information" value={parsedData.information} />
-                                        </>
-                                      )}
-
-                                      {parsedData.type === 'press_releases' && (
-                                        <>
-                                          <Row label="Date" value={parsedData.date ? formatDateToMMDDYYYY(parsedData.date) : "N/A"} />
-                                          <Row label="Title" value={parsedData.title} />
-                                          <Row label="Description" value={parsedData.description} />
-                                        </>
-                                      )}
-
-                                      {parsedData.type === 'publications' && (
-                                        <>
-                                          <Row label="Date" value={parsedData.date ? formatDateToMMDDYYYY(parsedData.date) : "N/A"} />
-                                          <Row label="Title" value={parsedData.title} />
-                                          <Row label="Publication Type" value={parsedData.publicationType || (parsedData.type !== 'publications' ? parsedData.type : "")} />
-                                          <Row label="Description" value={parsedData.description} />
-                                        </>
-                                      )}
-
-                                      {parsedData.type === 'trial_registries' && (
-                                        <>
-                                          <Row label="Registry Name" value={parsedData.registry} />
-                                          <Row label="Registry Identifier" value={parsedData.identifier} />
-                                          <Row label="Date" value={parsedData.date ? formatDateToMMDDYYYY(parsedData.date) : "N/A"} />
-                                          <Row label="Description" value={parsedData.description} />
-                                        </>
-                                      )}
-
-                                      {parsedData.type === 'associated_studies' && (
-                                        <>
-                                          <Row label="Study Type" value={parsedData.studyType || (parsedData.type !== 'associated_studies' ? parsedData.type : "")} />
-                                          <Row label="Title" value={parsedData.title} />
-                                          <Row label="Date" value={parsedData.date ? formatDateToMMDDYYYY(parsedData.date) : "N/A"} />
-                                          <Row label="Description" value={parsedData.description} />
-                                        </>
-                                      )}
-
-                                      {parsedData.type === 'legacy' && (
-                                        <Row label="Data" value={parsedData.data} />
-                                      )}
-                                    </div>
-
-                                    {/* Buttons */}
-                                    <div className="flex items-center gap-2 pt-2">
-                                      {parsedData.url && parsedData.url !== "N/A" && (
-                                        <Button
-                                          size="sm"
-                                          className="h-8 px-4 text-xs font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
-                                          onClick={() => window.open(parsedData.url, '_blank')}
-                                        >
-                                          View source
-                                        </Button>
-                                      )}
-
-                                      {(parsedData.fileUrl || (parsedData.url && (parsedData.url.includes('utfs.io') || parsedData.url.includes('edgestore')))) && (
-                                        <Button
-                                          size="sm"
-                                          className="h-8 px-4 text-xs font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
-                                          onClick={() => {
-                                            const url = parsedData.fileUrl || parsedData.url;
-                                            if (url) window.open(url, '_blank');
-                                          }}
-                                        >
-                                          Attachments
-                                          <FileText className="ml-2 h-3.5 w-3.5" />
-                                        </Button>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })
-                      ) : (
+                              );
+                            })}
+                          </>
+                        );
+                      })() : (
                         <div className="text-center py-8">
                           <p className="text-sm text-gray-600">
                             No other sources available
@@ -3366,6 +3435,130 @@ function ClinicalTrialsPage() {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Associated Studies Section */}
+              {isSectionVisible("otherSources") && currentTrial.other && currentTrial.other.length > 0 && (() => {
+                // Filter for associated_studies only
+                const associatedStudies = currentTrial.other.filter((source) => {
+                  try {
+                    const parsedData = typeof source.data === 'string' ? JSON.parse(source.data) : source.data;
+                    return parsedData.type === 'associated_studies';
+                  } catch (e) {
+                    return false;
+                  }
+                }).map(source => {
+                  const parsedData = typeof source.data === 'string' ? JSON.parse(source.data) : source.data;
+                  return { source, parsedData };
+                }).sort((a, b) => {
+                  // Sort by date, latest first
+                  const dateA = a.parsedData.date ? new Date(a.parsedData.date).getTime() : 0;
+                  const dateB = b.parsedData.date ? new Date(b.parsedData.date).getTime() : 0;
+                  return dateB - dateA;
+                });
+
+                if (associatedStudies.length === 0) return null;
+
+                const Row = ({ label, value }: { label: string; value: any }) => (
+                  <div className="flex text-sm py-1">
+                    <span className="font-bold text-[#204B73] min-w-[150px]">{label} :</span>
+                    <span className="text-gray-900 whitespace-pre-wrap">{value || "N/A"}</span>
+                  </div>
+                );
+
+                const getTypeHeaderLabel = (data: any) => {
+                  if (data.studyType && data.studyType !== 'associated_studies') return `Associated Study : ${formatTextValue(data.studyType)}`;
+                  return 'Associated Study';
+                };
+
+                return (
+                  <Card key={`${currentTrial.trial_id}-associatedStudies`} className="mt-6" ref={associatedStudiesRef}>
+                    <div className="bg-sky-200 p-4 rounded-t-lg">
+                      <h2 className="text-lg font-semibold text-gray-800">
+                        Associated Studies
+                      </h2>
+                    </div>
+                    <CardContent className="p-6">
+                      <div className="space-y-4">
+                        {associatedStudies.map(({ source, parsedData }, index) => {
+                          const isExpanded = expandedOtherSources[`associated_${index}`];
+
+                          return (
+                            <div
+                              key={index}
+                              className={`border rounded-xl transition-all duration-300 overflow-hidden ${isExpanded ? 'bg-white shadow-md' : 'bg-white'}`}
+                              style={{ borderColor: isExpanded ? '#2B4863' : '#E2E8F0' }}
+                            >
+                              {/* Header */}
+                              <div
+                                className="p-4 flex items-center justify-between transition-colors"
+                                style={{ backgroundColor: isExpanded ? '#2B4863' : 'transparent' }}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="secondary" className={`${isExpanded ? 'bg-white' : 'bg-gray-100'} rounded-lg font-bold text-black px-4 py-2 text-sm`}>
+                                    Date : {parsedData?.date ? formatDateToMMDDYYYY(parsedData.date) : "N/A"}
+                                  </Badge>
+                                  <Badge variant="secondary" className={`${isExpanded ? 'bg-white' : 'bg-gray-100'} rounded-lg font-bold text-black px-4 py-2 text-sm`}>
+                                    {getTypeHeaderLabel(parsedData)}
+                                  </Badge>
+                                </div>
+                                <button
+                                  onClick={() => toggleOtherSource(`associated_${index}`)}
+                                  className="w-6 h-6 rounded-full flex items-center justify-center transition-colors shadow-sm"
+                                  style={{
+                                    backgroundColor: isExpanded ? 'white' : '#2B4863',
+                                    color: isExpanded ? '#2B4863' : 'white'
+                                  }}
+                                >
+                                  {isExpanded ? <Minus size={14} strokeWidth={3} /> : <Plus size={14} strokeWidth={3} />}
+                                </button>
+                              </div>
+
+                              {/* Content */}
+                              {isExpanded && parsedData && (
+                                <div className="px-4 pb-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                  <div className="space-y-1 border-t pt-3">
+                                    <Row label="Study Type" value={formatTextValue(parsedData.studyType || (parsedData.type !== 'associated_studies' ? parsedData.type : ""))} />
+                                    <Row label="Title" value={parsedData.title} />
+                                    <Row label="Date" value={parsedData.date ? formatDateToMMDDYYYY(parsedData.date) : "N/A"} />
+                                    <Row label="Description" value={parsedData.description} />
+                                  </div>
+
+                                  {/* Buttons */}
+                                  <div className="flex items-center gap-2 pt-2">
+                                    {parsedData.url && parsedData.url !== "N/A" && (
+                                      <Button
+                                        size="sm"
+                                        className="h-8 px-4 text-sm font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
+                                        onClick={() => window.open(parsedData.url, '_blank')}
+                                      >
+                                        View source
+                                      </Button>
+                                    )}
+
+                                    {(parsedData.fileUrl || (parsedData.url && (parsedData.url.includes('utfs.io') || parsedData.url.includes('edgestore')))) && (
+                                      <Button
+                                        size="sm"
+                                        className="h-8 px-4 text-sm font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
+                                        onClick={() => {
+                                          const url = parsedData.fileUrl || parsedData.url;
+                                          if (url) window.open(url, '_blank');
+                                        }}
+                                      >
+                                        Attachments
+                                        <FileText className="ml-2 h-3.5 w-3.5" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
               {/* Logs Section */}
               {isSectionVisible("logs") && (
                 <Card className="mt-6 border border-gray-200 shadow-sm overflow-hidden" ref={logsRef}>
