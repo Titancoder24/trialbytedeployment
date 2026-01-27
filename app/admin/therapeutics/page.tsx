@@ -1038,8 +1038,8 @@ export default function AdminTherapeuticsPage() {
       // Timing fields
       case "startDateEstimated": return trial.timing?.[0]?.start_date_estimated || "";
       case "trialEndDateEstimated": return trial.timing?.[0]?.trial_end_date_estimated || "";
-      case "estimatedEnrollmentClosedDate": return ""; // TODO: Add field when available
-      case "estimatedResultPublishedDate": return ""; // TODO: Add field when available
+      case "estimatedEnrollmentClosedDate": return trial.timing?.[0]?.enrollment_closed_estimated || "";
+      case "estimatedResultPublishedDate": return trial.timing?.[0]?.result_published_date_estimated || "";
 
       // Results fields
       case "resultsAvailable": return trial.results?.[0]?.trial_results?.length ? "Yes" : "No";
