@@ -440,19 +440,32 @@ export default function ResultsSection() {
     const currentNote = form.site_notes[noteIndex];
     const attachment = currentNote?.attachments[attachmentIndex];
 
+    // Optimistically update UI first - always remove from the form
+    const updatedAttachments = currentNote.attachments.filter((_: any, i: number) => i !== attachmentIndex);
+    handleUpdateSiteNote(noteIndex, "attachments", updatedAttachments);
+
+    // Try to delete from EdgeStore (silently fail if error)
     if (attachment && typeof attachment === 'object' && 'url' in attachment) {
       const fileUrl = attachment.url;
-      const updatedAttachments = currentNote.attachments.filter((_: any, i: number) => i !== attachmentIndex);
-      handleUpdateSiteNote(noteIndex, "attachments", updatedAttachments);
-
       try {
-        await edgestore.trialOutcomeAttachments.delete({ url: fileUrl });
+        await edgestore.trialOutcomeAttachments.delete({ url: fileUrl?.trim() || '' });
+        toast({
+          title: "Success",
+          description: "File removed successfully",
+        });
       } catch (error) {
-        console.warn("Edge Store deletion error:", error);
+        // Silently handle EdgeStore errors - file is already removed from UI
+        console.warn("Edge Store deletion error (file removed from form):", error);
+        toast({
+          title: "File removed",
+          description: "File has been removed from the form.",
+        });
       }
     } else {
-      const updatedAttachments = currentNote.attachments.filter((_: any, i: number) => i !== attachmentIndex);
-      handleUpdateSiteNote(noteIndex, "attachments", updatedAttachments);
+      toast({
+        title: "File removed",
+        description: "File has been removed from the form.",
+      });
     }
   };
 
