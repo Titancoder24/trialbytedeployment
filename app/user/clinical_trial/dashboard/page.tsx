@@ -1382,7 +1382,7 @@ export default function ClinicalTrialDashboard() {
                 )}
               </div>
 
-              {/* Sort By Section - Collapsible */}
+              {/* Sort By Section - Collapsible with Dropdown */}
               <div className="relative">
                 <button
                   className="w-full flex items-center justify-between gap-2 py-3 px-4"
@@ -1406,37 +1406,53 @@ export default function ClinicalTrialDashboard() {
                   <ChevronDown className={`h-5 w-5 text-white transition-transform ${sortByExpanded ? '' : '-rotate-90'}`} />
                 </button>
                 {sortByExpanded && (
-                  <div className="py-3 px-4 space-y-1">
-                    {/* Display all columns enabled in settings */}
-                    {COLUMN_OPTIONS
-                      .filter(item => columnSettings[item.key])
-                      .map(({ key, label }) => (
-                        <label
-                          key={key}
-                          className="flex items-center gap-3 text-sm cursor-pointer p-2 rounded hover:bg-gray-50"
-                          style={{ color: "#374151" }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={sortField === key}
-                            onChange={() => handleSort(key)}
-                            className="w-4 h-4 rounded border-gray-300"
-                            style={{ accentColor: "#204B73" }}
-                          />
-                          <span style={{ fontFamily: "Poppins", fontSize: "14px", fontWeight: 400 }}>{label}</span>
-                        </label>
-                      ))}
-                    {sortField && (
-                      <button
-                        onClick={() => {
-                          setSortField("");
-                          setSortDirection("asc");
+                  <div className="py-3 px-4 space-y-3">
+                    {/* Sort Field Dropdown */}
+                    <div>
+                      <label className="text-xs font-medium text-gray-600 mb-1 block" style={{ fontFamily: "Poppins" }}>Sort Field</label>
+                      <Select
+                        value={sortField || "none"}
+                        onValueChange={(value) => {
+                          if (value === "none") {
+                            setSortField("");
+                            setSortDirection("asc");
+                          } else {
+                            handleSort(value);
+                          }
                         }}
-                        className="w-full text-left text-sm py-2 px-2 hover:bg-gray-50 rounded transition-colors"
-                        style={{ color: "#204B73", fontFamily: "Poppins", fontSize: "13px", fontWeight: 500 }}
                       >
-                        Clear Sort
-                      </button>
+                        <SelectTrigger className="w-full" style={{ fontFamily: "Poppins" }}>
+                          <SelectValue placeholder="Select field to sort" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No sorting</SelectItem>
+                          {COLUMN_OPTIONS
+                            .filter(item => columnSettings[item.key])
+                            .map(({ key, label }) => (
+                              <SelectItem key={key} value={key}>
+                                {label}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {/* Sort Direction */}
+                    {sortField && (
+                      <div>
+                        <label className="text-xs font-medium text-gray-600 mb-1 block" style={{ fontFamily: "Poppins" }}>Direction</label>
+                        <Select
+                          value={sortDirection}
+                          onValueChange={(value) => setSortDirection(value as "asc" | "desc")}
+                        >
+                          <SelectTrigger className="w-full" style={{ fontFamily: "Poppins" }}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="asc">Ascending (A-Z)</SelectItem>
+                            <SelectItem value="desc">Descending (Z-A)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     )}
                   </div>
                 )}
