@@ -98,20 +98,20 @@ const DROPDOWN_OPTIONS: Record<keyof TherapeuticFilterState, SearchableSelectOpt
     { value: "unspecified_cancer", label: "Unspecified Cancer" },
   ],
 
-  // Patient Segment Options
+  // Patient Segment Options - Breast Cancer specific segments
   patientSegments: [
-    { value: "children", label: "Children" },
-    { value: "adults", label: "Adults" },
-    { value: "healthy_volunteers", label: "Healthy Volunteers" },
-    { value: "unknown", label: "Unknown" },
-    { value: "first_line", label: "First Line" },
-    { value: "second_line", label: "Second Line" },
-    { value: "adjuvant", label: "Adjuvant" },
-    { value: "early_stage", label: "Early Stage" },
-    { value: "locally_advanced", label: "Locally Advanced" },
-    { value: "metastatic", label: "Metastatic" },
-    { value: "geriatric", label: "Geriatric" },
-    { value: "pediatric", label: "Pediatric" },
+    { value: "her2_positive_breast_cancer", label: "HER2+ Breast Cancer" },
+    { value: "her2_negative_breast_cancer", label: "HER2- Breast Cancer" },
+    { value: "hr_positive_breast_cancer", label: "HR+ Breast Cancer (ER+ and/or PR+)" },
+    { value: "triple_negative_breast_cancer", label: "Triple-Negative Breast Cancer (TNBC)" },
+    { value: "early_stage_breast_cancer", label: "Early-Stage Breast Cancer" },
+    { value: "locally_advanced_breast_cancer", label: "Locally Advanced Breast Cancer" },
+    { value: "metastatic_breast_cancer", label: "Metastatic Breast Cancer" },
+    { value: "recurrent_breast_cancer", label: "Recurrent Breast Cancer" },
+    { value: "advanced_non_metastatic_breast_cancer", label: "Advanced Breast Cancer (Non-Metastatic)" },
+    { value: "premenopausal_breast_cancer", label: "Premenopausal Breast Cancer Patients" },
+    { value: "postmenopausal_breast_cancer", label: "Postmenopausal Breast Cancer Patients" },
+    { value: "breast_cancer_nos", label: "Breast Cancer (NOS)" },
   ],
 
   // Line of Therapy Options
@@ -1116,12 +1116,35 @@ export function TherapeuticFilterModal({ open, onOpenChange, onApplyFilters, cur
       return []
     }
 
+    // Categories that should ONLY use static predefined options (no raw data values)
+    const staticOnlyCategories: (keyof TherapeuticFilterState)[] = [
+      'patientSegments',
+      'therapeuticAreas',
+      'diseaseTypes',
+      'trialPhases',
+      'statuses',
+      'lineOfTherapy',
+      'sex',
+      'healthyVolunteers',
+      'trialOutcome',
+      'trialRecordStatus',
+    ]
+
     // Helper function to merge trial data with fallback options
     const mergeWithFallback = (trialValues: string[], category: keyof TherapeuticFilterState): string[] => {
       const fallbackValues = getFallbackOptions(category)
+
+      // For static-only categories, use ONLY the predefined options (with proper labels)
+      if (staticOnlyCategories.includes(category)) {
+        return fallbackValues
+      }
+
+      // For dynamic categories, merge trial values with fallback
       if (trialValues.length > 0) {
-        // Merge trial values with fallback, removing duplicates
-        const merged = [...new Set([...trialValues, ...fallbackValues])]
+        // Convert raw values to proper labels using formatDisplayValue
+        const formattedTrialValues = trialValues.map(v => formatDisplayValue(v))
+        // Merge formatted trial values with fallback, removing duplicates
+        const merged = [...new Set([...formattedTrialValues, ...fallbackValues])]
         return merged.sort()
       }
       return fallbackValues
