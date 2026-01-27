@@ -1631,7 +1631,7 @@ function ClinicalTrialsPage() {
                             fontWeight: 600,
                           }}
                         >
-                          {currentTrial.overview.therapeutic_area}
+                          {formatTextValue(currentTrial.overview.therapeutic_area)}
                         </Badge>
                       </div>
                       <div>
@@ -1729,7 +1729,7 @@ function ClinicalTrialsPage() {
                               Disease Type :
                             </span>
                             <span className="text-sm text-gray-900 text-right" style={{ fontFamily: "Poppins" }}>
-                              {currentTrial.overview.disease_type || "N/A"}
+                              {formatTextValue(currentTrial.overview.disease_type)}
                             </span>
                           </div>
                           <div className="flex items-start justify-between">
@@ -1737,7 +1737,7 @@ function ClinicalTrialsPage() {
                               Patient Segment :
                             </span>
                             <span className="text-sm text-gray-900 text-right" style={{ fontFamily: "Poppins" }}>
-                              {currentTrial.overview.patient_segment || "N/A"}
+                              {formatTextValue(currentTrial.overview.patient_segment)}
                             </span>
                           </div>
                           <div className="flex items-start justify-between">
@@ -2326,9 +2326,8 @@ function ClinicalTrialsPage() {
                             Subject Type
                           </h4>
                           <p className="text-sm text-gray-900">
-                            {currentTrial.criteria[0]?.subject_type ||
-                              currentTrial.overview.disease_type ||
-                              "N/A"}
+                            {formatTextValue(currentTrial.criteria[0]?.subject_type ||
+                              currentTrial.overview.disease_type)}
                           </p>
                         </div>
 

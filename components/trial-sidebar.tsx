@@ -56,12 +56,14 @@ export function TrialSidebar({
 
   return (
     <div
-      className="bg-white absolute overflow-hidden h-fit"
+      className="bg-white fixed overflow-hidden h-fit z-40"
       style={{
         width: "249px",
         top: "75px",
         left: "39.33px",
         borderRadius: "12px",
+        maxHeight: "calc(100vh - 90px)",
+        overflowY: "auto",
       }}
     >
       {/* Section Buttons */}

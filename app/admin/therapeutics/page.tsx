@@ -2950,8 +2950,8 @@ export default function AdminTherapeuticsPage() {
                     {trial.overview.trial_id || trial.trial_id.slice(0, 8) + '...'}
                   </span></p>
                   <p className="font-semibold">{trial.overview.title || "Untitled"}</p>
-                  <Badge variant="outline">{trial.overview.therapeutic_area || "N/A"}</Badge>
-                  <p className="text-sm">Disease: {trial.overview.disease_type || "N/A"}</p>
+                  <Badge variant="outline">{formatDisplayValue(trial.overview.therapeutic_area)}</Badge>
+                  <p className="text-sm">Disease: {formatDisplayValue(trial.overview.disease_type)}</p>
                   <p className="text-sm">Status: <span className={getStatusColor(trial.overview.status)}>{trial.overview.status || "Unknown"}</span></p>
                   <p className="text-sm">Phase: {trial.overview.trial_phase || "N/A"}</p>
                   <p className="text-sm">Sponsor: {trial.overview.sponsor_collaborators || "N/A"}</p>

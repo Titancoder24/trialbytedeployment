@@ -25,6 +25,7 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
 import { formatDateToMMDDYYYY } from "@/lib/date-utils";
+import { formatDisplayValue } from "@/lib/format-utils";
 import {
   ChevronLeft,
   ChevronRight,
@@ -1418,7 +1419,7 @@ export default function TherapeuticDetailPage({ params }: { params: Promise<{ id
                           Therapeutic Area
                         </span>
                         <Badge className="bg-blue-600 text-white">
-                          {trial.overview.therapeutic_area}
+                          {formatDisplayValue(trial.overview.therapeutic_area)}
                         </Badge>
                       </div>
                     </div>
@@ -1477,7 +1478,7 @@ export default function TherapeuticDetailPage({ params }: { params: Promise<{ id
                             Disease Type :
                           </span>
                           <span className="text-sm text-gray-700">
-                            {trial.overview.disease_type || "N/A"}
+                            {formatDisplayValue(trial.overview.disease_type)}
                           </span>
                         </div>
                         <div className="flex items-start">
@@ -1485,7 +1486,7 @@ export default function TherapeuticDetailPage({ params }: { params: Promise<{ id
                             Patient Segment :
                           </span>
                           <span className="text-sm text-gray-700">
-                            {trial.overview.patient_segment || "N/A"}
+                            {formatDisplayValue(trial.overview.patient_segment)}
                           </span>
                         </div>
                         <div className="flex items-start">
@@ -3119,10 +3120,10 @@ export default function TherapeuticDetailPage({ params }: { params: Promise<{ id
                       <span className="font-medium">Phase:</span> {trial.overview.trial_phase}
                     </div>
                     <div>
-                      <span className="font-medium">Therapeutic Area:</span> {trial.overview.therapeutic_area}
+                      <span className="font-medium">Therapeutic Area:</span> {formatDisplayValue(trial.overview.therapeutic_area)}
                     </div>
                     <div>
-                      <span className="font-medium">Disease Type:</span> {trial.overview.disease_type}
+                      <span className="font-medium">Disease Type:</span> {formatDisplayValue(trial.overview.disease_type)}
                     </div>
                   </div>
                 </div>
