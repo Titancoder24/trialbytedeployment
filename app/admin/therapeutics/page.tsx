@@ -2786,25 +2786,25 @@ export default function AdminTherapeuticsPage() {
                       <td className="p-4 align-middle max-w-[150px] truncate">{formatDisplayValue(trial.overview.line_of_therapy)}</td>
                     )}
                     {columnSettings.countries && (
-                      <td className="p-4 align-middle max-w-[150px] truncate">{trial.overview.countries || "N/A"}</td>
+                      <td className="p-4 align-middle max-w-[150px] truncate">{formatDisplayValue(trial.overview.countries)}</td>
                     )}
                     {columnSettings.sponsorsCollaborators && (
-                      <td className="p-4 align-middle max-w-[150px] truncate">{trial.overview.sponsor_collaborators || "N/A"}</td>
+                      <td className="p-4 align-middle max-w-[150px] truncate">{formatDisplayValue(trial.overview.sponsor_collaborators)}</td>
                     )}
                     {columnSettings.fieldOfActivity && (
-                      <td className="p-4 align-middle max-w-[150px] truncate">{trial.overview.sponsor_field_activity || "N/A"}</td>
+                      <td className="p-4 align-middle max-w-[150px] truncate">{formatDisplayValue(trial.overview.sponsor_field_activity)}</td>
                     )}
                     {columnSettings.associatedCro && (
-                      <td className="p-4 align-middle max-w-[150px] truncate">{trial.overview.associated_cro || "N/A"}</td>
+                      <td className="p-4 align-middle max-w-[150px] truncate">{formatDisplayValue(trial.overview.associated_cro)}</td>
                     )}
                     {columnSettings.trialTags && (
-                      <td className="p-4 align-middle max-w-[150px] truncate">{trial.overview.trial_tags || "N/A"}</td>
+                      <td className="p-4 align-middle max-w-[150px] truncate">{formatDisplayValue(trial.overview.trial_tags)}</td>
                     )}
                     {columnSettings.otherDrugs && (
-                      <td className="p-4 align-middle max-w-[150px] truncate">{trial.overview.other_drugs || "N/A"}</td>
+                      <td className="p-4 align-middle max-w-[150px] truncate">{formatDisplayValue(trial.overview.other_drugs)}</td>
                     )}
                     {columnSettings.regions && (
-                      <td className="p-4 align-middle max-w-[120px] truncate">{trial.overview.region || "N/A"}</td>
+                      <td className="p-4 align-middle max-w-[120px] truncate">{formatDisplayValue(trial.overview.region)}</td>
                     )}
                     {columnSettings.trialRecordStatus && (
                       <td className="p-4 align-middle max-w-[120px] truncate">{formatDisplayValue(trial.overview.trial_record_status)}</td>

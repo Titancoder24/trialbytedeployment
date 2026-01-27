@@ -2765,7 +2765,7 @@ export default function ClinicalTrialDashboard() {
                             {columnSettings.countries && (
                               <td className="p-4 align-middle w-[120px] max-w-[120px]">
                                 <span className="truncate block" title={trial.overview.countries}>
-                                  {trial.overview.countries || "N/A"}
+                                  {formatDisplayValue(trial.overview.countries)}
                                 </span>
                               </td>
                             )}
@@ -2773,7 +2773,7 @@ export default function ClinicalTrialDashboard() {
                             {columnSettings.otherDrugs && (
                               <td className="p-4 align-middle w-[100px] max-w-[100px]">
                                 <span className="truncate block" title={trial.overview.other_drugs}>
-                                  {trial.overview.other_drugs || "N/A"}
+                                  {formatDisplayValue(trial.overview.other_drugs)}
                                 </span>
                               </td>
                             )}
@@ -2781,7 +2781,7 @@ export default function ClinicalTrialDashboard() {
                             {columnSettings.regions && (
                               <td className="p-4 align-middle w-[100px] max-w-[100px]">
                                 <span className="truncate block" title={trial.overview.region}>
-                                  {trial.overview.region || "N/A"}
+                                  {formatDisplayValue(trial.overview.region)}
                                 </span>
                               </td>
                             )}
@@ -2789,7 +2789,7 @@ export default function ClinicalTrialDashboard() {
                             {columnSettings.fieldOfActivity && (
                               <td className="p-4 align-middle w-[120px] max-w-[120px]">
                                 <span className="truncate block" title={trial.overview.sponsor_field_activity}>
-                                  {trial.overview.sponsor_field_activity || "N/A"}
+                                  {formatDisplayValue(trial.overview.sponsor_field_activity)}
                                 </span>
                               </td>
                             )}
@@ -2797,7 +2797,7 @@ export default function ClinicalTrialDashboard() {
                             {columnSettings.associatedCro && (
                               <td className="p-4 align-middle w-[100px] max-w-[100px]">
                                 <span className="truncate block" title={trial.overview.associated_cro}>
-                                  {trial.overview.associated_cro || "N/A"}
+                                  {formatDisplayValue(trial.overview.associated_cro)}
                                 </span>
                               </td>
                             )}
@@ -2805,7 +2805,7 @@ export default function ClinicalTrialDashboard() {
                             {columnSettings.trialTags && (
                               <td className="p-4 align-middle w-[100px] max-w-[100px]">
                                 <span className="truncate block" title={trial.overview.trial_tags}>
-                                  {trial.overview.trial_tags || "N/A"}
+                                  {formatDisplayValue(trial.overview.trial_tags)}
                                 </span>
                               </td>
                             )}
