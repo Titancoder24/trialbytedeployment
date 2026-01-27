@@ -1359,10 +1359,23 @@ export default function AdminTherapeuticsPage() {
           return true;
         }
 
-        // Also check with underscores removed/replaced
-        const targetNoUnderscore = targetValue.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
-        const searchNoUnderscore = searchValueLower.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
-        return targetNoUnderscore.includes(searchNoUnderscore) || searchNoUnderscore.includes(targetNoUnderscore);
+        // Normalize both values: replace underscores and hyphens with spaces
+        const normalizeValue = (val: string) => val.replace(/[_-]/g, ' ').replace(/\s+/g, ' ').trim();
+        const targetNormalized = normalizeValue(targetValue);
+        const searchNormalized = normalizeValue(searchValueLower);
+
+        // Check if normalized values match
+        if (targetNormalized.includes(searchNormalized) || searchNormalized.includes(targetNormalized)) {
+          return true;
+        }
+
+        // Also check if words overlap (e.g., "non randomized" should match "non-randomized" or "non_randomized")
+        const targetWords = targetNormalized.split(' ').filter(w => w.length > 0);
+        const searchWords = searchNormalized.split(' ').filter(w => w.length > 0);
+        const allSearchWordsFound = searchWords.every(searchWord =>
+          targetWords.some(targetWord => targetWord.includes(searchWord) || searchWord.includes(targetWord))
+        );
+        return allSearchWordsFound;
       }
 
       // Special handling for trial_tags with multiple values

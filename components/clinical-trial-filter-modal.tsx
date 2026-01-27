@@ -62,7 +62,20 @@ const staticFilterCategories = {
     "Unspecified Cancer", "Unspecified Haematological Cancer", "Vaginal", "Vulvar"
   ],
   trialPhases: ["Phase I", "Phase I/II", "Phase II", "Phase II/III", "Phase III", "Phase III/IV", "Phase IV"],
-  patientSegments: ["Children", "Adults", "Healthy Volunteers", "Unknown", "First Line", "Second Line", "Adjuvant"],
+  patientSegments: [
+    "HER2+ Breast Cancer",
+    "HER2- Breast Cancer",
+    "HR+ Breast Cancer (ER+ and/or PR+)",
+    "Triple-Negative Breast Cancer (TNBC)",
+    "Early-Stage Breast Cancer",
+    "Locally Advanced Breast Cancer",
+    "Metastatic Breast Cancer",
+    "Recurrent Breast Cancer",
+    "Advanced Breast Cancer (Non-Metastatic)",
+    "Premenopausal Breast Cancer Patients",
+    "Postmenopausal Breast Cancer Patients",
+    "Breast Cancer (NOS)"
+  ],
   lineOfTherapy: [
     "1 – First Line", "2 – Second Line", "Unknown", "2+ - At least second line",
     "3+ - At least third line", "Neo-Adjuvant", "Adjuvant", "Maintenance/Consolidation",
