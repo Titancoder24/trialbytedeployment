@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
-import { X, Plus, Minus, CalendarIcon } from "lucide-react"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { X, Plus, Minus, CalendarIcon, Check, ChevronsUpDown } from "lucide-react"
 import { FaBook, FaBookmark } from "react-icons/fa"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
@@ -218,6 +219,7 @@ export function ClinicalTrialAdvancedSearchModal({
     }
   ])
   const [saveQueryModalOpen, setSaveQueryModalOpen] = useState(false)
+  const [openFieldPopovers, setOpenFieldPopovers] = useState<Record<string, boolean>>({})
 
   // Get drug names from API
   const { getPrimaryDrugsOptions, isLoading: isDrugsLoading } = useDrugNames()
@@ -423,26 +425,59 @@ export function ClinicalTrialAdvancedSearchModal({
             {criteria.map((criterion, index) => (
               <div key={criterion.id} className="space-y-3">
                 <div className="flex items-center gap-3">
-                  {/* Field Dropdown */}
-                  <div className="w-[140px]">
-                    <Select
-                      value={criterion.field}
-                      onValueChange={(value) => updateCriteria(criterion.id, "field", value)}
+                  {/* Field Dropdown - Searchable */}
+                  <div className="w-[160px]">
+                    <Popover
+                      open={openFieldPopovers[criterion.id] || false}
+                      onOpenChange={(isOpen) =>
+                        setOpenFieldPopovers((prev) => ({ ...prev, [criterion.id]: isOpen }))
+                      }
                     >
-                      <SelectTrigger
-                        className="bg-white border border-gray-300 rounded-lg text-center justify-center"
-                        style={{ fontFamily: "Poppins, sans-serif" }}
-                      >
-                        <SelectValue placeholder="Choose Field" />
-                      </SelectTrigger>
-                      <SelectContent position="popper" side="bottom" style={{ fontFamily: "Poppins, sans-serif" }}>
-                        {searchFields.map((field) => (
-                          <SelectItem key={field.value} value={field.value}>
-                            {field.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={openFieldPopovers[criterion.id] || false}
+                          className="w-full justify-between bg-white border border-gray-300 rounded-lg"
+                          style={{ fontFamily: "Poppins, sans-serif" }}
+                        >
+                          <span className="truncate">
+                            {criterion.field
+                              ? searchFields.find((f) => f.value === criterion.field)?.label
+                              : "Choose Field"}
+                          </span>
+                          <ChevronsUpDown className="ml-1 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[200px] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Search fields..." />
+                          <CommandList>
+                            <CommandEmpty>No field found.</CommandEmpty>
+                            <CommandGroup>
+                              {searchFields.map((field) => (
+                                <CommandItem
+                                  key={field.value}
+                                  value={field.label}
+                                  onSelect={() => {
+                                    updateCriteria(criterion.id, "field", field.value)
+                                    setOpenFieldPopovers((prev) => ({ ...prev, [criterion.id]: false }))
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      criterion.field === field.value ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {field.label}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
 
                   {/* Operator Dropdown - Teal Color #208B8B */}
