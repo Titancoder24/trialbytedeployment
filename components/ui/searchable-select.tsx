@@ -82,7 +82,15 @@ export function SearchableSelect({
       <PopoverContent className="w-full p-0" align="start">
         <Command>
           <CommandInput placeholder={searchPlaceholder} />
-          <CommandList className="max-h-[300px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <CommandList
+            className="max-h-[300px] overflow-y-auto overscroll-contain"
+            onWheelCapture={(e) => {
+              // Manually handle scroll to ensure mouse wheel works
+              const target = e.currentTarget;
+              target.scrollTop += e.deltaY;
+              e.stopPropagation();
+            }}
+          >
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             <CommandGroup>
               {options.map((option) => (

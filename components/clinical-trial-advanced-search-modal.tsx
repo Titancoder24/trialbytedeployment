@@ -13,6 +13,7 @@ import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { SaveQueryModal } from "@/components/save-query-modal"
 import { useDrugNames } from "@/hooks/use-drug-names"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 
 interface ClinicalTrialAdvancedSearchModalProps {
   open: boolean
@@ -34,23 +35,41 @@ export interface ClinicalTrialSearchCriteria {
 }
 
 const searchFields = [
+  { value: "trial_id", label: "Trial ID", type: "text" },
   { value: "disease_type", label: "Disease Type", type: "dropdown" },
   { value: "enrollment", label: "Enrollment", type: "number" },
   { value: "therapeutic_area", label: "Therapeutic Area", type: "dropdown" },
   { value: "trial_phase", label: "Trial Phase", type: "dropdown" },
   { value: "primary_drugs", label: "Primary Drug", type: "dropdown" },
   { value: "secondary_drugs", label: "Secondary Drug", type: "dropdown" },
-  { value: "trial_status", label: "Trial Status", type: "dropdown" },
+  { value: "trial_status", label: "Status", type: "dropdown" },
+  { value: "trial_record_status", label: "Trial Record Status", type: "dropdown" },
   { value: "sponsor_collaborators", label: "Sponsor", type: "dropdown" },
   { value: "countries", label: "Countries", type: "dropdown" },
   { value: "regions", label: "Regions", type: "dropdown" },
   { value: "patient_segment", label: "Patient Segment", type: "dropdown" },
   { value: "line_of_therapy", label: "Line of Therapy", type: "dropdown" },
-  { value: "subject_type", label: "Subject Type", type: "dropdown" },
+  { value: "subject_type", label: "Subject Type", type: "text" },
+  { value: "sex", label: "Sex", type: "dropdown" },
   { value: "actual_enrolled_volunteers", label: "Actual Enrolled Volunteers", type: "number" },
   { value: "target_enrolled_volunteers", label: "Target Enrolled Volunteers", type: "number" },
   { value: "total_number_of_sites", label: "Total Number of Sites", type: "number" },
   { value: "trial_identifier", label: "Trial Identifier", type: "text" },
+  { value: "reference_links", label: "Reference Links", type: "text" },
+  { value: "purpose_of_trial", label: "Purpose", type: "text" },
+  { value: "summary", label: "Summary", type: "text" },
+  { value: "primary_outcome_measure", label: "Primary Outcome", type: "text" },
+  { value: "other_outcome_measure", label: "Other Outcome", type: "text" },
+  { value: "treatment_regimen", label: "Treatment Regimen", type: "text" },
+  { value: "study_design", label: "Study Design", type: "text" },
+  { value: "number_of_arms", label: "Number of Arms", type: "number" },
+  { value: "inclusion_criteria", label: "Inclusion Criteria", type: "text" },
+  { value: "exclusion_criteria", label: "Exclusion Criteria", type: "text" },
+  { value: "age_from", label: "Age From", type: "number" },
+  { value: "age_to", label: "Age To", type: "number" },
+  { value: "results_available", label: "Results Available", type: "dropdown" },
+  { value: "endpoints_met", label: "Endpoints Met", type: "dropdown" },
+  { value: "internal_note", label: "Internal Note", type: "text" },
   { value: "actual_start_date", label: "Actual Start Date", type: "date" },
   { value: "estimated_start_date", label: "Estimated Start Date", type: "date" },
   { value: "actual_enrollment_closed_date", label: "Actual Enrollment Closed Date", type: "date" },
@@ -97,6 +116,11 @@ const fieldOptions: Record<string, { value: string; label: string }[]> = {
     { value: "Closed", label: "Closed" },
     { value: "Completed", label: "Completed" },
     { value: "Terminated", label: "Terminated" }
+  ],
+  trial_record_status: [
+    { value: "Development In Progress (DIP)", label: "Development In Progress (DIP)" },
+    { value: "In Production (IP)", label: "In Production (IP)" },
+    { value: "Update In Progress (UIP)", label: "Update In Progress (UIP)" }
   ],
   disease_type: [
     { value: "Breast", label: "Breast" },
@@ -149,9 +173,18 @@ const fieldOptions: Record<string, { value: string; label: string }[]> = {
     { value: "Africa", label: "Africa" },
     { value: "Middle East", label: "Middle East" }
   ],
-  subject_type: [
-    { value: "Human", label: "Human" },
-    { value: "Animal", label: "Animal" }
+  sex: [
+    { value: "Male", label: "Male" },
+    { value: "Female", label: "Female" },
+    { value: "Both", label: "Both" }
+  ],
+  results_available: [
+    { value: "Yes", label: "Yes" },
+    { value: "No", label: "No" }
+  ],
+  endpoints_met: [
+    { value: "Yes", label: "Yes" },
+    { value: "No", label: "No" }
   ]
 }
 
@@ -393,7 +426,7 @@ export function ClinicalTrialAdvancedSearchModal({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
-          className="max-w-4xl max-h-[80vh] p-0 rounded-lg overflow-hidden [&>button]:hidden"
+          className="max-w-4xl max-h-[85vh] p-0 rounded-lg overflow-hidden [&>button]:hidden flex flex-col"
           style={{ fontFamily: "Poppins, sans-serif" }}
         >
           {/* Header - Light Blue Background */}
@@ -419,30 +452,20 @@ export function ClinicalTrialAdvancedSearchModal({
           </DialogHeader>
 
           {/* Search Criteria Rows */}
-          <div className="p-6 space-y-4 max-h-[400px] overflow-y-auto bg-white">
+          <div className="p-6 space-y-4 flex-1 overflow-y-auto bg-white min-h-0">
             {criteria.map((criterion, index) => (
               <div key={criterion.id} className="space-y-3">
                 <div className="flex items-center gap-3">
                   {/* Field Dropdown */}
-                  <div className="w-[140px]">
-                    <Select
+                  <div className="w-[180px]">
+                    <SearchableSelect
+                      options={searchFields}
                       value={criterion.field}
                       onValueChange={(value) => updateCriteria(criterion.id, "field", value)}
-                    >
-                      <SelectTrigger
-                        className="bg-white border border-gray-300 rounded-lg text-center justify-center"
-                        style={{ fontFamily: "Poppins, sans-serif" }}
-                      >
-                        <SelectValue placeholder="Choose Field" />
-                      </SelectTrigger>
-                      <SelectContent position="popper" side="bottom" style={{ fontFamily: "Poppins, sans-serif" }}>
-                        {searchFields.map((field) => (
-                          <SelectItem key={field.value} value={field.value}>
-                            {field.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Choose Field"
+                      searchPlaceholder="Search field..."
+                      className="bg-white border-gray-300 rounded-lg justify-start"
+                    />
                   </div>
 
                   {/* Operator Dropdown - Teal Color #208B8B */}
@@ -476,6 +499,7 @@ export function ClinicalTrialAdvancedSearchModal({
                       <Input
                         placeholder="Select a field first"
                         disabled
+                        value=""
                         className="border border-gray-300 rounded-lg text-center"
                         style={{ fontFamily: "Poppins, sans-serif" }}
                       />

@@ -78,7 +78,7 @@ export function AppSidebar() {
         <div className="flex items-center space-x-2 px-2 py-2">
           <div className="leading-tight">
             <Image
-              src="/logo.jpeg"
+              src="/trialbyte-logo.png"
               alt="Logo"
               width={160}
               height={40}

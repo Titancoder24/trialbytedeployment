@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -50,6 +51,10 @@ export interface ColumnSettings {
   // Timing Section
   startDateEstimated: boolean;
   trialEndDateEstimated: boolean;
+  actualStartDate: boolean;
+  actualEnrollmentClosedDate: boolean;
+  actualTrialCompletionDate: boolean;
+  actualPublishedDate: boolean;
   // Results Section
   resultsAvailable: boolean;
   endpointsMet: boolean;
@@ -113,6 +118,10 @@ const DEFAULT_COLUMN_SETTINGS: ColumnSettings = {
   // Timing Section
   startDateEstimated: false,
   trialEndDateEstimated: false,
+  actualStartDate: false,
+  actualEnrollmentClosedDate: false,
+  actualTrialCompletionDate: false,
+  actualPublishedDate: false,
   // Results Section
   resultsAvailable: false,
   endpointsMet: false,
@@ -120,7 +129,7 @@ const DEFAULT_COLUMN_SETTINGS: ColumnSettings = {
   // Sites Section
   totalSites: false,
   // New Fields (Admin + User)
-  status: false,
+  status: true,
   estimatedEnrollmentClosedDate: false,
   estimatedResultPublishedDate: false,
   referenceLinks: false,
@@ -135,8 +144,8 @@ export const COLUMN_OPTIONS = [
   { key: 'therapeuticArea' as keyof ColumnSettings, label: 'Therapeutic Area' },
   { key: 'diseaseType' as keyof ColumnSettings, label: 'Disease Type' },
   { key: 'primaryDrug' as keyof ColumnSettings, label: 'Primary Drug' },
-  { key: 'trialRecordStatus' as keyof ColumnSettings, label: 'Trial status' },
-  { key: 'sponsorsCollaborators' as keyof ColumnSettings, label: 'Sponsor' },
+  { key: 'trialRecordStatus' as keyof ColumnSettings, label: 'Trial Record Status' },
+  { key: 'sponsorsCollaborators' as keyof ColumnSettings, label: 'Sponsor & Collaborator' },
   { key: 'trialPhase' as keyof ColumnSettings, label: 'Phase' },
   { key: 'title' as keyof ColumnSettings, label: 'Title' },
   { key: 'patientSegment' as keyof ColumnSettings, label: 'Patient Segment' },
@@ -170,12 +179,16 @@ export const COLUMN_OPTIONS = [
   // Timing Section
   { key: 'startDateEstimated' as keyof ColumnSettings, label: 'Start Date (Estimated)' },
   { key: 'trialEndDateEstimated' as keyof ColumnSettings, label: 'Trial End Date (Estimated)' },
+  { key: 'actualStartDate' as keyof ColumnSettings, label: 'Actual Start Date' },
+  { key: 'actualEnrollmentClosedDate' as keyof ColumnSettings, label: 'Actual Enrollment Closed Date' },
+  { key: 'actualTrialCompletionDate' as keyof ColumnSettings, label: 'Actual Trial Completion Date' },
+  { key: 'actualPublishedDate' as keyof ColumnSettings, label: 'Actual Published Date' },
   // Results Section
   { key: 'resultsAvailable' as keyof ColumnSettings, label: 'Results Available' },
   { key: 'endpointsMet' as keyof ColumnSettings, label: 'Endpoints Met' },
   { key: 'trialOutcome' as keyof ColumnSettings, label: 'Trial Outcome' },
   // Sites Section
-  { key: 'totalSites' as keyof ColumnSettings, label: 'Total Sites' },
+  { key: 'totalSites' as keyof ColumnSettings, label: 'Total no of sites' },
   // New Fields (Admin + User)
   { key: 'estimatedEnrollmentClosedDate' as keyof ColumnSettings, label: 'Estimated Enrollment Closed Date' },
   { key: 'estimatedResultPublishedDate' as keyof ColumnSettings, label: 'Estimated Result Published Date' },
@@ -192,13 +205,23 @@ export function CustomizeColumnModal({
   onColumnSettingsChange,
 }: CustomizeColumnModalProps) {
   const [localSettings, setLocalSettings] = useState<ColumnSettings>(columnSettings);
+  const [searchTerm, setSearchTerm] = useState("");
   const MAX_COLUMNS = 15;
 
   useEffect(() => {
     setLocalSettings(columnSettings);
-  }, [columnSettings]);
+    // Clear search when modal opens
+    if (open) {
+      setSearchTerm("");
+    }
+  }, [columnSettings, open]);
 
   const selectedCount = Object.values(localSettings).filter(Boolean).length;
+
+  // Filter column options based on search term
+  const filteredOptions = COLUMN_OPTIONS.filter(option =>
+    option.label.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const handleColumnToggle = (column: keyof ColumnSettings) => {
     const isCurrentlySelected = localSettings[column];
@@ -255,8 +278,19 @@ export function CustomizeColumnModal({
           </div>
         </DialogHeader>
 
-        {/* Select Columns Header */}
+        {/* Search Input */}
         <div className="mx-4 mt-4">
+          <Input
+            type="text"
+            placeholder="Search columns..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full"
+          />
+        </div>
+
+        {/* Select Columns Header */}
+        <div className="mx-4 mt-3">
           <div
             className="px-4 py-3 rounded-lg flex items-center justify-between"
             style={{ backgroundColor: "#204B73" }}
@@ -278,7 +312,7 @@ export function CustomizeColumnModal({
         {/* Checkbox List */}
         <div className="flex-1 overflow-y-auto px-4 py-3">
           <div className="space-y-1">
-            {COLUMN_OPTIONS.map((option) => {
+            {filteredOptions.map((option) => {
               const isSelected = localSettings[option.key];
               const isDisabled = !isSelected && selectedCount >= MAX_COLUMNS;
 

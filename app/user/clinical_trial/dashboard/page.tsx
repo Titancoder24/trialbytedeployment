@@ -2,6 +2,15 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { TherapeuticFilterState, TherapeuticSearchCriteria, DEFAULT_THERAPEUTIC_FILTERS } from "@/components/therapeutic-types"
+import jsPDF from "jspdf"
+import autoTable from "jspdf-autotable"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 // Using native HTML table elements for sticky header support
@@ -32,6 +41,7 @@ import {
   Loader2,
   Calendar,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 // React icons for TrialsListing-style sidebar
 import { IoSearch } from "react-icons/io5";
@@ -51,6 +61,7 @@ import { ClinicalTrialAdvancedSearchModal, ClinicalTrialSearchCriteria } from "@
 import { SaveQueryModal } from "@/components/save-query-modal";
 import { QueryHistoryModal } from "@/components/query-history-modal";
 import { CustomizeColumnModal, ColumnSettings, DEFAULT_COLUMN_SETTINGS, COLUMN_OPTIONS } from "@/components/customize-column-modal";
+import { useDrugNames } from "@/hooks/use-drug-names";
 import { FavoriteTrialsModal } from "@/components/favorite-trials-modal";
 import { ExportTrialsModal } from "@/components/export-trials-modal";
 import { GlobalSearchModal } from "@/components/global-search-modal";
@@ -83,6 +94,8 @@ interface TherapeuticTrial {
     trial_record_status: string;
     created_at: string;
     updated_at: string;
+    original_trial_id?: string;
+    is_updated_version?: boolean;
   };
   outcomes: Array<{
     id: string;
@@ -113,7 +126,11 @@ interface TherapeuticTrial {
     id: string;
     trial_id: string;
     start_date_estimated: string | null;
+    start_date_actual: string | null;
     trial_end_date_estimated: string | null;
+    actual_enrollment_closed_date: string | null;
+    actual_trial_completion_date: string | null;
+    actual_published_date: string | null;
   }>;
   results: Array<{
     id: string;
@@ -179,10 +196,14 @@ const DEFAULT_FILTER_STATE: ClinicalTrialFilterState = {
   associatedCro: [],
   trialTags: [],
   sex: [],
-  healthyVolunteers: []
+  healthyVolunteers: [],
+  trialRecordStatus: [],
+  trialOutcome: [],
+  studyDesignKeywords: []
 };
 
 export default function ClinicalTrialDashboard() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [trials, setTrials] = useState<TherapeuticTrial[]>([]);
   const [totalTrialCount, setTotalTrialCount] = useState<number>(0);
@@ -222,6 +243,30 @@ export default function ClinicalTrialDashboard() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [selectedTrials, setSelectedTrials] = useState<string[]>([]);
 
+  const { drugAliasesMap } = useDrugNames();
+  const [referenceLinkFilter, setReferenceLinkFilter] = useState("");
+
+  // Filter function to show only the latest version of each record
+  const filterLatestVersions = (trials: TherapeuticTrial[]) => {
+    const trialMap = new Map<string, TherapeuticTrial>();
+
+    trials.forEach(trial => {
+      const key = trial.overview?.title || trial.trial_id;
+
+      // If this trial has an original_trial_id, it's an updated version
+      if (trial.overview?.original_trial_id) {
+        // This is an updated version, replace the original
+        trialMap.set(key, trial);
+      } else if (!trialMap.has(key)) {
+        // This is an original version, add it if we don't have a newer version
+        trialMap.set(key, trial);
+      }
+      // If we already have a newer version, skip this old one
+    });
+
+    return Array.from(trialMap.values());
+  };
+
   // Fetch trials data using the therapeutics API with caching
   const fetchTrials = async (isRefresh = false, showToast = false) => {
     try {
@@ -244,8 +289,10 @@ export default function ClinicalTrialDashboard() {
           const age = Date.now() - parseInt(cachedTimestamp, 10);
           if (age < cacheMaxAge) {
             const data = JSON.parse(cachedData);
-            setTrials(data.trials);
-            setTotalTrialCount(data.total_trials || data.trials.length);
+
+            const trials = filterLatestVersions(data.trials);
+            setTrials(trials);
+            setTotalTrialCount(trials.length);
             setLoading(false);
             // Refresh in background silently
             fetchFromAPIBackground();
@@ -278,8 +325,10 @@ export default function ClinicalTrialDashboard() {
         // Ignore storage errors
       }
 
-      setTrials(data.trials);
-      setTotalTrialCount(data.total_trials || data.trials.length);
+      const allTrials = data.trials || [];
+      const filteredTrials = filterLatestVersions(allTrials);
+      setTrials(filteredTrials);
+      setTotalTrialCount(filteredTrials.length);
 
       if (isRefresh && showToast) {
         toast({
@@ -315,8 +364,11 @@ export default function ClinicalTrialDashboard() {
           sessionStorage.setItem('trials_cache', JSON.stringify(data));
           sessionStorage.setItem('trials_cache_timestamp', Date.now().toString());
         } catch (e) { }
-        setTrials(data.trials);
-        setTotalTrialCount(data.total_trials || data.trials.length);
+
+        const allTrials = data.trials || [];
+        const filteredTrials = filterLatestVersions(allTrials);
+        setTrials(filteredTrials);
+        setTotalTrialCount(filteredTrials.length);
       }
     } catch (e) {
       // Silently fail background updates
@@ -378,19 +430,64 @@ export default function ClinicalTrialDashboard() {
 
   // Helper function to get field value from trial object
   // Returns empty string if value is null/undefined
-  const getFieldValue = (trial: TherapeuticTrial, field: string): string => {
+  const getFieldValue = (trial: TherapeuticTrial, field: string): any => {
     switch (field) {
+      // Basic Info
+      case "trial_id": return trial.overview.trial_id || trial.trial_id || "";
+      case "trial_identifier": return trial.overview.trial_identifier?.join(", ") || "";
+      case "title": return trial.overview.title || "";
       case "disease_type": return trial.overview.disease_type || "";
       case "therapeutic_area": return trial.overview.therapeutic_area || "";
       case "trial_phase": return trial.overview.trial_phase || "";
       case "primary_drugs": return trial.overview.primary_drugs || "";
+      case "secondary_drugs": return trial.overview.other_drugs || "";
       case "trial_status": return trial.overview.status || "";
+      case "trial_record_status": return trial.overview.trial_record_status || "";
       case "sponsor_collaborators": return trial.overview.sponsor_collaborators || "";
       case "countries": return trial.overview.countries || "";
+      case "regions": return trial.overview.region || "";
       case "patient_segment": return trial.overview.patient_segment || "";
       case "line_of_therapy": return trial.overview.line_of_therapy || "";
-      case "trial_identifier": return trial.overview.trial_identifier?.join(", ") || "";
-      case "enrollment": return trial.criteria[0]?.target_no_volunteers?.toString() || "0";
+      case "reference_links": return trial.overview.reference_links?.join(" ") || "";
+
+      // Study Design & Outcomes
+      case "purpose_of_trial": return trial.outcomes[0]?.purpose_of_trial || "";
+      case "summary": return trial.outcomes[0]?.summary || "";
+      case "primary_outcome_measure": return trial.outcomes[0]?.primary_outcome_measure || "";
+      case "other_outcome_measure": return trial.outcomes[0]?.other_outcome_measure || "";
+      case "treatment_regimen": return trial.outcomes[0]?.treatment_regimen || "";
+      case "study_design": return trial.outcomes[0]?.study_design || "";
+      case "number_of_arms": return trial.outcomes[0]?.number_of_arms?.toString() || "";
+
+      // Criteria
+      case "inclusion_criteria": return trial.criteria[0]?.inclusion_criteria || "";
+      case "exclusion_criteria": return trial.criteria[0]?.exclusion_criteria || "";
+      case "age_from": return trial.criteria[0]?.age_from || "";
+      case "age_to": return trial.criteria[0]?.age_to || "";
+      case "sex": return trial.criteria[0]?.sex || "";
+      case "subject_type": return trial.criteria[0]?.subject_type || "";
+      case "actual_enrolled_volunteers": return trial.criteria[0]?.actual_enrolled_volunteers?.toString() || "";
+      case "target_enrolled_volunteers": return trial.criteria[0]?.target_no_volunteers?.toString() || "";
+      case "enrollment": return trial.criteria[0]?.target_no_volunteers?.toString() || "0"; // Alias
+
+      // Sites & Results
+      case "total_number_of_sites": return trial.sites[0]?.total?.toString() || "";
+      case "results_available": return trial.results && trial.results.length > 0 ? "Yes" : "No";
+      case "endpoints_met": return trial.results?.[0]?.trial_results?.length > 0 ? "Yes" : "No";
+
+      // Notes
+      case "internal_note": return trial.notes?.map(n => n.notes).join(" ") || "";
+
+      // Dates
+      case "actual_start_date": return trial.timing[0]?.start_date_actual || "";
+      case "estimated_start_date": return trial.timing[0]?.start_date_estimated || "";
+      case "actual_enrollment_closed_date": return trial.timing[0]?.actual_enrollment_closed_date || "";
+      case "estimated_enrollment_closed_date": return trial.timing[0]?.actual_enrollment_closed_date || ""; // Mapping estimated to actual as per Sort? Re-verify if explicit field exists. Using same as sort mapping.
+      case "actual_trial_end_date": return trial.timing[0]?.actual_trial_completion_date || "";
+      case "estimated_trial_end_date": return trial.timing[0]?.trial_end_date_estimated || "";
+      case "actual_result_published_date": return trial.timing[0]?.actual_published_date || "";
+      case "estimated_result_published_date": return trial.results[0]?.id ? trial.results[0]["estimated_result_published_date" as any] || "" : ""; // Try access property if exists
+
       default: return "";
     }
   };
@@ -410,63 +507,112 @@ export default function ClinicalTrialDashboard() {
   const getSortValue = (trial: TherapeuticTrial, field: string): string | number => {
     switch (field) {
       // Basic Info Section
-      case "trial_id": return trial.overview.trial_id || trial.trial_id || "";
-      case "therapeutic_area": return trial.overview.therapeutic_area || "";
-      case "disease_type": return trial.overview.disease_type || "";
-      case "primary_drug": return trial.overview.primary_drugs || "";
-      case "trial_status": return trial.overview.status || "";
-      case "sponsor": return trial.overview.sponsor_collaborators || "";
-      case "phase": return trial.overview.trial_phase || "";
+      case "trial_id":
+      case "trialId": return trial.overview.trial_id || trial.trial_id || "";
+      case "therapeutic_area":
+      case "therapeuticArea": return trial.overview.therapeutic_area || "";
+      case "disease_type":
+      case "diseaseType": return trial.overview.disease_type || "";
+      case "primary_drug":
+      case "primaryDrug": return trial.overview.primary_drugs || "";
+      case "trial_status":
+      case "status": return trial.overview.status || "";
+      case "trial_record_status":
+      case "trialRecordStatus": return trial.overview.trial_record_status || "";
+      case "sponsor":
+      case "sponsorsCollaborators": return trial.overview.sponsor_collaborators || "";
+      case "phase":
+      case "trialPhase": return trial.overview.trial_phase || "";
       case "title": return trial.overview.title || "";
-      case "patientSegment": return trial.overview.patient_segment || "";
-      case "lineOfTherapy": return trial.overview.line_of_therapy || "";
+      case "patientSegment":
+      case "patient_segment": return trial.overview.patient_segment || "";
+      case "lineOfTherapy":
+      case "line_of_therapy": return trial.overview.line_of_therapy || "";
       case "countries": return trial.overview.countries || "";
-      case "fieldOfActivity": return trial.overview.sponsor_field_activity || "";
-      case "associatedCro": return trial.overview.associated_cro || "";
-      case "trialTags": return trial.overview.trial_tags || "";
-      case "otherDrugs": return trial.overview.other_drugs || "";
+      case "fieldOfActivity":
+      case "field_of_activity": return trial.overview.sponsor_field_activity || "";
+      case "associatedCro":
+      case "associated_cro": return trial.overview.associated_cro || "";
+      case "trialTags":
+      case "trial_tags": return trial.overview.trial_tags || "";
+      case "otherDrugs":
+      case "other_drugs": return trial.overview.other_drugs || "";
       case "regions": return trial.overview.region || "";
 
       // Eligibility Section - numeric fields parsed properly
-      case "inclusion_criteria": return trial.criteria[0]?.inclusion_criteria || "";
-      case "exclusion_criteria": return trial.criteria[0]?.exclusion_criteria || "";
+      case "inclusion_criteria":
+      case "inclusionCriteria": return trial.criteria[0]?.inclusion_criteria || "";
+      case "exclusion_criteria":
+      case "exclusionCriteria": return trial.criteria[0]?.exclusion_criteria || "";
       case "age_from":
       case "ageFrom": return parseFloat(trial.criteria[0]?.age_from || "0") || 0;
       case "age_to":
       case "ageTo": return parseFloat(trial.criteria[0]?.age_to || "0") || 0;
-      case "subject_type": return trial.criteria[0]?.subject_type || "";
+      case "subject_type":
+      case "subjectType": return trial.criteria[0]?.subject_type || "";
       case "sex": return trial.criteria[0]?.sex || "";
-      case "healthy_volunteers": return trial.criteria[0]?.healthy_volunteers || "";
+      case "healthy_volunteers":
+      case "healthyVolunteers": return trial.criteria[0]?.healthy_volunteers || "";
       case "target_no_volunteers":
       case "targetNoVolunteers": return parseInt(String(trial.criteria[0]?.target_no_volunteers || "0")) || 0;
       case "actual_enrolled_volunteers":
       case "actualEnrolledVolunteers": return parseInt(String(trial.criteria[0]?.actual_enrolled_volunteers || "0")) || 0;
 
       // Study Design Section - number_of_arms is numeric
-      case "purpose_of_trial": return trial.outcomes[0]?.purpose_of_trial || "";
+      case "purpose_of_trial":
+      case "purposeOfTrial": return trial.outcomes[0]?.purpose_of_trial || "";
       case "summary": return trial.outcomes[0]?.summary || "";
-      case "primary_outcome_measures": return trial.outcomes[0]?.primary_outcome_measure || "";
-      case "other_outcome_measures": return trial.outcomes[0]?.other_outcome_measure || "";
-      case "study_design_keywords": return trial.outcomes[0]?.study_design_keywords || "";
-      case "study_design": return trial.outcomes[0]?.study_design || "";
-      case "treatment_regimen": return trial.outcomes[0]?.treatment_regimen || "";
+      case "primary_outcome_measures":
+      case "primaryOutcomeMeasures": return trial.outcomes[0]?.primary_outcome_measure || "";
+      case "other_outcome_measures":
+      case "otherOutcomeMeasures": return trial.outcomes[0]?.other_outcome_measure || "";
+      case "study_design_keywords":
+      case "studyDesignKeywords": return trial.outcomes[0]?.study_design_keywords || "";
+      case "study_design":
+      case "studyDesign": return trial.outcomes[0]?.study_design || "";
+      case "treatment_regimen":
+      case "treatmentRegimen": return trial.outcomes[0]?.treatment_regimen || "";
       case "number_of_arms":
       case "numberOfArms": return parseInt(String(trial.outcomes[0]?.number_of_arms || "0")) || 0;
 
       // Timing Section
-      case "start_date_estimated": return parseDate(trial.timing[0]?.start_date_estimated);
-      case "trial_end_date_estimated": return parseDate(trial.timing[0]?.trial_end_date_estimated);
+      case "start_date_estimated":
+      case "startDateEstimated": return parseDate(trial.timing[0]?.start_date_estimated);
+      case "trial_end_date_estimated":
+      case "trialEndDateEstimated": return parseDate(trial.timing[0]?.trial_end_date_estimated);
 
       // Results Section
-      case "trial_outcome": return trial.results[0]?.trial_outcome || "";
-      case "adverse_events_reported": return trial.results[0]?.adverse_event_reported || "";
-      case "adverse_event_type": return trial.results[0]?.adverse_event_type || "";
-      case "treatment_for_adverse_events": return trial.results[0]?.treatment_for_adverse_events || "";
+      case "trial_outcome":
+      case "trialOutcome": return trial.results[0]?.trial_outcome || "";
+      case "adverse_events_reported":
+      case "adverseEventsReported": return trial.results[0]?.adverse_event_reported || "";
+      case "adverse_event_type":
+      case "adverseEventType": return trial.results[0]?.adverse_event_type || "";
+      case "treatment_for_adverse_events":
+      case "treatmentForAdverseEvents": return trial.results[0]?.treatment_for_adverse_events || "";
+
+      // Boolean-like fields (Results Available, Endpoints Met)
+      case "resultsAvailable":
+      case "results_available": return trial.results && trial.results.length > 0 ? 1 : 0;
+      case "endpointsMet":
+      case "endpoints_met": return trial.results?.[0]?.trial_results?.length > 0 ? 1 : 0;
 
       // Sites Section - total is numeric
       case "total_sites":
       case "totalSites": return parseInt(String(trial.sites[0]?.total || "0")) || 0;
-      case "site_notes": return trial.sites[0]?.notes || "";
+      case "site_notes":
+      case "siteNotes": return trial.sites[0]?.notes || "";
+
+      // New/Other fields
+      case "estimatedEnrollmentClosedDate": return parseDate(trial.timing[0]?.actual_enrollment_closed_date); // Using actual as estimated mapping based on recent interface update
+      case "estimatedResultPublishedDate": return parseDate(trial.results[0]?.estimated_result_published_date); // Assuming field name
+      case "reference_links":
+      case "referenceLinks":
+        return Array.isArray(trial.overview.reference_links)
+          ? trial.overview.reference_links.join(", ")
+          : "";
+      case "nextReviewDate": return 0; // Placeholder
+      case "lastModifiedDate": return parseDate(trial.overview.updated_at);
 
       default: return "";
     }
@@ -490,9 +636,12 @@ export default function ClinicalTrialDashboard() {
   };
 
   // Helper function to normalize strings for comparison (handles case and underscores)
-  const normalizeForComparison = (value: string): string => {
-    if (!value) return '';
-    return value.toLowerCase().replace(/_/g, " ").replace(/\s+/g, " ").trim();
+  const normalizeForComparison = (value: any): string => {
+    if (value === null || value === undefined) return '';
+    // Ensure value is a string before string operations
+    // JOIN WITH COMMA to preserve separation for split(',') operations later
+    const strValue = Array.isArray(value) ? value.join(", ") : String(value);
+    return strValue.toLowerCase().replace(/_/g, " ").replace(/\s+/g, " ").trim();
   };
 
   // Helper function to recursively search for term in object
@@ -525,15 +674,63 @@ export default function ClinicalTrialDashboard() {
 
 
   // Helper function to evaluate search criteria
-  const evaluateCriteria = (fieldValue: string | null | undefined, operator: string, searchValue: string): boolean => {
+  const evaluateCriteria = (fieldValue: string | null | undefined, operator: string, searchValue: string, fieldName?: string): boolean => {
     // Handle null/undefined field values
-    if (fieldValue === null || fieldValue === undefined) {
-      return operator === "is_not" ? true : false;
+    if (fieldValue === null || fieldValue === undefined || fieldValue === "") {
+      // If searching for "is not", then Empty qualifies as "is not X".
+      // But user requirement says: "searches for a specific value do not return trials where that field is blank"
+      // This likely means Positive matches (Is, Contains) should fail on Blank.
+      // Negative matches (Is Not) might be debatable, but usually "Is Not Open" implies "Is Closed/Planned", not "Is Nothing".
+      // However, standard logic: "Empty" != "Value" -> True.
+      // Let's stick to standard logic for Negative, but ensure Positive fails.
+      return operator === "is_not" || operator === "not_equals" ? true : false;
     }
 
-    // Normalize both values for comparison (handles case and underscores)
     const field = normalizeForComparison(fieldValue);
     const value = normalizeForComparison(searchValue || '');
+
+    // Date Logic - Prioritize raw numeric comparison if available
+    if (fieldName?.includes("date")) {
+      // If getFieldValue returned a generic string/number, enforce Date parsing
+      const fieldDate = typeof fieldValue === 'number' ? fieldValue : new Date(fieldValue).getTime();
+      const searchDate = new Date(searchValue).getTime();
+
+      if (isNaN(fieldDate)) return false; // Invalid date in field
+      // If search value is not a valid date, maybe treat as text? 
+      // But operator implies date comparison. default to false if search invalid.
+      if (isNaN(searchDate)) return false;
+
+      switch (operator) {
+        case "is": return fieldDate === searchDate;
+        case "is_not": return fieldDate !== searchDate;
+        case "greater_than": return fieldDate > searchDate;
+        case "greater_than_equal": return fieldDate >= searchDate;
+        case "less_than": return fieldDate < searchDate;
+        case "less_than_equal": return fieldDate <= searchDate;
+        default: return false;
+      }
+    }
+
+    // Special categorical fields logic (Sex, Phase, Selection fields)
+    const categoricalFields = ["sex", "trial_phase", "trial_status", "results_available", "endpoints_met", "countries", "regions"];
+    if (fieldName && categoricalFields.includes(fieldName)) {
+      // Tokenize comma-separated values
+      const tokens = field.split(',').map(t => t.trim());
+
+      if (operator === "is") {
+        // "Is" Operator: only return trials where *only* that exact value is present.
+        // Exact match on the whole string (normalized) covers "Only that value".
+        // E.g. "Male" === "Male". "Male, Female" !== "Male".
+        return field === value;
+      }
+
+      if (operator === "contains") {
+        // "Contains" Operator: include trials where value is part of multi-value field.
+        // BUT avoid substring matching (Male in Female).
+        // Check if ANY token equals the search value exactly.
+        return tokens.includes(value);
+      }
+    }
 
     switch (operator) {
       case "contains": return field.includes(value);
@@ -542,23 +739,29 @@ export default function ClinicalTrialDashboard() {
       case "starts_with": return field.startsWith(value);
       case "ends_with": return field.endsWith(value);
       case "greater_than":
-      case "greater_than_equal":
         const numField1 = parseFloat(fieldValue);
         const numValue1 = parseFloat(searchValue);
-        return !isNaN(numField1) && !isNaN(numValue1) && numField1 >= numValue1;
-      case "less_than":
-      case "less_than_equal":
+        return !isNaN(numField1) && !isNaN(numValue1) && numField1 > numValue1;
+      case "greater_than_equal":
         const numField2 = parseFloat(fieldValue);
         const numValue2 = parseFloat(searchValue);
-        return !isNaN(numField2) && !isNaN(numValue2) && numField2 <= numValue2;
-      case "equals":
+        return !isNaN(numField2) && !isNaN(numValue2) && numField2 >= numValue2;
+      case "less_than":
         const numField3 = parseFloat(fieldValue);
         const numValue3 = parseFloat(searchValue);
-        return !isNaN(numField3) && !isNaN(numValue3) && numField3 === numValue3;
-      case "not_equals":
+        return !isNaN(numField3) && !isNaN(numValue3) && numField3 < numValue3;
+      case "less_than_equal":
         const numField4 = parseFloat(fieldValue);
         const numValue4 = parseFloat(searchValue);
-        return !isNaN(numField4) && !isNaN(numValue4) && numField4 !== numValue4;
+        return !isNaN(numField4) && !isNaN(numValue4) && numField4 <= numValue4;
+      case "equals":
+        const numField5 = parseFloat(fieldValue);
+        const numValue5 = parseFloat(searchValue);
+        return !isNaN(numField5) && !isNaN(numValue5) && numField5 === numValue5;
+      case "not_equals":
+        const numField6 = parseFloat(fieldValue);
+        const numValue6 = parseFloat(searchValue);
+        return !isNaN(numField6) && !isNaN(numValue6) && numField6 !== numValue6;
       default: return true;
     }
   };
@@ -603,11 +806,29 @@ export default function ClinicalTrialDashboard() {
         appliedFilters.diseaseTypes.some(type =>
           normalizeForComparison(trial.overview.disease_type || '').includes(normalizeForComparison(type)))) &&
       (appliedFilters.primaryDrugs.length === 0 ||
-        appliedFilters.primaryDrugs.some(drug =>
-          normalizeForComparison(trial.overview.primary_drugs || '').includes(normalizeForComparison(drug)))) &&
+        appliedFilters.primaryDrugs.some(drug => {
+          const normalizedDrug = normalizeForComparison(drug);
+          const trialPrimary = normalizeForComparison(trial.overview.primary_drugs || '');
+          // Check match or aliases
+          if (trialPrimary.includes(normalizedDrug)) return true;
+          const aliases = drugAliasesMap[drug.toLowerCase()];
+          if (aliases) {
+            return aliases.some(alias => trialPrimary.includes(normalizeForComparison(alias)));
+          }
+          return false;
+        })) &&
       (appliedFilters.otherDrugs.length === 0 ||
-        appliedFilters.otherDrugs.some(drug =>
-          normalizeForComparison(trial.overview.other_drugs || '').includes(normalizeForComparison(drug)))) &&
+        appliedFilters.otherDrugs.some(drug => {
+          const normalizedDrug = normalizeForComparison(drug);
+          const trialOther = normalizeForComparison(trial.overview.other_drugs || '');
+          // Check match or aliases
+          if (trialOther.includes(normalizedDrug)) return true;
+          const aliases = drugAliasesMap[drug.toLowerCase()];
+          if (aliases) {
+            return aliases.some(alias => trialOther.includes(normalizeForComparison(alias)));
+          }
+          return false;
+        })) &&
       (appliedFilters.trialPhases.length === 0 ||
         appliedFilters.trialPhases.some(phase => {
           const trialPhase = normalizeForComparison(trial.overview.trial_phase || '');
@@ -637,14 +858,47 @@ export default function ClinicalTrialDashboard() {
           normalizeForComparison(trial.overview.associated_cro || '').includes(normalizeForComparison(cro)))) &&
       (appliedFilters.trialTags.length === 0 ||
         appliedFilters.trialTags.some(tag =>
-          normalizeForComparison(trial.overview.trial_tags || '').includes(normalizeForComparison(tag))))
+          normalizeForComparison(trial.overview.trial_tags || '').includes(normalizeForComparison(tag)))) &&
+      // Missing filters implementation
+      (appliedFilters.trialRecordStatus.length === 0 ||
+        appliedFilters.trialRecordStatus.some(status =>
+          normalizeForComparison(trial.overview.trial_record_status || '').includes(normalizeForComparison(status)))) &&
+      (appliedFilters.sex.length === 0 ||
+        appliedFilters.sex.some(val =>
+          normalizeForComparison(trial.criteria?.[0]?.sex || '').includes(normalizeForComparison(val)))) &&
+      (appliedFilters.healthyVolunteers.length === 0 ||
+        appliedFilters.healthyVolunteers.some(val =>
+          normalizeForComparison(trial.criteria?.[0]?.healthy_volunteers || '').includes(normalizeForComparison(val)))) &&
+      (appliedFilters.trialOutcome.length === 0 ||
+        appliedFilters.trialOutcome.some(val =>
+          normalizeForComparison(trial.results?.[0]?.trial_outcome || '').includes(normalizeForComparison(val)))) &&
+      (appliedFilters.studyDesignKeywords.length === 0 ||
+        appliedFilters.studyDesignKeywords.some(val =>
+          normalizeForComparison(trial.outcomes?.[0]?.study_design_keywords || '').includes(normalizeForComparison(val)))) &&
+      // Reference Link Header Filter
+      (!referenceLinkFilter || (
+        Array.isArray(trial.overview?.reference_links)
+          ? trial.overview.reference_links.some(link => link.toLowerCase().includes(referenceLinkFilter.toLowerCase()))
+          : (typeof trial.overview?.reference_links === 'string' && trial.overview.reference_links.toLowerCase().includes(referenceLinkFilter.toLowerCase()))
+      ))
     );
 
     // Apply advanced search criteria
     const matchesAdvancedSearch = appliedSearchCriteria.length === 0 ||
       appliedSearchCriteria.every(criteria => {
         const fieldValue = getFieldValue(trial, criteria.field);
-        return evaluateCriteria(fieldValue, criteria.operator, criteria.value);
+        const isMatch = evaluateCriteria(fieldValue, criteria.operator, criteria.value, criteria.field);
+
+        // Debug Log only for active searches to reduce noise
+        if (appliedSearchCriteria.length > 0) {
+          console.log(`🔍 AdvSearch [${criteria.field}] Op:[${criteria.operator}]`, {
+            trialId: trial.overview.trial_id || trial.trial_id,
+            fieldRaw: fieldValue,
+            searchVal: criteria.value,
+            match: isMatch
+          });
+        }
+        return isMatch;
       });
 
     return matchesSearch && matchesFilters && matchesAdvancedSearch;
@@ -722,7 +976,9 @@ export default function ClinicalTrialDashboard() {
       sex: "Sex",
       healthyVolunteers: "Healthy Volunteers",
       subjectType: "Subject Type",
-      trialRecordStatus: "Trial Record Status"
+      trialRecordStatus: "Trial Record Status",
+      trialOutcome: "Trial Outcome",
+      studyDesignKeywords: "Study Design Keywords"
     };
     return labelMap[key] || key;
   };
@@ -788,6 +1044,18 @@ export default function ClinicalTrialDashboard() {
   const goToPrevPage = () => setCurrentPage(prev => Math.max(1, prev - 1));
   const goToNextPage = () => setCurrentPage(prev => Math.min(totalPages, prev + 1));
 
+  const toggleSelectAll = () => {
+    const currentIds = paginatedTrials.map(t => t.trial_id);
+    const allSelected = currentIds.every(id => selectedTrials.includes(id));
+
+    if (allSelected) {
+      setSelectedTrials(prev => prev.filter(id => !currentIds.includes(id)));
+    } else {
+      const newSelected = [...new Set([...selectedTrials, ...currentIds])];
+      setSelectedTrials(newSelected);
+    }
+  };
+
   const toggleTrialSelection = (trialId: string) => {
     setSelectedTrials(prev =>
       prev.includes(trialId)
@@ -838,14 +1106,14 @@ export default function ClinicalTrialDashboard() {
                 {/* Row 1: Trial ID + Therapeutic Area */}
                 <div className="flex flex-wrap items-center gap-4 mb-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-black text-sm font-bold">Trial ID :</span>
+                    <span className="text-black text-sm font-bold">{t("common.trialId")} :</span>
                     <Badge className="bg-green-600 text-white hover:bg-green-700 px-3 py-1 text-xs font-medium rounded-lg">
                       {trial.overview.trial_id?.replace('TB-', '') || trial.trial_id.slice(0, 6)}
                     </Badge>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-black text-sm font-bold">Therapeutic Area :</span>
+                    <span className="text-black text-sm font-bold">{t("common.therapeuticArea")} :</span>
                     <div className="flex items-center gap-1.5">
                       {/* Red Icon */}
                       <Image
@@ -862,31 +1130,31 @@ export default function ClinicalTrialDashboard() {
                 {/* Row 2: Disease Type + Primary Drug + Trial Status + Sponsor + Phase */}
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-black text-sm font-bold">Disease Type :</span>
+                    <span className="text-black text-sm font-bold">{t("common.diseaseType")} :</span>
                     <span className="text-sm font-medium text-gray-900">{formatDisplayValue(trial.overview.disease_type)}</span>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-black text-sm font-bold">Primary Drug :</span>
+                    <span className="text-black text-sm font-bold">{t("common.primaryDrug")} :</span>
                     <span className="text-sm font-medium text-gray-900">{trial.overview.primary_drugs || 'N/A'}</span>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-black text-sm font-bold">Trial Status :</span>
+                    <span className="text-black text-sm font-bold">{t("common.trialStatus")} :</span>
                     <Badge className={`px-3 py-1 text-xs font-medium rounded-lg ${getStatusColorCard(trial.overview.status)}`}>
                       {trial.overview.status}
                     </Badge>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-black text-sm font-bold">Sponsor :</span>
+                    <span className="text-black text-sm font-bold">{t("common.sponsor")} :</span>
                     <span className="text-sm font-medium text-gray-900 truncate max-w-[120px]">
                       {trial.overview.sponsor_collaborators || 'N/A'}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-black text-sm font-bold">Phase :</span>
+                    <span className="text-black text-sm font-bold">{t("common.phase")} :</span>
                     <span className="text-sm font-medium text-gray-900">{trial.overview.trial_phase}</span>
                   </div>
                 </div>
@@ -943,6 +1211,63 @@ export default function ClinicalTrialDashboard() {
       </div>
     );
   }
+
+  // Map COLUMN_OPTIONS keys (camelCase) to Table Header keys (snake_case)
+  // This ensures sorting set in Card View (Sidebar) reflects correctly in List View (Table Headers) and vice-versa
+  const SORT_KEY_MAP: Record<string, string> = {
+    trialId: "trial_id",
+    therapeuticArea: "therapeutic_area",
+    diseaseType: "disease_type",
+    primaryDrug: "primary_drug",
+    trialRecordStatus: "trial_record_status",
+    sponsorsCollaborators: "sponsor",
+    trialPhase: "phase",
+    title: "title",
+    patientSegment: "patient_segment",
+    lineOfTherapy: "line_of_therapy",
+    countries: "countries",
+    fieldOfActivity: "field_of_activity",
+    associatedCro: "associated_cro",
+    trialTags: "trial_tags",
+    otherDrugs: "other_drugs",
+    regions: "regions",
+    status: "trial_status",
+    inclusionCriteria: "inclusion_criteria",
+    exclusionCriteria: "exclusion_criteria",
+    ageFrom: "age_from",
+    ageTo: "age_to",
+    subjectType: "subject_type",
+    sex: "sex",
+    healthyVolunteers: "healthy_volunteers",
+    targetNoVolunteers: "target_no_volunteers",
+    actualEnrolledVolunteers: "actual_enrolled_volunteers",
+    purposeOfTrial: "purpose_of_trial",
+    summary: "summary",
+    primaryOutcomeMeasures: "primary_outcome_measures",
+    otherOutcomeMeasures: "other_outcome_measures",
+    studyDesignKeywords: "study_design_keywords",
+    studyDesign: "study_design",
+    treatmentRegimen: "treatment_regimen",
+    numberOfArms: "number_of_arms",
+    startDateEstimated: "start_date_estimated",
+    trialEndDateEstimated: "trial_end_date_estimated",
+    resultsAvailable: "results_available",
+    endpointsMet: "endpoints_met",
+    trialOutcome: "trial_outcome",
+    totalSites: "total_sites",
+    siteNotes: "site_notes",
+    // Make sure we have fallbacks or mappings for new fields if logical
+    estimatedEnrollmentClosedDate: "estimated_enrollment_closed_date",
+    estimatedResultPublishedDate: "estimated_result_published_date",
+    referenceLinks: "reference_links",
+    nextReviewDate: "next_review_date",
+    lastModifiedDate: "updated_at",
+    // Fallback for self-mapping
+    adverseEventsReported: "adverse_events_reported",
+    adverseEventType: "adverse_event_type",
+    treatmentForAdverseEvents: "treatment_for_adverse_events",
+    adverseEventReported: "adverse_event_reported"
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 overflow-x-hidden" style={{ fontFamily: "Poppins, sans-serif" }}>
@@ -1023,7 +1348,7 @@ export default function ClinicalTrialDashboard() {
                 color: "#FFFFFF",
               }}
             >
-              Trials Search
+              {t("trials.trialsSearch")}
             </span>
           </button>
 
@@ -1063,7 +1388,7 @@ export default function ClinicalTrialDashboard() {
                   color: "#000000",
                 }}
               >
-                Trials
+                {t("common.trials")}
               </span>
             </button>
           </Link>
@@ -1093,7 +1418,7 @@ export default function ClinicalTrialDashboard() {
             />
             <input
               type="text"
-              placeholder="Search.."
+              placeholder={t("common.search")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="flex-1 outline-none bg-transparent"
@@ -1128,29 +1453,6 @@ export default function ClinicalTrialDashboard() {
               className="object-contain"
             />
           </div>
-
-          {/* Message Icon Box */}
-          <button
-            className="flex items-center justify-center"
-            style={{
-              width: "56px",
-              height: "48px",
-              borderRadius: "12px",
-              padding: "16px",
-              gap: "8px",
-              backgroundColor: "#FFFFFF",
-              flexShrink: 0,
-              boxShadow: "0 -2px 6px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.1)",
-            }}
-          >
-            <Image
-              src="/pngs/messageicon.png"
-              alt="Messages"
-              width={24}
-              height={24}
-              className="object-contain"
-            />
-          </button>
 
           {/* Profile Box */}
           <div ref={dropdownRef} className="relative" style={{ flexShrink: 0 }}>
@@ -1203,7 +1505,7 @@ export default function ClinicalTrialDashboard() {
                   className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
                 >
                   <LogOut className="h-4 w-4 mr-2" />
-                  Logout
+                  {t("common.logout")}
                 </button>
               </div>
             )}
@@ -1255,7 +1557,7 @@ export default function ClinicalTrialDashboard() {
                 }}
               >
                 <Search className="h-5 w-5" style={{ color: "#000000" }} />
-                Advanced Search
+                {t("common.advancedSearch")}
               </button>
               <button
                 onClick={() => setFilterModalOpen(true)}
@@ -1277,7 +1579,7 @@ export default function ClinicalTrialDashboard() {
                   height={20}
                   className="object-contain"
                 />
-                Filter
+                {t("common.filter")}
                 {hasActiveFilters() && (
                   <Badge className="ml-1 bg-blue-600 text-white text-xs px-1 py-0">
                     {getActiveFilterCount()}
@@ -1298,7 +1600,7 @@ export default function ClinicalTrialDashboard() {
                 }}
               >
                 <Calendar className="h-5 w-5" style={{ color: "#000000" }} />
-                Saved Queries
+                {t("common.savedQueries")}
               </button>
               <button
                 onClick={() => setExportModalOpen(true)}
@@ -1320,7 +1622,7 @@ export default function ClinicalTrialDashboard() {
                   height={20}
                   className="object-contain"
                 />
-                Export
+                {t("common.export")}
               </button>
             </div>
           </div>
@@ -1352,7 +1654,7 @@ export default function ClinicalTrialDashboard() {
                       height={18}
                       style={{ filter: "brightness(0) invert(1)" }}
                     />
-                    <span className="text-white" style={{ fontFamily: "Poppins", fontSize: "16px", fontWeight: 500 }}>View Type</span>
+                    <span className="text-white" style={{ fontFamily: "Poppins", fontSize: "16px", fontWeight: 500 }}>{t("common.viewType")}</span>
                   </div>
                   <ChevronDown className={`h-5 w-5 text-white transition-transform ${viewTypeExpanded ? '' : '-rotate-90'}`} />
                 </button>
@@ -1366,7 +1668,7 @@ export default function ClinicalTrialDashboard() {
                         className="w-4 h-4 rounded border-gray-300"
                         style={{ accentColor: "#204B73" }}
                       />
-                      <span style={{ fontFamily: "Poppins", fontSize: "14px", fontWeight: viewType === 'list' ? 500 : 400 }}>List view</span>
+                      <span style={{ fontFamily: "Poppins", fontSize: "14px", fontWeight: viewType === 'list' ? 500 : 400 }}>{t("common.listView")}</span>
                     </label>
                     <label className="flex items-center gap-3 text-sm cursor-pointer p-2 rounded hover:bg-gray-50" style={{ color: "#9CA3AF" }}>
                       <input
@@ -1376,7 +1678,7 @@ export default function ClinicalTrialDashboard() {
                         className="w-4 h-4 rounded border-gray-300"
                         style={{ accentColor: "#204B73" }}
                       />
-                      <span style={{ fontFamily: "Poppins", fontSize: "14px", fontWeight: 400 }}>Card view</span>
+                      <span style={{ fontFamily: "Poppins", fontSize: "14px", fontWeight: 400 }}>{t("common.cardView")}</span>
                     </label>
                   </div>
                 )}
@@ -1401,7 +1703,7 @@ export default function ClinicalTrialDashboard() {
                       height={18}
                       style={{ filter: "brightness(0) invert(1)" }}
                     />
-                    <span className="text-white" style={{ fontFamily: "Poppins", fontSize: "16px", fontWeight: 500 }}>Sort By</span>
+                    <span className="text-white" style={{ fontFamily: "Poppins", fontSize: "16px", fontWeight: 500 }}>{t("common.sortBy")}</span>
                   </div>
                   <ChevronDown className={`h-5 w-5 text-white transition-transform ${sortByExpanded ? '' : '-rotate-90'}`} />
                 </button>
@@ -1410,22 +1712,33 @@ export default function ClinicalTrialDashboard() {
                     {/* Display all columns enabled in settings */}
                     {COLUMN_OPTIONS
                       .filter(item => columnSettings[item.key])
-                      .map(({ key, label }) => (
-                        <label
-                          key={key}
-                          className="flex items-center gap-3 text-sm cursor-pointer p-2 rounded hover:bg-gray-50"
-                          style={{ color: "#374151" }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={sortField === key}
-                            onChange={() => handleSort(key)}
-                            className="w-4 h-4 rounded border-gray-300"
-                            style={{ accentColor: "#204B73" }}
-                          />
-                          <span style={{ fontFamily: "Poppins", fontSize: "14px", fontWeight: 400 }}>{label}</span>
-                        </label>
-                      ))}
+                      .map(({ key, label }) => {
+                        // Resolve canonical key (snake_case)
+                        const canonicalKey = SORT_KEY_MAP[key] || key;
+                        const isSelected = sortField === canonicalKey;
+
+                        return (
+                          <label
+                            key={key}
+                            className="flex items-center gap-3 text-sm cursor-pointer p-2 rounded hover:bg-gray-50 w-full"
+                            style={{ color: isSelected ? "#204B73" : "#374151" }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleSort(canonicalKey)}
+                              className="w-4 h-4 rounded border-gray-300"
+                              style={{ accentColor: "#204B73" }}
+                            />
+                            <span style={{ fontFamily: "Poppins", fontSize: "14px", fontWeight: isSelected ? 500 : 400 }}>{label}</span>
+                            {isSelected && (
+                              <span className="ml-auto text-xs font-bold text-blue-600">
+                                {sortDirection === "asc" ? "↑" : "↓"}
+                              </span>
+                            )}
+                          </label>
+                        );
+                      })}
                     {sortField && (
                       <button
                         onClick={() => {
@@ -1435,7 +1748,7 @@ export default function ClinicalTrialDashboard() {
                         className="w-full text-left text-sm py-2 px-2 hover:bg-gray-50 rounded transition-colors"
                         style={{ color: "#204B73", fontFamily: "Poppins", fontSize: "13px", fontWeight: 500 }}
                       >
-                        Clear Sort
+                        {t("common.clearSort")}
                       </button>
                     )}
                   </div>
@@ -1484,7 +1797,7 @@ export default function ClinicalTrialDashboard() {
                         textTransform: "capitalize",
                       }}
                     >
-                      Save This Query
+                      {t("common.saveThisQuery")}
                     </span>
                   </button>
                   <div
@@ -1777,13 +2090,18 @@ export default function ClinicalTrialDashboard() {
                         <tr className="border-b">
                           {/* Checkbox Column */}
                           <th className="h-auto px-4 text-left align-middle font-medium text-white w-[50px] sticky top-0 z-10 ">
-                            <input type="checkbox" className="rounded" />
+                            <input
+                              type="checkbox"
+                              className="rounded cursor-pointer"
+                              checked={paginatedTrials.length > 0 && paginatedTrials.every(t => selectedTrials.includes(t.trial_id))}
+                              onChange={toggleSelectAll}
+                            />
                           </th>
                           {columnSettings.trialId && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[90px] sticky top-0 z-10 " style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
                                 <div className="flex items-center gap-1 mb-1">
-                                  <span style={{ fontSize: "13px" }}>Trial ID</span>
+                                  <span style={{ fontSize: "13px" }}>{t("common.trialId")}</span>
                                   {sortField === "trial_id" && (
                                     <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
                                   )}
@@ -1802,7 +2120,7 @@ export default function ClinicalTrialDashboard() {
                             <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10 " style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
                                 <div className="flex items-center gap-1 mb-1">
-                                  <span style={{ fontSize: "13px" }}>Therapeutic Area</span>
+                                  <span style={{ fontSize: "13px" }}>{t("common.therapeuticArea")}</span>
                                   {sortField === "therapeutic_area" && (
                                     <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
                                   )}
@@ -1821,7 +2139,7 @@ export default function ClinicalTrialDashboard() {
                             <th className="px-4 text-left align-middle font-medium text-white w-[90px] sticky top-0 z-10 " style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
                                 <div className="flex items-center gap-1 mb-1">
-                                  <span style={{ fontSize: "13px" }}>Disease Type</span>
+                                  <span style={{ fontSize: "13px" }}>{t("common.diseaseType")}</span>
                                   {sortField === "disease_type" && (
                                     <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
                                   )}
@@ -1840,7 +2158,7 @@ export default function ClinicalTrialDashboard() {
                             <th className="px-4 text-left align-middle font-medium text-white w-[90px] sticky top-0 z-10 " style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
                                 <div className="flex items-center gap-1 mb-1">
-                                  <span style={{ fontSize: "13px" }}>Primary Drug</span>
+                                  <span style={{ fontSize: "13px" }}>{t("common.primaryDrug")}</span>
                                   {sortField === "primary_drug" && (
                                     <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
                                   )}
@@ -1856,28 +2174,50 @@ export default function ClinicalTrialDashboard() {
                             </th>
                           )}
                           {/* Trial Status - Always visible */}
-                          <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10 " style={{ fontFamily: "Poppins" }}>
-                            <div className="flex flex-col py-2">
-                              <div className="flex items-center gap-1 mb-1">
-                                <span style={{ fontSize: "13px" }}>Trial Status</span>
-                                {sortField === "trial_status" && (
-                                  <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
-                                )}
+                          {columnSettings.status && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10 " style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Status</span>
+                                  {sortField === "trial_status" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("trial_status")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
                               </div>
-                              <button
-                                onClick={() => handleSort("trial_status")}
-                                className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
-                                style={{ fontSize: "11px" }}
-                              >
-                                Filter <ChevronDown className="h-3 w-3" />
-                              </button>
-                            </div>
-                          </th>
+                            </th>
+                          )}
+                          {/* Trial Record Status Column - Added */}
+                          {columnSettings.trialRecordStatus && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[140px] sticky top-0 z-10 " style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Trial Record Status</span>
+                                  {sortField === "trial_record_status" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("trial_record_status")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </th>
+                          )}
                           {columnSettings.sponsorsCollaborators && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10 " style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
                                 <div className="flex items-center gap-1 mb-1">
-                                  <span style={{ fontSize: "13px" }}>Sponsor</span>
+                                  <span style={{ fontSize: "13px" }}>{t("common.sponsor")}</span>
                                   {sortField === "sponsor" && (
                                     <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
                                   )}
@@ -1896,7 +2236,7 @@ export default function ClinicalTrialDashboard() {
                             <th className="px-4 text-left align-middle font-medium text-white w-[80px] sticky top-0 z-10 " style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
                                 <div className="flex items-center gap-1 mb-1">
-                                  <span style={{ fontSize: "13px" }}>Phase</span>
+                                  <span style={{ fontSize: "13px" }}>{t("common.phase")}</span>
                                   {sortField === "phase" && (
                                     <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
                                   )}
@@ -2417,6 +2757,25 @@ export default function ClinicalTrialDashboard() {
                             </th>
                           )}
                           {/* Timing Section Columns */}
+                          {columnSettings.actualStartDate && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Actual Start</span>
+                                  {sortField === "start_date_actual" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("start_date_actual")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </th>
+                          )}
                           {columnSettings.startDateEstimated && (
                             <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                               <div className="flex flex-col py-2">
@@ -2447,6 +2806,63 @@ export default function ClinicalTrialDashboard() {
                                 </div>
                                 <button
                                   onClick={() => handleSort("trial_end_date_estimated")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.actualEnrollmentClosedDate && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[130px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Actual Enr. Close</span>
+                                  {sortField === "actual_enrollment_closed_date" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("actual_enrollment_closed_date")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.actualTrialCompletionDate && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[130px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Actual Completion</span>
+                                  {sortField === "actual_trial_completion_date" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("actual_trial_completion_date")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </th>
+                          )}
+                          {columnSettings.actualPublishedDate && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[120px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Published Date</span>
+                                  {sortField === "actual_published_date" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("actual_published_date")}
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
@@ -2647,6 +3063,26 @@ export default function ClinicalTrialDashboard() {
                               </div>
                             </th>
                           )}
+                          {/* Reference Links */}
+                          {columnSettings.referenceLinks && (
+                            <th className="px-4 text-left align-middle font-medium text-white w-[150px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
+                              <div className="flex flex-col py-2">
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span style={{ fontSize: "13px" }}>Reference Links</span>
+                                  {sortField === "reference_links" && (
+                                    <span style={{ fontSize: "11px" }}>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleSort("reference_links")}
+                                  className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Filter <ChevronDown className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </th>
+                          )}
                           {/* Like/Favorite Column */}
                           <th className="px-2 text-center align-middle font-medium text-white w-[40px] sticky top-0 z-10" style={{ fontFamily: "Poppins" }}>
                             <div className="flex flex-col py-2 items-center">
@@ -2706,11 +3142,21 @@ export default function ClinicalTrialDashboard() {
                               </td>
                             )}
                             {/* Trial Status - Always visible with color badges */}
-                            <td className="p-4 align-middle w-[120px]">
-                              <Badge className={`${getStatusColor(trial.overview.status)} px-3 py-1 rounded-lg`}>
-                                {trial.overview.status}
-                              </Badge>
-                            </td>
+                            {columnSettings.status && (
+                              <td className="p-4 align-middle w-[120px]">
+                                <Badge className={`${getStatusColor(trial.overview.status)} px-3 py-1 rounded-lg`}>
+                                  {trial.overview.status}
+                                </Badge>
+                              </td>
+                            )}
+                            {/* Trial Record Status - Added */}
+                            {columnSettings.trialRecordStatus && (
+                              <td className="p-4 align-middle w-[140px] max-w-[140px]">
+                                <span className="truncate block" title={trial.overview.trial_record_status}>
+                                  {trial.overview.trial_record_status || "N/A"}
+                                </span>
+                              </td>
+                            )}
                             {columnSettings.sponsorsCollaborators && (
                               <td className="p-4 align-middle w-[120px] max-w-[120px]">
                                 <span className="truncate block" title={trial.overview.sponsor_collaborators || "N/A"}>
@@ -2729,6 +3175,7 @@ export default function ClinicalTrialDashboard() {
                                 </span>
                               </td>
                             )}
+
                             {/* Patient Segment */}
                             {columnSettings.patientSegment && (
                               <td className="p-4 align-middle w-[100px] max-w-[100px]">
@@ -2845,6 +3292,7 @@ export default function ClinicalTrialDashboard() {
                                 <span>{trial.criteria?.[0]?.actual_enrolled_volunteers ?? "N/A"}</span>
                               </td>
                             )}
+
                             {/* Study Design Section Cells */}
                             {columnSettings.purposeOfTrial && (
                               <td className="p-4 align-middle w-[150px] max-w-[150px]">
@@ -2901,6 +3349,11 @@ export default function ClinicalTrialDashboard() {
                               </td>
                             )}
                             {/* Timing Section Cells */}
+                            {columnSettings.actualStartDate && (
+                              <td className="p-4 align-middle w-[120px]">
+                                <span>{trial.timing?.[0]?.start_date_actual || "N/A"}</span>
+                              </td>
+                            )}
                             {columnSettings.startDateEstimated && (
                               <td className="p-4 align-middle w-[120px]">
                                 <span>{trial.timing?.[0]?.start_date_estimated || "N/A"}</span>
@@ -2908,7 +3361,21 @@ export default function ClinicalTrialDashboard() {
                             )}
                             {columnSettings.trialEndDateEstimated && (
                               <td className="p-4 align-middle w-[120px]">
-                                <span>{trial.timing?.[0]?.trial_end_date_estimated || "N/A"}</span>
+                              </td>
+                            )}
+                            {columnSettings.actualEnrollmentClosedDate && (
+                              <td className="p-4 align-middle w-[120px]">
+                                <span>{trial.timing?.[0]?.actual_enrollment_closed_date || "N/A"}</span>
+                              </td>
+                            )}
+                            {columnSettings.actualTrialCompletionDate && (
+                              <td className="p-4 align-middle w-[120px]">
+                                <span>{trial.timing?.[0]?.actual_trial_completion_date || "N/A"}</span>
+                              </td>
+                            )}
+                            {columnSettings.actualPublishedDate && (
+                              <td className="p-4 align-middle w-[120px]">
+                                <span>{trial.timing?.[0]?.actual_published_date || "N/A"}</span>
                               </td>
                             )}
                             {/* Results Section Cells */}
@@ -2970,6 +3437,14 @@ export default function ClinicalTrialDashboard() {
                               <td className="p-4 align-middle w-[150px] max-w-[150px]">
                                 <span className="truncate block" title={trial.sites?.[0]?.notes}>
                                   {trial.sites?.[0]?.notes || "N/A"}
+                                </span>
+                              </td>
+                            )}
+                            {/* Reference Links */}
+                            {columnSettings.referenceLinks && (
+                              <td className="p-4 align-middle w-[150px] max-w-[150px]">
+                                <span className="truncate block" title={trial.overview.reference_links?.join(", ") || "N/A"}>
+                                  {trial.overview.reference_links?.join(", ") || "N/A"}
                                 </span>
                               </td>
                             )}
@@ -3263,7 +3738,7 @@ export default function ClinicalTrialDashboard() {
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 }
 

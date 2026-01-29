@@ -162,13 +162,15 @@ const therapeuticSearchFields = [
   { value: "trial_tags", label: "Trial Tags" },
 
   // Eligibility criteria dropdown fields (Step 5-3)
-  { value: "subject_type", label: "Subject Type" },
-  { value: "gender", label: "Gender" },
+  { value: "subject_type", label: "Subject Type" }, // Changed to text - confirm in fieldOptions removal
+  { value: "sex", label: "Sex" },
   { value: "healthy_volunteers", label: "Healthy Volunteers" },
   { value: "actual_enrolled_volunteers", label: "Actual Enrolled Volunteers" },
   { value: "target_enrolled_volunteers", label: "Target Enrolled Volunteers" },
 
   // Results dropdown fields (Step 5-5)
+  { value: "results_available", label: "Results Available" },
+  { value: "endpoints_met", label: "Endpoints Met" },
   { value: "trial_outcome", label: "Trial Outcome" },
 
   // Study design keywords (Step 5-2) - dropdown
@@ -197,7 +199,20 @@ const therapeuticSearchFields = [
 
   // Text fields that are commonly used for search
   { value: "title", label: "Title" },
-  { value: "trial_identifier", label: "Trial Identifier" },
+  { value: "trial_id", label: "Trial ID" },
+  // Missing text fields from User side
+  { value: "reference_links", label: "Reference Links" },
+  { value: "purpose_of_trial", label: "Purpose" },
+  { value: "summary", label: "Summary" },
+  { value: "primary_outcome_measure", label: "Primary Outcome" },
+  { value: "other_outcome_measure", label: "Other Outcome" },
+  { value: "treatment_regimen", label: "Treatment Regimen" },
+  { value: "study_design", label: "Study Design" },
+  { value: "number_of_arms", label: "Number of Arms" },
+  { value: "inclusion_criteria", label: "Inclusion Criteria" },
+  { value: "exclusion_criteria", label: "Exclusion Criteria" },
+  { value: "age_from", label: "Age From" },
+  { value: "age_to", label: "Age To" },
 ]
 
 // Text operators (for non-numeric fields)
@@ -231,7 +246,7 @@ const dateOperators = [
 const getOperatorsForField = (fieldValue: string) => {
   // Numeric fields
   const numericFields = [
-    "actual_enrolled_volunteers", "target_enrolled_volunteers", "total_number_of_sites", "number_of_arms"
+    "actual_enrolled_volunteers", "target_enrolled_volunteers", "total_number_of_sites", "number_of_arms", "age_from", "age_to"
   ]
   // Date fields
   const dateFieldsList = [
@@ -433,15 +448,15 @@ const fieldOptions: Record<string, { value: string; label: string }[]> = {
   ],
   // Trial Record Status - Exact options from creation phase
   trial_record_status: [
-    { value: "development_in_progress", label: "Development In Progress (DIP)" },
-    { value: "in_production", label: "In Production (IP)" },
-    { value: "update_in_progress", label: "Update In Progress (UIP)" }
+    { value: "DIP", label: "Development In Progress (DIP)" },
+    { value: "IP", label: "In Production (IP)" },
+    { value: "UIP", label: "Update In Progress (UIP)" }
   ],
   // Step 5-3: Eligibility Criteria dropdowns
-  gender: [
-    { value: "male", label: "Male" },
-    { value: "female", label: "Female" },
-    { value: "both", label: "Both" }
+  sex: [
+    { value: "Male", label: "Male" },
+    { value: "Female", label: "Female" },
+    { value: "Both", label: "Both" }
   ],
   healthy_volunteers: [
     { value: "yes", label: "Yes" },
@@ -503,10 +518,14 @@ const fieldOptions: Record<string, { value: string; label: string }[]> = {
   full_review_user: [
     { value: "Admin", label: "Admin" }
   ],
-  // Subject Type from criteria
-  subject_type: [
-    { value: "human", label: "Human" },
-    { value: "animal", label: "Animal" }
+
+  results_available: [
+    { value: "Yes", label: "Yes" },
+    { value: "No", label: "No" }
+  ],
+  endpoints_met: [
+    { value: "Yes", label: "Yes" },
+    { value: "No", label: "No" }
   ]
 }
 
@@ -562,13 +581,12 @@ export function TherapeuticAdvancedSearchModal({
     'line_of_therapy', 'trial_record_status', 'sex', 'healthy_volunteers', 'trial_outcome',
     'adverse_event_reported', 'adverse_event_type', 'study_design_keywords', 'trial_tags',
     'sponsor_collaborators', 'sponsor_field_activity', 'associated_cro', 'country', 'regions',
-    'subject_type', 'full_review_user', 'last_modified_user'
+    'full_review_user', 'last_modified_user', 'results_available', 'endpoints_met'
   ]
 
   // Map category names to field names for fallback options lookup
   const categoryToFieldMap: Record<string, string> = {
     'trial_status': 'status',
-    'sex': 'gender',
     'country': 'countries',
   };
 
@@ -1262,33 +1280,26 @@ export function TherapeuticAdvancedSearchModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[80vh] p-0">
+        <DialogContent className="max-w-4xl max-h-[85vh] h-[800px] p-0 flex flex-col">
           <DialogHeader className="px-6 py-4 border-b bg-blue-50">
             <div className="flex items-center justify-between">
               <DialogTitle className="text-lg font-semibold">Advanced Therapeutic Search</DialogTitle>
             </div>
           </DialogHeader>
 
-          <div className="p-6 space-y-4 max-h-[400px] overflow-y-auto">
+          <div className="p-6 space-y-4 flex-1 overflow-y-auto min-h-0 bg-white">
             {criteria.map((criterion, index) => (
               <div key={criterion.id} className="space-y-3">
                 <div className="grid grid-cols-12 gap-3 items-center">
-                  <div className="col-span-2">
-                    <Select
+                  <div className="col-span-3">
+                    <SearchableSelect
+                      options={therapeuticSearchFields}
                       value={criterion.field}
                       onValueChange={(value) => updateCriteria(criterion.id, "field", value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {therapeuticSearchFields.map((field) => (
-                          <SelectItem key={field.value} value={field.value}>
-                            {field.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Select field"
+                      searchPlaceholder="Search field..."
+                      className="w-full"
+                    />
                   </div>
 
                   <div className="col-span-2">
@@ -1309,7 +1320,7 @@ export function TherapeuticAdvancedSearchModal({
                     </Select>
                   </div>
 
-                  <div className="col-span-4">
+                  <div className="col-span-3">
                     {renderValueInput(criterion)}
                   </div>
 

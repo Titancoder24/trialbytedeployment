@@ -2,13 +2,14 @@ import { initEdgeStore } from '@edgestore/server';
 import { createEdgeStoreNextHandler } from '@edgestore/server/adapters/next/app';
 
 const createEdgeStoreRouter = (es: ReturnType<typeof initEdgeStore.create>) => {
-  console.log('[EdgeStore] createEdgeStoreRouter invoked');
+  console.log('[EdgeStore] createEdgeStoreRouter invoked - with Delete Permission v2');
 
   return es.router({
     trialOutcomeAttachments: es.fileBucket({
       maxSize: 1024 * 1024 * 50, // 50MB
-      accept: ['image/*', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'], // Images, PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX
-    }),
+      accept: ['image/*', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+    })
+      .beforeDelete(() => true), // Allow delete from frontend - method chain syntax
   });
 };
 

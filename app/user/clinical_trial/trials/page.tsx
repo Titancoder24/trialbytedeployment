@@ -39,6 +39,23 @@ const formatTextValue = (text: string | null | undefined): string => {
     .join(" ");
 };
 
+const formatLineOfTherapy = (text: string | null | undefined): string => {
+  if (!text) return "N/A";
+  const normalized = text.toLowerCase().trim().replace(/\s+/g, '_');
+
+  const mappings: { [key: string]: string } = {
+    "second_line": "2 - Second Line",
+    "first_line": "1 - First Line",
+    "at_least_second_line": "2+ - At least second line",
+    "at_least_third_line": "3+ - At least third line",
+    "at_least_first_line": "1+ - At least first line",
+    "third_line": "3 - Third Line",
+    "fourth_line": "4 - Fourth Line"
+  };
+
+  return mappings[normalized] || formatTextValue(text);
+};
+
 import {
   ChevronLeft,
   ChevronRight,
@@ -198,6 +215,7 @@ function ClinicalTrialsPage() {
   const [expandedOtherSources, setExpandedOtherSources] = useState<Record<number, boolean>>({});
   const [expandedSites, setExpandedSites] = useState<Record<string, boolean>>({}); // Key is index-itemIdx
   const [expandedTimingRefs, setExpandedTimingRefs] = useState<Record<number, boolean>>({ 0: true }); // First card expanded by default
+  const [expandedPublishedResults, setExpandedPublishedResults] = useState<Record<number, boolean>>({ 0: true }); // First result expanded by default
   const [zoomLevel, setZoomLevel] = useState(100); // Zoom level in percentage
   const [favoriteTrials, setFavoriteTrials] = useState<string[]>([]); // Favorite trials from localStorage
 
@@ -532,6 +550,59 @@ function ClinicalTrialsPage() {
     }
   };
 
+  // Export as CSV
+  const exportAsCSV = () => {
+    const currentTrial = trials[currentTrialIndex];
+    if (currentTrial) {
+      // Define headers matching the dashboard export for consistency
+      const headers = [
+        "Trial ID", "Title", "Therapeutic Area", "Disease Type", "Primary Drug",
+        "Status", "Phase", "Sponsor", "Patient Segment", "Line of Therapy", "Country", "Region"
+      ];
+
+      const overview = currentTrial.overview || {};
+
+      // Create data row
+      const row = [
+        `"${overview.trial_id || currentTrial.trial_id || ""}"`,
+        `"${overview.title?.replace(/"/g, '""') || ""}"`,
+        `"${overview.therapeutic_area || ""}"`,
+        `"${overview.disease_type || ""}"`,
+        `"${overview.primary_drugs || ""}"`,
+        `"${overview.status || ""}"`,
+        `"${overview.trial_phase || ""}"`,
+        `"${overview.sponsor_collaborators || ""}"`,
+        `"${overview.patient_segment || ""}"`,
+        `"${overview.line_of_therapy || ""}"`,
+        `"${overview.countries || ""}"`,
+        `"${overview.region || ""}"`
+      ];
+
+      const csvContent = [headers.join(","), row.join(",")].join("\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `trial_${currentTrial.trial_id}_export.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "CSV Export Complete",
+        description: `Trial data has been exported to trial_${currentTrial.trial_id}_export.csv`,
+      });
+    } else {
+      toast({
+        title: "Export Failed",
+        description: "No trial data available to export",
+        variant: "destructive",
+      });
+    }
+    setShowExportModal(false);
+  };
+
   // Export as JSON (existing functionality)
   const exportAsJSON = () => {
     const currentTrial = trials[currentTrialIndex];
@@ -572,6 +643,7 @@ function ClinicalTrialsPage() {
     }
     setShowExportModal(false);
   };
+
 
   // Handle closing a trial tab
   const handleCloseTab = (indexToClose: number) => {
@@ -1060,35 +1132,13 @@ function ClinicalTrialsPage() {
                 color: pathname.includes("/trials") ? "#FFFFFF" : "#000000",
               }}
             >
-              Trials
+              {t("common.trials")}
             </span>
           </button>
 
           {/* Spacer */}
           <div style={{ flex: 1 }} />
 
-          {/* Message Icon Box */}
-          <button
-            className="flex items-center justify-center"
-            style={{
-              width: "56px",
-              height: "48px",
-              borderRadius: "12px",
-              padding: "16px",
-              gap: "8px",
-              backgroundColor: "#FFFFFF",
-              flexShrink: 0,
-              boxShadow: "0 -2px 6px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.1)",
-            }}
-          >
-            <Image
-              src="/pngs/messageicon.png"
-              alt="Messages"
-              width={24}
-              height={24}
-              className="object-contain"
-            />
-          </button>
 
           {/* Profile Box */}
           <div ref={dropdownRef} className="relative" style={{ flexShrink: 0 }}>
@@ -1142,7 +1192,7 @@ function ClinicalTrialsPage() {
                   className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
                 >
                   <LogOut className="h-4 w-4 mr-2" />
-                  Logout
+                  {t("common.logout")}
                 </button>
               </div>
             )}
@@ -1222,15 +1272,6 @@ function ClinicalTrialsPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowHistoryModal(true)}
-                className="h-8 rounded-[12px] px-7 py-5 text-[14px] font-semibold"
-              >
-                <Calendar className="h-4 w-4" />
-                {t("common.recordHistory")}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
                 onClick={() => setShowExportModal(true)}
                 className="h-8 rounded-[12px] px-7 py-5 text-[14px] font-semibold"
               >
@@ -1262,17 +1303,6 @@ function ClinicalTrialsPage() {
               }}
             >
               <Bookmark className={`h-4 w-4 ${currentTrial && favoriteTrials.includes(currentTrial.trial_id) ? 'fill-current' : ''}`} />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 flex items-center justify-center"
-              title="Document"
-            >
-              <div className="flex flex-col items-center">
-                <span className="text-xs font-bold leading-none">A</span>
-                <span className="text-[8px] leading-none">a</span>
-              </div>
             </Button>
             {/* Zoom Controls - Styled Button Group */}
             <div
@@ -1419,7 +1449,7 @@ function ClinicalTrialsPage() {
                                 handleCloseTab(index);
                               }}
                               className="ml-2 rounded-full p-1 transition-colors flex items-center justify-center bg-white hover:bg-gray-100"
-                              title="Close this trial tab"
+                              title={t("common.closeTab")}
                             >
                               <X className="h-4 w-4 text-[#204B73]" strokeWidth={2} />
                             </button>
@@ -1456,7 +1486,7 @@ function ClinicalTrialsPage() {
                               handleCloseTab(index);
                             }}
                             className="ml-2 rounded-full p-1 transition-colors flex items-center justify-center bg-[#204B73] hover:bg-[#204B73]/80"
-                            title="Close this trial tab"
+                            title={t("common.closeTab")}
                           >
                             <X className="h-4 w-4 text-white" strokeWidth={2} />
                           </button>
@@ -1508,7 +1538,7 @@ function ClinicalTrialsPage() {
                           color: "#000000ff",
                         }}
                       >
-                        Overview
+                        {t("sections.overview")}
                       </span>
                       {/* Separator line */}
                       <div
@@ -1531,7 +1561,7 @@ function ClinicalTrialsPage() {
                             color: "#204B73",
                           }}
                         >
-                          Status :
+                          {t("common.status")} :
                         </span>
                         <Badge
                           className="rounded px-3 py-2 flex items-center gap-1"
@@ -1552,7 +1582,7 @@ function ClinicalTrialsPage() {
                     <div className="flex items-center space-x-10">
                       <div className="flex items-center space-x-3">
                         <span style={{ fontFamily: "Poppins", fontSize: "14px", color: "#2B4863", fontWeight: 600 }}>
-                          Endpoints met
+                          {t("common.endpointsMet")}
                         </span>
                         <Switch
                           checked={Boolean(currentTrial.results[0]?.endpoints_met)}
@@ -1562,7 +1592,7 @@ function ClinicalTrialsPage() {
                       </div>
                       <div className="flex items-center space-x-3">
                         <span style={{ fontFamily: "Poppins", fontSize: "14px", color: "#2B4863", fontWeight: 600 }}>
-                          Result Posted
+                          {t("common.resultPosted")}
                         </span>
                         {/* Non-interactive badges showing result posted status */}
                         <div className="flex items-center overflow-hidden rounded-sm border-[1.5px] border-black">
@@ -1578,7 +1608,7 @@ function ClinicalTrialsPage() {
                               borderRadius: 0,
                             }}
                           >
-                            Yes
+                            {t("common.yes")}
                           </Badge>
                           <Badge
                             className="px-2.5 py-1 rounded-none cursor-default"
@@ -1591,7 +1621,7 @@ function ClinicalTrialsPage() {
                               borderRadius: 0,
                             }}
                           >
-                            No
+                            {t("common.no")}
                           </Badge>
                         </div>
                       </div>
@@ -1619,7 +1649,7 @@ function ClinicalTrialsPage() {
                             color: "#ffffff",
                           }}
                         >
-                          Therapeutic Area :
+                          {t("common.therapeuticArea")} :
                         </span>
                         <Badge
                           className="rounded px-3 py-1"
@@ -1645,7 +1675,7 @@ function ClinicalTrialsPage() {
                             marginBottom: "8px",
                           }}
                         >
-                          Trial Identifier :
+                          {t("common.trialIdentifier")} :
                         </span>
                         <div className="flex flex-wrap gap-2">
                           {(() => {
@@ -1685,14 +1715,14 @@ function ClinicalTrialsPage() {
                       style={{ border: "1px solid #E0E0E0" }}
                     >
                       <h3 className="text-lg font-semibold text-[#204B73] mb-3">
-                        Scientific Title
+                        {t("sections.scientificTitle")}
                       </h3>
                       <p
                         className="text-gray-900 text-sm leading-relaxed"
                         style={{ fontFamily: "Poppins" }}
                       >
                         {currentTrial.outcomes[0]?.purpose_of_trial ||
-                          "No scientific title available"}
+                          t("common.noTitleAvailable")}
                       </p>
                     </div>
 
@@ -1702,14 +1732,14 @@ function ClinicalTrialsPage() {
                       style={{ border: "1px solid #E0E0E0" }}
                     >
                       <h3 className="text-lg font-semibold text-[#204B73] mb-3">
-                        Summary
+                        {t("sections.summary")}
                       </h3>
                       <p
                         className="text-gray-900 text-sm leading-relaxed"
                         style={{ fontFamily: "Poppins" }}
                       >
                         {currentTrial.outcomes[0]?.summary ||
-                          "No summary available"}
+                          t("common.noSummaryAvailable")}
                       </p>
                     </div>
 
@@ -1721,46 +1751,46 @@ function ClinicalTrialsPage() {
                         style={{ border: "1px solid #E0E0E0" }}
                       >
                         <h3 className="text-lg font-semibold text-[#204B73] mb-4">
-                          Key Information
+                          {t("sections.keyInformation")}
                         </h3>
                         <div className="space-y-3">
-                          <div className="flex items-start justify-between">
-                            <span className="text-sm font-medium text-gray-600 min-w-[100px] flex-shrink-0" style={{ fontFamily: "Poppins" }}>
-                              Disease Type :
+                          <div className="flex items-start gap-2">
+                            <span className="text-sm font-bold text-[#204B73] min-w-[140px] flex-shrink-0" style={{ fontFamily: "Poppins" }}>
+                              {t("common.diseaseType")} :
                             </span>
-                            <span className="text-sm text-gray-900 text-right" style={{ fontFamily: "Poppins" }}>
-                              {currentTrial.overview.disease_type || "N/A"}
-                            </span>
-                          </div>
-                          <div className="flex items-start justify-between">
-                            <span className="text-sm font-medium text-gray-600 min-w-[100px] flex-shrink-0" style={{ fontFamily: "Poppins" }}>
-                              Patient Segment :
-                            </span>
-                            <span className="text-sm text-gray-900 text-right" style={{ fontFamily: "Poppins" }}>
-                              {currentTrial.overview.patient_segment || "N/A"}
+                            <span className="text-sm text-gray-900 text-left" style={{ fontFamily: "Poppins" }}>
+                              {formatTextValue(currentTrial.overview.disease_type)}
                             </span>
                           </div>
-                          <div className="flex items-start justify-between">
-                            <span className="text-sm font-medium text-gray-600 min-w-[100px] flex-shrink-0" style={{ fontFamily: "Poppins" }}>
-                              Primary Drug :
+                          <div className="flex items-start gap-2">
+                            <span className="text-sm font-bold text-[#204B73] min-w-[140px] flex-shrink-0" style={{ fontFamily: "Poppins" }}>
+                              {t("common.patientSegment")} :
                             </span>
-                            <span className="text-sm text-gray-900 text-right" style={{ fontFamily: "Poppins" }}>
-                              {currentTrial.overview.primary_drugs || "N/A"}
-                            </span>
-                          </div>
-                          <div className="flex items-start justify-between">
-                            <span className="text-sm font-medium text-gray-600 min-w-[100px] flex-shrink-0" style={{ fontFamily: "Poppins" }}>
-                              Secondary Drug :
-                            </span>
-                            <span className="text-sm text-gray-900 text-right" style={{ fontFamily: "Poppins" }}>
-                              {currentTrial.overview.other_drugs || "N/A"}
+                            <span className="text-sm text-gray-900 text-left" style={{ fontFamily: "Poppins" }}>
+                              {formatTextValue(currentTrial.overview.patient_segment)}
                             </span>
                           </div>
-                          <div className="flex items-start justify-between">
-                            <span className="text-sm font-medium text-gray-600 min-w-[100px] flex-shrink-0" style={{ fontFamily: "Poppins" }}>
-                              Trial Phase :
+                          <div className="flex items-start gap-2">
+                            <span className="text-sm font-bold text-[#204B73] min-w-[140px] flex-shrink-0" style={{ fontFamily: "Poppins" }}>
+                              {t("common.primaryDrug")} :
                             </span>
-                            <Badge className="bg-green-600 text-white" style={{ fontFamily: "Poppins" }}>
+                            <span className="text-sm text-gray-900 text-left" style={{ fontFamily: "Poppins" }}>
+                              {formatTextValue(currentTrial.overview.primary_drugs)}
+                            </span>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span className="text-sm font-bold text-[#204B73] min-w-[140px] flex-shrink-0" style={{ fontFamily: "Poppins" }}>
+                              {t("common.otherDrugs")} :
+                            </span>
+                            <span className="text-sm text-gray-900 text-left" style={{ fontFamily: "Poppins" }}>
+                              {formatTextValue(currentTrial.overview.other_drugs)}
+                            </span>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span className="text-sm font-bold text-[#204B73] min-w-[140px] flex-shrink-0" style={{ fontFamily: "Poppins" }}>
+                              {t("common.trialPhase")} :
+                            </span>
+                            <Badge className="bg-[#28B463] text-white rounded-[4px] text-sm font-medium" style={{ fontFamily: "Poppins" }}>
                               {currentTrial.overview.trial_phase?.startsWith("Phase") ? currentTrial.overview.trial_phase : `Phase ${currentTrial.overview.trial_phase || "N/A"}`}
                             </Badge>
                           </div>
@@ -1773,15 +1803,15 @@ function ClinicalTrialsPage() {
                         style={{ border: "1px solid #E0E0E0" }}
                       >
                         <h3 className="text-lg font-semibold text-[#204B73] mb-4">
-                          Line of Therapy
+                          {t("common.lineOfTherapy")}
                         </h3>
                         <div className="space-y-2">
                           {currentTrial.overview.line_of_therapy ? (
                             currentTrial.overview.line_of_therapy.split(',').map((therapy, index) => (
                               <div key={index} className="flex items-center space-x-2">
-                                <span className="text-blue-600">•</span>
-                                <span className={`text-sm ${index === 0 ? 'font-medium text-gray-900' : 'text-gray-600'}`} style={{ fontFamily: "Poppins" }}>
-                                  {therapy.trim()}
+                                <span className="text-black">•</span>
+                                <span className="text-sm text-gray-900" style={{ fontFamily: "Poppins" }}>
+                                  {formatLineOfTherapy(therapy)}
                                 </span>
                               </div>
                             ))
@@ -1829,7 +1859,7 @@ function ClinicalTrialsPage() {
                         style={{ border: "1px solid #E0E0E0" }}
                       >
                         <div>
-                          <span className="text-sm font-medium text-[#204B73]">
+                          <span className="text-sm font-bold text-[#204B73]">
                             Region :
                           </span>
                           <span className="text-sm text-gray-900 ml-2" style={{ fontFamily: "Poppins" }}>
@@ -1837,7 +1867,7 @@ function ClinicalTrialsPage() {
                           </span>
                         </div>
                         <div>
-                          <span className="text-sm font-medium text-[#204B73]" style={{ fontFamily: "Poppins" }}>
+                          <span className="text-sm font-bold text-[#204B73]" style={{ fontFamily: "Poppins" }}>
                             Sponsors & Collaborators :
                           </span>
                           <span className="text-sm text-gray-900 ml-2" style={{ fontFamily: "Poppins" }}>
@@ -1845,7 +1875,7 @@ function ClinicalTrialsPage() {
                           </span>
                         </div>
                         <div>
-                          <span className="text-sm font-medium text-[#204B73]" style={{ fontFamily: "Poppins" }}>
+                          <span className="text-sm font-bold text-[#204B73]" style={{ fontFamily: "Poppins" }}>
                             Sponsor Field of Activity :
                           </span>
                           <span className="text-sm text-gray-900 ml-2" style={{ fontFamily: "Poppins" }}>
@@ -1854,7 +1884,7 @@ function ClinicalTrialsPage() {
                           </span>
                         </div>
                         <div>
-                          <span className="text-sm font-medium text-[#204B73]" style={{ fontFamily: "Poppins" }}>
+                          <span className="text-sm font-bold text-[#204B73]" style={{ fontFamily: "Poppins" }}>
                             Associated CRO :
                           </span>
                           <span className="text-sm text-gray-900 ml-2" style={{ fontFamily: "Poppins" }}>
@@ -1862,7 +1892,7 @@ function ClinicalTrialsPage() {
                           </span>
                         </div>
                         <div>
-                          <span className="text-sm font-medium text-[#204B73]" style={{ fontFamily: "Poppins" }}>
+                          <span className="text-sm font-bold text-[#204B73]" style={{ fontFamily: "Poppins" }}>
                             Trial Tags :
                           </span>
                           <span className="text-sm text-gray-900 ml-2" style={{ fontFamily: "Poppins" }}>
@@ -1871,8 +1901,8 @@ function ClinicalTrialsPage() {
                         </div>
 
                         {/* Source Links */}
-                        <div className="pt-4">
-                          <span className="text-sm font-medium text-[#204B73] block mb-2" style={{ fontFamily: "Poppins" }}>
+                        <div className="pt-1">
+                          <span className="text-sm font-bold text-[#204B73] block mb-2" style={{ fontFamily: "Poppins" }}>
                             Source Links :
                           </span>
                           <div className="space-y-1">
@@ -1881,15 +1911,15 @@ function ClinicalTrialsPage() {
                               currentTrial.overview.reference_links.map(
                                 (link, index) => (
                                   <div key={index}>
-                                    <span className="text-blue-600 text-xs">
+                                    <span className="text-black text-sm">
                                       •
                                     </span>
                                     <a
                                       href={link}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="text-blue-600 text-xs ml-1 hover:underline"
-                                      style={{ fontFamily: "Poppins" }}
+                                      className="text-black text-sm ml-2 hover:underline"
+                                      style={{ fontFamily: "Poppins", textDecoration: "underline" }}
                                     >
                                       {link}
                                     </a>
@@ -1905,13 +1935,13 @@ function ClinicalTrialsPage() {
                         </div>
 
                         <div className="flex items-center space-x-2 pt-2">
-                          <span className="text-sm font-medium text-[#204B73]">
+                          <span className="text-sm font-bold text-[#204B73]">
                             Trial Record Status :
                           </span>
                           <span className="text-sm text-gray-900">
                             {currentTrial.overview.trial_record_status || "N/A"}
                           </span>
-                          <div className="w-4 h-4 bg-gray-400 rounded-full"></div>
+                          <Image src="/pngs/trstatusicon.png" alt="Status" width={16} height={16} />
                         </div>
                       </div>
 
@@ -1949,7 +1979,7 @@ function ClinicalTrialsPage() {
                       <h3 className="text-base font-semibold text-[#204B73] mb-3">
                         Purpose of the trial
                       </h3>
-                      <p className="text-sm text-gray-900 leading-relaxed">
+                      <p className="text-sm text-gray-900 leading-relaxed whitespace-pre-wrap">
                         {currentTrial.outcomes[0]?.purpose_of_trial ||
                           "No purpose description available"}
                       </p>
@@ -1970,17 +2000,11 @@ function ClinicalTrialsPage() {
                         );
                       }
 
-                      // Parse the primary outcome string similarly to other outcomes
-                      const outcomeText = primaryOutcome.trim();
-                      let outcomes: string[] = [];
-
-                      // Check if text contains multiple "Outcome Measure:" patterns
-                      if (outcomeText.toLowerCase().includes('outcome measure:')) {
-                        const parts = outcomeText.split(/(?=Outcome Measure:)/gi).filter(p => p.trim());
-                        outcomes = parts.length > 0 ? parts : [outcomeText];
-                      } else {
-                        outcomes = [outcomeText];
-                      }
+                      // Split by ||| directly
+                      const outcomes = primaryOutcome
+                        .split('|||')
+                        .map(o => o.trim())
+                        .filter(o => o.length > 0);
 
                       return outcomes.map((outcome, index) => {
                         // Parse measure description and time frame
@@ -1992,13 +2016,14 @@ function ClinicalTrialsPage() {
                         const descMatch = outcome.match(/Measure Description:\s*([^]*?)(?:Time Frame:|$)/i);
                         const timeMatch = outcome.match(/Time Frame:\s*([^]*?)$/i);
 
-                        if (measureMatch) measureText = measureMatch[1].replace(/\|\|\|/g, "").trim();
-                        if (descMatch) description = descMatch[1].replace(/\|\|\|/g, "").trim();
-                        if (timeMatch) timeFrame = timeMatch[1].replace(/\|\|\|/g, "").trim();
+                        if (measureMatch) measureText = measureMatch[1].trim();
+                        if (descMatch) description = descMatch[1].trim();
+                        if (timeMatch) timeFrame = timeMatch[1].trim();
 
-                        // Fallback logic if parsing fails but plain text exists (e.g. if it was just a simple string)
+                        // Fallback: If no "Outcome Measure:" tag found, use the whole text,
+                        // but if it mistakenly starts with "Outcome Measure:" without matching the regex key, strip it.
                         if (!measureMatch && !descMatch && !timeMatch) {
-                          measureText = outcome;
+                          measureText = outcome.replace(/^Outcome Measure:\s*/i, "");
                         }
 
                         return (
@@ -2011,7 +2036,7 @@ function ClinicalTrialsPage() {
                                 <span className="text-sm font-semibold text-[#204B73]">
                                   Outcome Measure :
                                 </span>
-                                <p className="text-sm text-gray-900 mt-1">
+                                <p className="text-sm text-gray-900 mt-1 whitespace-pre-wrap">
                                   {measureText}
                                 </p>
                               </div>
@@ -2020,7 +2045,7 @@ function ClinicalTrialsPage() {
                                   <span className="text-sm font-semibold text-[#204B73]">
                                     Measure Description :
                                   </span>
-                                  <p className="text-sm text-gray-900 mt-1 leading-relaxed">
+                                  <p className="text-sm text-gray-900 mt-1 leading-relaxed whitespace-pre-wrap">
                                     {description}
                                   </p>
                                 </div>
@@ -2029,7 +2054,7 @@ function ClinicalTrialsPage() {
                                 <span className="text-sm font-semibold text-[#204B73]">
                                   Time Frame :
                                 </span>
-                                <p className="text-sm text-gray-900 mt-1">
+                                <p className="text-sm text-gray-900 mt-1 whitespace-pre-wrap">
                                   {timeFrame ||
                                     currentTrial.timing[0]?.primary_completion_date ||
                                     currentTrial.timing[0]?.study_duration ||
@@ -2051,23 +2076,11 @@ function ClinicalTrialsPage() {
                         return null;
                       }
 
-                      // Try to parse multiple outcomes from the string
-                      // Common patterns: "Outcome Measure: X Time Frame: Y" repeated
-                      // Split by "Outcome Measure:" to get individual outcomes
-                      const outcomeText = otherOutcomes.trim();
-
-                      // Try to split by patterns like "Outcome Measure:" 
-                      let outcomes: string[] = [];
-
-                      // Check if text contains multiple "Outcome Measure:" patterns
-                      if (outcomeText.toLowerCase().includes('outcome measure:')) {
-                        // Split by "Outcome Measure:" but keep it for parsing
-                        const parts = outcomeText.split(/(?=Outcome Measure:)/gi).filter(p => p.trim());
-                        outcomes = parts.length > 0 ? parts : [outcomeText];
-                      } else {
-                        // Single outcome - treat entire text as one outcome
-                        outcomes = [outcomeText];
-                      }
+                      // Split by ||| directly
+                      const outcomes = otherOutcomes
+                        .split('|||')
+                        .map(o => o.trim())
+                        .filter(o => o.length > 0);
 
                       return (
                         <>
@@ -2086,6 +2099,11 @@ function ClinicalTrialsPage() {
                             if (descMatch) description = descMatch[1].trim();
                             if (timeMatch) timeFrame = timeMatch[1].trim();
 
+                            // Fallback: If no specific tags found
+                            if (!measureMatch && !descMatch && !timeMatch) {
+                              measureText = outcome.replace(/^Outcome Measure:\s*/i, "");
+                            }
+
                             return (
                               <div key={index} className="border border-gray-200 rounded-lg p-4">
                                 <h3 className="text-base font-semibold text-[#204B73] mb-4">
@@ -2096,8 +2114,8 @@ function ClinicalTrialsPage() {
                                     <span className="text-sm font-semibold text-[#204B73]">
                                       Outcome Measure :
                                     </span>
-                                    <p className="text-sm text-gray-900 mt-1">
-                                      {measureText || outcome}
+                                    <p className="text-sm text-gray-900 mt-1 whitespace-pre-wrap">
+                                      {measureText}
                                     </p>
                                   </div>
                                   {description && (
@@ -2105,7 +2123,7 @@ function ClinicalTrialsPage() {
                                       <span className="text-sm font-semibold text-[#204B73]">
                                         Measure Description :
                                       </span>
-                                      <p className="text-sm text-gray-900 mt-1 leading-relaxed">
+                                      <p className="text-sm text-gray-900 mt-1 leading-relaxed whitespace-pre-wrap">
                                         {description}
                                       </p>
                                     </div>
@@ -2114,7 +2132,7 @@ function ClinicalTrialsPage() {
                                     <span className="text-sm font-semibold text-[#204B73]">
                                       Time Frame :
                                     </span>
-                                    <p className="text-sm text-gray-900 mt-1">
+                                    <p className="text-sm text-gray-900 mt-1 whitespace-pre-wrap">
                                       {timeFrame || currentTrial.timing[0]?.study_end_date ||
                                         currentTrial.timing[0]?.study_duration ||
                                         "Not specified"}
@@ -2172,49 +2190,105 @@ function ClinicalTrialsPage() {
                         Study Design
                       </h3>
                       <div className="space-y-2">
-                        <div className="flex items-start">
-                          <span className="text-sm font-semibold text-[#204B73] min-w-[180px] flex-shrink-0">
-                            Primary Purpose :
-                          </span>
-                          <span className="text-sm text-gray-900">
-                            {currentTrial.outcomes[0]?.purpose_of_trial?.split(' ').slice(0, 3).join(' ') || "Treatment"}
-                          </span>
-                        </div>
-                        <div className="flex items-start">
-                          <span className="text-sm font-semibold text-[#204B73] min-w-[180px] flex-shrink-0">
-                            Allocation :
-                          </span>
-                          <span className="text-sm text-gray-900">
-                            {currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('randomized') ? 'Randomized' :
-                              currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('non-randomized') ? 'Non-Randomized' : 'N/A'}
-                          </span>
-                        </div>
-                        <div className="flex items-start">
-                          <span className="text-sm font-semibold text-[#204B73] min-w-[180px] flex-shrink-0">
-                            Interventional Model :
-                          </span>
-                          <span className="text-sm text-gray-900">
-                            {currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('parallel') ? 'Parallel Assignment' :
-                              currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('single group') ? 'Single Group Assignment' :
-                                currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('crossover') ? 'Crossover Assignment' : 'N/A'}
-                          </span>
-                        </div>
-                        <div className="flex items-start">
-                          <span className="text-sm font-semibold text-[#204B73] min-w-[180px] flex-shrink-0">
-                            Masking :
-                          </span>
-                          <span className="text-sm text-gray-900">
-                            {currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('open') ? 'None (Open Label)' :
-                              currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('double') ? 'Double Blind' :
-                                currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('single') && currentTrial.outcomes[0]?.study_design_keywords?.toLowerCase().includes('blind') ? 'Single Blind' : 'N/A'}
-                          </span>
-                        </div>
+                        {(() => {
+                          const outcome = currentTrial.outcomes[0];
+                          const studyDesignText = outcome?.study_design || "";
+                          const studyDesignKeywords = outcome?.study_design_keywords?.toLowerCase() || "";
+
+                          // 1. Define Standard Fields with their fallback logic (if not found in text)
+                          // These are fields we explicitly want to look for or calculate
+                          const standardFields = [
+                            { key: "Study Type", value: "Interventional" }, // Default as per user request example
+                            {
+                              key: "Primary Purpose",
+                              value: outcome?.purpose_of_trial || "Treatment"
+                            },
+                            {
+                              key: "Allocation",
+                              value: studyDesignKeywords.includes('randomized') ? 'Randomized' :
+                                studyDesignKeywords.includes('non-randomized') ? 'Non-Randomized' : 'N/A'
+                            },
+                            {
+                              key: "Interventional Model",
+                              value: studyDesignKeywords.includes('parallel') ? 'Parallel Assignment' :
+                                studyDesignKeywords.includes('single group') ? 'Single Group Assignment' :
+                                  studyDesignKeywords.includes('crossover') ? 'Crossover Assignment' : 'N/A'
+                            },
+                            {
+                              key: "Masking",
+                              value: studyDesignKeywords.includes('open') ? 'None (Open Label)' :
+                                studyDesignKeywords.includes('double') ? 'Double Blind' :
+                                  (studyDesignKeywords.includes('single') && studyDesignKeywords.includes('blind')) ? 'Single Blind' : 'N/A'
+                            }
+                          ];
+
+                          // 2. Parse the text for "Key : Value" lines to find dynamic fields
+                          // and also to potentially override standard fields if they exist in text
+                          const dynamicFields: { key: string, value: string }[] = [];
+                          const remainingLines: string[] = [];
+
+                          const lines = studyDesignText.split(/\r?\n|\\n/);
+
+                          lines.forEach(line => {
+                            const trimmed = line.trim();
+                            if (!trimmed) return;
+
+                            // Check for "Key : Value" pattern
+                            // We look for a label at the start, followed by colon
+                            const match = trimmed.match(/^([^:]+?)\s*:\s*(.+)$/);
+
+                            if (match) {
+                              const key = match[1].trim();
+                              const value = match[2].trim();
+
+                              // Check if this key matches a standard field (normalize case)
+                              const stdIndex = standardFields.findIndex(sf => sf.key.toLowerCase() === key.toLowerCase());
+
+                              if (stdIndex !== -1) {
+                                // Update standard field value with specific text from DB if present
+                                standardFields[stdIndex].value = value;
+                              } else {
+                                // It's a new dynamic field
+                                dynamicFields.push({ key, value });
+                              }
+                            } else {
+                              // Not a key-value line, keep as description text
+                              remainingLines.push(trimmed);
+                            }
+                          });
+
+                          // 3. Render Generic Field Helper
+                          const renderField = (label: string, value: string) => (
+                            <div key={label} className="flex items-start">
+                              <span className="text-sm font-semibold text-[#204B73] min-w-[180px] flex-shrink-0">
+                                {label} :
+                              </span>
+                              <span className="text-sm text-gray-900">
+                                {value}
+                              </span>
+                            </div>
+                          );
+
+                          return (
+                            <>
+                              {/* Render Standard Fields first (Ordered) */}
+                              {standardFields.map(f => renderField(f.key, f.value))}
+
+                              {/* Render Dynamic Fields found in text */}
+                              {dynamicFields.map(f => renderField(f.key, f.value))}
+
+                              {/* Render Remaining Text lines */}
+                              {remainingLines.length > 0 && (
+                                <div className="text-sm text-gray-900 mt-4 leading-relaxed">
+                                  {remainingLines.map((line, idx) => (
+                                    <p key={idx} className="mb-4 last:mb-0">{line}</p>
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
-                      <p className="text-sm text-gray-900 mt-4 leading-relaxed">
-                        {currentTrial.outcomes[0]?.summary ||
-                          currentTrial.outcomes[0]?.study_design ||
-                          "No detailed study design description available"}
-                      </p>
                     </div>
 
                     {/* Treatment Regimen - Bordered Card */}
@@ -2223,7 +2297,7 @@ function ClinicalTrialsPage() {
                         Treatment Regimen
                       </h3>
                       <div className="space-y-3">
-                        <p className="text-sm text-gray-900 leading-relaxed">
+                        <p className="text-sm text-gray-900 leading-relaxed whitespace-pre-wrap">
                           {currentTrial.outcomes[0]?.treatment_regimen ||
                             "No treatment regimen description available"}
                         </p>
@@ -2522,7 +2596,7 @@ function ClinicalTrialsPage() {
                                     </div>
                                     <button
                                       onClick={() => setExpandedTimingRefs(prev => ({ ...prev, [index]: !prev[index] }))}
-                                      className="w-6 h-6 rounded-full flex items-center justify-center transition-colors shadow-sm"
+                                      className="w-6 h-6 rounded-full flex items-center justify-center transition-colors shadow-sm ml-[10px]"
                                       style={{
                                         backgroundColor: isExpanded ? 'white' : '#2B4863',
                                         color: isExpanded ? '#2B4863' : 'white'
@@ -2545,12 +2619,6 @@ function ClinicalTrialsPage() {
                                             </span>
                                           </div>
                                         )}
-                                        <div className="flex text-sm py-1">
-                                          <span className="font-bold text-[#204B73] min-w-[200px]">Date :</span>
-                                          <span className="text-gray-900">
-                                            {displayDate ? formatDateToMMDDYYYY(displayDate) : "N/A"}
-                                          </span>
-                                        </div>
                                         <div className="flex text-sm py-1">
                                           <span className="font-bold text-[#204B73] min-w-[200px]">Registry Type :</span>
                                           <span className="text-gray-900">
@@ -2642,7 +2710,7 @@ function ClinicalTrialsPage() {
                           <h3 className="text-lg font-semibold text-[#204B73]">
                             Trial Outcome Reference
                           </h3>
-                          <span className="text-sm text-gray-900 bg-[#F0F0F0] px-4 py-1.5 rounded-lg border border-gray-300">
+                          <span className="text-sm text-gray-900 bg-[#F0F0F0] px-4 py-1.5 rounded-lg border border-gray-300" style={{ fontWeight: 600 }}>
                             {(() => {
                               const res = currentTrial.results[0];
                               const outcomeDate = res?.trial_outcome_reference_date;
@@ -2657,9 +2725,7 @@ function ClinicalTrialsPage() {
                                 return `${month}-${day}-${year}`;
                               }
 
-                              const dateToDisplay = res?.result_date
-                                || currentTrial.timing[0]?.trial_end_date_estimated
-                                || currentTrial.logs[0]?.trial_added_date;
+                              const dateToDisplay = res?.result_date;
 
                               return dateToDisplay ? formatDateToMMDDYYYY(dateToDisplay) : "N/A";
                             })()}
@@ -2667,67 +2733,120 @@ function ClinicalTrialsPage() {
                         </div>
 
                         {(() => {
-                          const resultsContent = currentTrial.results[0]?.trial_outcome_content || currentTrial.results[0]?.trial_results?.join('\n\n') || "";
-                          const refText = resultsContent || currentTrial.results[0]?.reference || currentTrial.outcomes[0]?.summary || "";
-                          // Don't show if it's just a date or empty
+                          const res = currentTrial.results[0];
+
+                          // DEBUG: Inspecting Outcome Reference Data
+                          console.log('🔍 Debug Outcome Reference:', {
+                            fullResult: res,
+                            trial_outcome_content: res?.trial_outcome_content,
+                            reference: res?.reference,
+                            trial_results: res?.trial_results,
+                          });
+
+                          // Only use specific outcome content or the reference citation.
+                          // Avoid trial_results (full text) or site_notes which belong in Published Results.
+                          const resultsContent = res?.trial_outcome_content || "";
+                          const refText = resultsContent || res?.reference || "";
                           const isJustDate = /^\d{4}-\d{2}-\d{2}$/.test(refText.trim()) || /^\d{2}\/\d{2}\/\d{4}$/.test(refText.trim());
-                          if (refText && !isJustDate) {
+
+                          // Content is valid if it exists and is not just a date string
+                          const hasMainContent = refText && !isJustDate;
+
+                          if (!hasMainContent) {
                             return (
-                              <p className="text-sm text-gray-900 leading-relaxed mb-6 whitespace-pre-line">
-                                {refText}
+                              <p className="text-sm text-gray-500 italic mb-6">
+                                No detailed outcome reference available.
                               </p>
                             );
                           }
-                          return null;
+
+                          return (
+                            <div className="space-y-6 mb-6">
+                              {/* Main Content */}
+                              {hasMainContent && (
+                                <p className="text-sm text-gray-900 leading-relaxed whitespace-pre-line">
+                                  {refText}
+                                </p>
+                              )}
+                            </div>
+                          );
                         })()}
 
                         {/* Action Buttons - Right aligned */}
                         <div className="flex items-center justify-end space-x-3">
-                          <Button
-                            variant="default"
-                            size="sm"
-                            className="bg-[#204B73] hover:bg-[#1a3d5c] text-white rounded-md px-4 h-9 font-medium"
-                            onClick={() => {
-                              // Try multiple sources for the URL
-                              const refLink = currentTrial.results[0]?.trial_outcome_link
-                                || currentTrial.overview.reference_links?.[0]
-                                || currentTrial.notes?.[0]?.link
-                                || currentTrial.results?.[0]?.reference
-                                || `https://clinicaltrials.gov/study/${currentTrial.overview.trial_identifier?.[0] || currentTrial.trial_id}`;
-                              window.open(refLink, '_blank');
-                            }}
-                          >
-                            View source
-                          </Button>
+                          {/* View Source Button */}
+                          {(() => {
+                            // Try multiple sources for the URL
+                            let refLink = currentTrial.results[0]?.trial_outcome_link
+                              || (currentTrial.results?.[0]?.reference?.startsWith('http') ? currentTrial.results?.[0]?.reference : null);
+
+                            // Check site_notes
+                            if (!refLink) {
+                              const notes = (currentTrial.results[0] as any)?.site_notes || [];
+                              const note = notes.find((n: any) => n.viewSource || n.sourceLink);
+                              if (note) refLink = note.viewSource || note.sourceLink;
+                            }
+
+                            if (!refLink) return null;
+
+                            return (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                className="bg-[#204B73] hover:bg-[#1a3d5c] text-white rounded-md px-4 h-9 font-medium"
+                                onClick={() => window.open(refLink, '_blank')}
+                              >
+                                View source
+                              </Button>
+                            );
+                          })()}
 
                           {/* Attachments Button */}
-                          <Button
-                            variant="default"
-                            size="sm"
-                            className="bg-[#204B73] hover:bg-[#1a3d5c] text-white rounded-md px-4 h-9 font-medium"
-                            onClick={() => {
-                              let attachmentUrl = "";
-                              const attachment = currentTrial.results[0]?.trial_outcome_attachment;
+                          {(() => {
+                            const res = currentTrial.results[0];
+                            let hasAttachment = !!res?.trial_outcome_attachment;
+                            if (!hasAttachment) {
+                              const notes = (res as any)?.site_notes || [];
+                              hasAttachment = notes.some((n: any) => n.attachments && n.attachments.length > 0);
+                            }
 
-                              if (attachment) {
-                                if (typeof attachment === 'string') {
-                                  attachmentUrl = attachment;
-                                } else if (typeof attachment === 'object' && attachment !== null && 'url' in attachment) {
-                                  attachmentUrl = attachment.url;
-                                }
-                              }
+                            if (!hasAttachment) return null;
 
-                              const refLink = attachmentUrl
-                                || currentTrial.overview.reference_links?.[0]
-                                || currentTrial.notes?.[0]?.link
-                                || currentTrial.results?.[0]?.reference
-                                || `https://clinicaltrials.gov/study/${currentTrial.overview.trial_identifier?.[0] || currentTrial.trial_id}`;
-                              window.open(refLink, '_blank');
-                            }}
-                          >
-                            Attachments
-                            <FileText className="h-4 w-4 ml-2" />
-                          </Button>
+                            return (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                className="bg-[#204B73] hover:bg-[#1a3d5c] text-white rounded-md px-4 h-9 font-medium"
+                                onClick={() => {
+                                  let attachmentUrl = "";
+                                  const attachment = res?.trial_outcome_attachment;
+
+                                  if (attachment) {
+                                    if (typeof attachment === 'string') attachmentUrl = attachment;
+                                    else if (typeof attachment === 'object' && attachment !== null && 'url' in attachment) attachmentUrl = attachment.url;
+                                  }
+
+                                  // Check notes if still no url
+                                  if (!attachmentUrl) {
+                                    const notes = (res as any)?.site_notes || [];
+                                    const note = notes.find((n: any) => n.attachments && n.attachments.length > 0);
+                                    if (note) {
+                                      const attn = note.attachments[0];
+                                      if (typeof attn === 'string') attachmentUrl = attn;
+                                      else if (attn) attachmentUrl = attn.url || attn.fileUrl;
+                                    }
+                                  }
+
+                                  if (attachmentUrl) {
+                                    window.open(attachmentUrl, '_blank');
+                                  }
+                                }}
+                              >
+                                Attachments
+                                <FileText className="h-4 w-4 ml-2" />
+                              </Button>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
@@ -2746,97 +2865,258 @@ function ClinicalTrialsPage() {
                   <CardContent className="p-6">
                     <div className="space-y-6">
                       {currentTrial.results && currentTrial.results.length > 0 ? (
-                        currentTrial.results.map((result, index) => (
-                          <div key={result.id || index} className="bg-slate-700 rounded-lg overflow-hidden">
-                            {/* Header */}
-                            <div className="p-4 flex items-center justify-between">
-                              <div className="flex items-center space-x-4 flex-wrap gap-2">
-                                {result.result_date && (
-                                  <Badge className="bg-white text-slate-700 hover:bg-gray-100">
-                                    Date : {formatDateToMMDDYYYY(result.result_date)}
-                                  </Badge>
-                                )}
-                                <Badge className="bg-white text-slate-700 hover:bg-gray-100">
-                                  Result Type : {result.trial_outcome || "N/A"}
-                                </Badge>
-                                {result.reference && (
-                                  <Badge className="bg-white text-slate-700 hover:bg-gray-100">
-                                    Source : {result.reference.includes("PubMed") ? "PubMed" : "Clinical Source"}
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
+                        currentTrial.results.map((result, index) => {
+                          // Determine the date to show in the header badge
+                          let referenceDate = result.result_date || result.trial_outcome_reference_date;
 
-                            {/* Content */}
-                            <div className="bg-white p-6 space-y-4">
-                              {/* Trial Results */}
-                              {result.trial_results && result.trial_results.length > 0 && (
-                                <div>
-                                  <h4 className="text-sm font-semibold text-gray-800 mb-2">
-                                    Results :
-                                  </h4>
-                                  <ul className="space-y-2">
-                                    {result.trial_results.map((res, idx) => (
-                                      <li key={idx} className="text-sm text-gray-900 leading-relaxed flex items-start">
-                                        <span className="text-blue-600 mr-2">•</span>
-                                        {res}
-                                      </li>
-                                    ))}
-                                  </ul>
+                          // Check site_notes for a date (Prioritize this as it comes from the Edit form)
+                          const notes = (result as any).site_notes || [];
+                          const noteWithDate = notes.find((n: any) => n.date);
+                          if (noteWithDate && noteWithDate.date) {
+                            referenceDate = noteWithDate.date;
+                          }
+
+                          // If no explicit date field, check if 'reference' serves as the date (YYYY-MM-DD)
+                          if (!referenceDate && result.reference && /^\d{4}-\d{2}-\d{2}$/.test(result.reference.trim())) {
+                            referenceDate = result.reference;
+                          }
+
+                          const isExpanded = expandedPublishedResults[index];
+                          const totalResults = currentTrial.results.length;
+                          const cardTitle = totalResults > 1 ? `Result Note ${index + 1}` : "Result Note";
+
+                          return (
+                            <div
+                              key={result.id || index}
+                              className={`border-2 rounded-xl transition-all duration-300 overflow-hidden ${isExpanded ? 'bg-white shadow-md' : 'bg-white'}`}
+                              style={{ borderColor: isExpanded ? '#2B4863' : '#E2E8F0' }}
+                            >
+                              {/* Header Card */}
+                              <div
+                                className="p-4 flex flex-col gap-4 transition-colors"
+                                style={{ backgroundColor: isExpanded ? '#2B4863' : 'transparent' }}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-4 flex-wrap gap-2">
+                                    <Badge variant="secondary" className={`${isExpanded ? 'bg-white' : 'bg-gray-100'} rounded-lg font-bold text-black px-4 py-2 text-sm`}>
+                                      <span style={{ color: '#2B4863' }}>Result Type :</span>
+                                      <span className="font-normal ms-1">
+                                        {(() => {
+                                          const validTypes = ['Interim', 'Full Results', 'Primary Endpoint Results', 'Analysis'];
+
+                                          // 1. Check if trial_outcome is valid
+                                          if (result.trial_outcome && validTypes.includes(result.trial_outcome)) return result.trial_outcome;
+
+                                          // 2. Check site_notes for valid types
+                                          const notes = (result as any).site_notes || [];
+                                          const validNote = notes.find((n: any) => validTypes.includes(n.type));
+                                          if (validNote) return validNote.type;
+
+                                          return "N/A";
+                                        })()}
+                                      </span>
+                                    </Badge>
+                                    <Badge variant="secondary" className={`${isExpanded ? 'bg-white' : 'bg-gray-100'} rounded-lg font-bold text-black px-4 py-2 text-sm`}>
+                                      <span style={{ color: '#2B4863' }}>Source :</span>
+                                      <span className="font-normal ms-1">
+                                        {(() => {
+                                          // 1. Try result.trial_outcome_link
+                                          let url = result.trial_outcome_link;
+                                          // 2. Try result.reference (if URL)
+                                          if (!url && result.reference?.startsWith('http')) url = result.reference;
+                                          // 3. Try site_notes viewSource or sourceLink
+                                          if (!url) {
+                                            const notes = (result as any).site_notes || [];
+                                            const noteWithLink = notes.find((n: any) => n.viewSource || n.sourceLink);
+                                            if (noteWithLink) url = noteWithLink.viewSource || noteWithLink.sourceLink;
+                                          }
+
+                                          if (!url) return "N/A";
+
+                                          // Check for PubMed specifically
+                                          if (url.toLowerCase().includes('pubmed')) return "PubMed";
+
+                                          try {
+                                            return new URL(url).hostname.replace('www.', '');
+                                          } catch (e) {
+                                            return "Source";
+                                          }
+                                        })()}
+                                      </span>
+                                    </Badge>
+                                  </div>
+                                  <button
+                                    onClick={() => setExpandedPublishedResults(prev => ({ ...prev, [index]: !prev[index] }))}
+                                    className="w-6 h-6 rounded-full flex items-center justify-center transition-colors shadow-sm ml-[10px]"
+                                    style={{
+                                      backgroundColor: isExpanded ? 'white' : '#2B4863',
+                                      color: isExpanded ? '#2B4863' : 'white'
+                                    }}
+                                  >
+                                    {isExpanded ? <Minus size={14} strokeWidth={3} /> : <Plus size={14} strokeWidth={3} />}
+                                  </button>
                                 </div>
-                              )}
 
-                              {/* Reference */}
-                              {result.reference && (
-                                <div>
-                                  <h4 className="text-sm font-semibold text-gray-800 mb-2">
-                                    Reference :
-                                  </h4>
-                                  <p className="text-sm text-gray-900 leading-relaxed">
-                                    {result.reference}
-                                  </p>
-                                </div>
-                              )}
-
-                              {/* Adverse Events */}
-                              {result.adverse_event_reported === "Yes" && (
-                                <div className="bg-red-50 p-4 rounded-lg">
-                                  <h4 className="text-sm font-semibold text-red-800 mb-2">
-                                    Adverse Events Reported
-                                  </h4>
-                                  {result.adverse_event_type && (
-                                    <p className="text-sm text-red-700">
-                                      Type: {result.adverse_event_type}
-                                    </p>
-                                  )}
-                                  {result.treatment_for_adverse_events && (
-                                    <p className="text-sm text-red-700 mt-1">
-                                      Treatment: {result.treatment_for_adverse_events}
-                                    </p>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* Action Buttons */}
-                              <div className="flex items-center space-x-3 pt-4">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="bg-slate-600 text-white hover:bg-slate-700"
+                                {/* Always visible Title in header */}
+                                <h3
+                                  className={`text-lg font-semibold leading-relaxed pr-8 ${isExpanded ? 'text-white' : 'text-[#204B73]'}`}
                                 >
-                                  View Details
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-gray-600"
-                                >
-                                  <Download className="h-4 w-4" />
-                                </Button>
+                                  {cardTitle}
+                                </h3>
                               </div>
+
+                              {/* Content Body */}
+                              {isExpanded && (
+                                <div className="bg-white px-6 pb-6 pt-2 space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+
+                                  {/* Date or Reference Handling */}
+                                  {/* Date or Reference Handling */}
+                                  {(() => {
+                                    // 1. Show the prioritized Date if available (from site_notes or other fields)
+                                    if (referenceDate) {
+                                      return (
+                                        <div className="mb-4">
+                                          <span style={{ color: '#2B4863' }} className="font-bold text-sm mr-2">Date :</span>
+                                          <span className="text-gray-900 font-medium">{formatDateToMMDDYYYY(referenceDate)}</span>
+                                        </div>
+                                      );
+                                    }
+
+                                    // 2. Fallback: If result.reference is textual (not a date), show it as text
+                                    const refText = result.reference || "";
+                                    const isDate = /^\d{4}-\d{2}-\d{2}$/.test(refText.trim());
+
+                                    if (refText && !isDate) {
+                                      return (
+                                        <p className="text-gray-900 font-medium italic mt-4 border-b pb-4">
+                                          {refText}
+                                        </p>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
+
+                                  {/* Trial Results - Only show trial_results array, NOT fallback to outcome content */}
+                                  {result.trial_results && result.trial_results.length > 0 ? (
+                                    <div className="mt-4">
+                                      <h4 style={{ color: '#2B4863' }} className="font-bold text-sm mb-2">Results :</h4>
+                                      <div className="text-sm text-gray-900 leading-relaxed text-justify whitespace-pre-wrap">
+                                        {result.trial_results.map((res, idx) => (
+                                          <p key={idx} className="mb-4">
+                                            {res}
+                                          </p>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ) : null}
+
+                                  {/* Additional Details */}
+                                  {/* Additional Details (Notes) - Render as distinct sections like Results */}
+                                  {((result as any).site_notes || []).length > 0 && (
+                                    <div className="space-y-4 pt-2">
+                                      {((result as any).site_notes || []).map((note: any, nIdx: number) => {
+                                        // Removed skip for 'Full Results' based on user request to show content
+
+                                        return (
+                                          <div key={nIdx} className="mt-4">
+                                            {note.type && (
+                                              <h4 style={{ color: '#2B4863' }} className="font-bold text-sm mb-2">
+                                                {note.type === 'Full Results' ? 'Additional Details' : note.type} :
+                                              </h4>
+                                            )}
+                                            <div className="text-sm text-gray-900 leading-relaxed text-left whitespace-pre-wrap">
+                                              {(() => {
+                                                if (!note.content) return null;
+
+                                                // Split logic to style 'Results:' and 'Conclusion:'
+                                                // Assuming standard format which often has newlines. 
+                                                // We'll replace the specific strings with styled spans.
+
+                                                const parts = note.content.split(/(Results:|Conclusion:)/g);
+
+                                                return parts.map((part: string, i: number) => {
+                                                  if (part === 'Results:' || part === 'Conclusion:') {
+                                                    return (
+                                                      <span key={i} style={{ color: '#2B4863' }} className="font-bold block mt-3 mb-1">
+                                                        {part}
+                                                      </span>
+                                                    );
+                                                  }
+                                                  return <span key={i}>{part}</span>;
+                                                });
+                                              })()}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+
+                                  {/* Action Buttons */}
+                                  <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-100">
+                                    <Button
+                                      className="bg-[#204B73] hover:bg-[#1a3d5c] text-white text-sm px-5 h-10"
+                                      onClick={() => {
+                                        // View Source link logic
+                                        let link = result.trial_outcome_link || (result.reference?.startsWith('http') ? result.reference : null);
+
+                                        // If no main link, check site_notes
+                                        if (!link) {
+                                          const notes = (result as any).site_notes || [];
+                                          const note = notes.find((n: any) => n.viewSource || n.sourceLink);
+                                          if (note) link = note.viewSource || note.sourceLink;
+                                        }
+
+                                        if (link) window.open(link, '_blank');
+                                      }}
+                                    >
+                                      View source
+                                    </Button>
+
+                                    {/* Attachment Button logic */}
+                                    {(() => {
+                                      let hasAttachment = !!result.trial_outcome_attachment;
+                                      if (!hasAttachment) {
+                                        const notes = (result as any).site_notes || [];
+                                        hasAttachment = notes.some((n: any) => n.attachments && n.attachments.length > 0);
+                                      }
+
+                                      if (!hasAttachment) return null;
+
+                                      return (
+                                        <Button
+                                          className="bg-[#204B73] hover:bg-[#1a3d5c] text-white text-sm px-5 h-10 flex items-center gap-2"
+                                          onClick={() => {
+                                            let url = "";
+                                            // 1. Try main attachment
+                                            const att = result.trial_outcome_attachment;
+                                            if (typeof att === 'string') url = att;
+                                            else if (att && typeof att === 'object') url = (att as any).url || (att as any).fileUrl;
+
+                                            // 2. Try site_notes attachment
+                                            if (!url) {
+                                              const notes = (result as any).site_notes || [];
+                                              const note = notes.find((n: any) => n.attachments && n.attachments.length > 0);
+                                              if (note) {
+                                                const nAtt = note.attachments[0];
+                                                if (typeof nAtt === 'string') url = nAtt;
+                                                else if (nAtt) url = nAtt.url || nAtt.fileUrl;
+                                              }
+                                            }
+
+                                            if (url) window.open(url, '_blank');
+                                          }}
+                                        >
+                                          Attachment <FileText size={16} />
+                                        </Button>
+                                      );
+                                    })()}
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        ))
+                          );
+                        })
                       ) : (
                         <div className="text-center py-8">
                           <p className="text-sm text-gray-600">
@@ -2883,131 +3163,183 @@ function ClinicalTrialsPage() {
                             currentTrial.sites.map((site, index) => {
                               let siteItems: any[] = [];
 
-                              // 1. Try JSON parsing first
-                              let isJson = false;
-                              try {
-                                if (site.notes && (site.notes.startsWith('{') || site.notes.startsWith('['))) {
-                                  const parsed = JSON.parse(site.notes);
-                                  const rawItems = Array.isArray(parsed) ? parsed : [parsed];
+                              // 0. Prioritize site_notes array if available (contains rich data with attachments)
+                              let richNotes = (site as any).site_notes;
 
-                                  // Map JSON properties to expected UI properties
-                                  siteItems = rawItems.map(item => ({
-                                    date: item.date,
-                                    registry_type: item.registryType || item.registry_type,  // Handle both property names
-                                    content: item.content,
-                                    view_source_url: item.viewSource || item.view_source_url,  // Handle both property names
-                                    attachments: item.attachments,  // Keep as array
-                                    principal_investigators: item.principal_investigators,
-                                    isVisible: item.isVisible
-                                  }));
-
-                                  isJson = true;
+                              // Parse site_notes if it's a JSON string
+                              if (richNotes && typeof richNotes === 'string') {
+                                try {
+                                  richNotes = JSON.parse(richNotes);
+                                  console.log('✅ Parsed site_notes from JSON string:', richNotes);
+                                } catch (e) {
+                                  console.warn('⚠️ Failed to parse site_notes JSON:', e);
+                                  richNotes = null;
                                 }
-                              } catch (e) {
-                                // Not JSON
                               }
 
-                              // 2. If not JSON, try parsing the custom text format "Site Info X..."
-                              if (!isJson && site.notes && /Site\s*Info/i.test(site.notes)) {
-                                const rawText = site.notes;
+                              if (richNotes && Array.isArray(richNotes) && richNotes.length > 0) {
+                                siteItems = richNotes.map((note: any) => ({
+                                  date: note.date,
+                                  registry_type: note.registryType,
+                                  content: note.content,
+                                  view_source_url: note.viewSource || note.sourceLink, // Check sourceLink too just in case
+                                  attachments: note.attachments,
+                                  principal_investigators: note.principal_investigators,
+                                  isVisible: note.isVisible !== false
+                                }));
+                                console.log('📋 Loaded site items from site_notes:', siteItems);
+                              }
 
-                                // Split by "Site Info N" pattern to get individual site blocks
-                                const siteBlocks = rawText.split(/(?=Site\s*Info\s*\d+)/i).filter(block => block.trim().length > 0);
+                              // If site_notes populated, skip legacy parsing
+                              if (siteItems.length === 0) {
+                                // 1. Try JSON parsing first
+                                let isJson = false;
+                                try {
+                                  if (site.notes && (site.notes.startsWith('{') || site.notes.startsWith('['))) {
+                                    const parsed = JSON.parse(site.notes);
+                                    const rawItems = Array.isArray(parsed) ? parsed : [parsed];
 
-                                siteBlocks.forEach(block => {
-                                  // Skip if this is not a Site Info block
-                                  if (!/Site\s*Info\s*\d+/i.test(block)) return;
+                                    // Map JSON properties to expected UI properties
+                                    siteItems = rawItems.map(item => ({
+                                      date: item.date,
+                                      registry_type: item.registryType || item.registry_type,  // Handle both property names
+                                      content: item.content,
+                                      view_source_url: item.viewSource || item.view_source_url,  // Handle both property names
+                                      attachments: item.attachments,  // Keep as array
+                                      principal_investigators: item.principal_investigators,
+                                      isVisible: item.isVisible
+                                    }));
 
-                                  const item: any = {};
-                                  const lines = block.split(/\r?\n/).map(l => l.trim());
+                                    isJson = true;
+                                  }
+                                } catch (e) {
+                                  // Not JSON
+                                }
 
-                                  // Parse line by line to extract key-value pairs
-                                  for (let i = 0; i < lines.length; i++) {
-                                    const line = lines[i];
-                                    const nextLine = lines[i + 1] || '';
+                                // 2. If not JSON, try parsing the custom text format "Site Info X..."
+                                if (!isJson && site.notes && /Site\s*Info/i.test(site.notes)) {
+                                  const rawText = site.notes;
 
-                                    // Extract Date
-                                    if (/^Date$/i.test(line)) {
-                                      // Date value is on next line
-                                      const dateValue = nextLine.match(/(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})/);
-                                      if (dateValue) item.date = dateValue[1];
-                                    } else if (line.match(/^Date[\s:]+(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})/i)) {
-                                      // Date value is on same line
-                                      const dateValue = line.match(/(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})/);
-                                      if (dateValue) item.date = dateValue[1];
-                                    }
+                                  // Split by "Site Info N" pattern to get individual site blocks
+                                  const siteBlocks = rawText.split(/(?=Site\s*Info\s*\d+)/i).filter(block => block.trim().length > 0);
 
-                                    // Extract Registry Type
-                                    if (/^Registry\s*Type$/i.test(line)) {
-                                      // Registry Type value is on next line
-                                      if (nextLine && !nextLine.match(/^(Content|Date|View|Attachments|Principal|Study)/i)) {
-                                        item.registry_type = nextLine;
+                                  siteBlocks.forEach(block => {
+                                    // Skip if this is not a Site Info block
+                                    if (!/Site\s*Info\s*\d+/i.test(block)) return;
+
+                                    const item: any = {};
+                                    const lines = block.split(/\r?\n/).map(l => l.trim());
+
+                                    // Parse line by line to extract key-value pairs
+                                    for (let i = 0; i < lines.length; i++) {
+                                      const line = lines[i];
+                                      const nextLine = lines[i + 1] || '';
+
+                                      // Extract Date
+                                      if (/^Date$/i.test(line)) {
+                                        // Date value is on next line
+                                        const dateValue = nextLine.match(/(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})/);
+                                        if (dateValue) item.date = dateValue[1];
+                                      } else if (line.match(/^Date[\s:]+(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})/i)) {
+                                        // Date value is on same line
+                                        const dateValue = line.match(/(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})/);
+                                        if (dateValue) item.date = dateValue[1];
                                       }
-                                    } else if (line.match(/^Registry\s*Type[\s:]+(.+)/i)) {
-                                      // Registry Type value is on same line
-                                      const match = line.match(/^Registry\s*Type[\s:]+(.+)/i);
-                                      if (match) item.registry_type = match[1].trim();
-                                    }
 
-                                    // Extract View Source URL
-                                    if (/^View\s*Source/i.test(line) || /^View\s*Source\s*\(URL\)/i.test(line)) {
-                                      // Look for URL on this line or next lines
-                                      for (let j = i; j < Math.min(i + 3, lines.length); j++) {
-                                        const urlLine = lines[j];
-                                        const urlMatch = urlLine.match(/(https?:\/\/[^\s"<>]+)/i);
-                                        if (urlMatch) {
-                                          item.view_source_url = urlMatch[1];
-                                          break;
+                                      // Extract Registry Type
+                                      if (/^Registry\s*Type$/i.test(line)) {
+                                        // Registry Type value is on next line
+                                        if (nextLine && !nextLine.match(/^(Content|Date|View|Attachments|Principal|Study)/i)) {
+                                          item.registry_type = nextLine;
+                                        }
+                                      } else if (line.match(/^Registry\s*Type[\s:]+(.+)/i)) {
+                                        // Registry Type value is on same line
+                                        const match = line.match(/^Registry\s*Type[\s:]+(.+)/i);
+                                        if (match) item.registry_type = match[1].trim();
+                                      }
+
+                                      // Extract View Source URL
+                                      if (/^View\s*Source/i.test(line) || /^View\s*Source\s*\(URL\)/i.test(line)) {
+                                        // Look for URL on this line or next lines
+                                        for (let j = i; j < Math.min(i + 3, lines.length); j++) {
+                                          const urlLine = lines[j];
+                                          const urlMatch = urlLine.match(/(https?:\/\/[^\s"<>]+)/i);
+                                          if (urlMatch) {
+                                            item.view_source_url = urlMatch[1];
+                                            // If we found it on a subsequent line, advance i to skip it? 
+                                            // Maybe not, to be safe.
+                                            break;
+                                          }
+                                        }
+                                      }
+
+                                      // Extract Attachments (Line-based)
+                                      if (/^Attachments/i.test(line)) {
+                                        // Check this line for value
+                                        const sameLineMatch = line.match(/^Attachments[:\s]+(.+)/i);
+                                        if (sameLineMatch) {
+                                          item.attachments = sameLineMatch[1].trim();
+                                        } else if (nextLine && !nextLine.match(/^(Content|Date|View|Principal|Study)/i)) {
+                                          // Check next line
+                                          item.attachments = nextLine.trim();
+                                        }
+                                      }
+
+                                      // Also check for standalone URLs (backup for View Source)
+                                      if (line.match(/^https?:\/\//i) && !item.view_source_url && !item.attachments) {
+                                        // If it looks like a document, prefer attachment
+                                        if (/\.(pdf|doc|docx|ppt|pptx|xls|xlsx|txt|csv)$/i.test(line)) {
+                                          item.attachments = line;
+                                        } else {
+                                          item.view_source_url = line;
                                         }
                                       }
                                     }
 
-                                    // Also check for standalone URLs (backup)
-                                    if (line.match(/^https?:\/\//i) && !item.view_source_url) {
-                                      item.view_source_url = line;
+                                    // Extract Attachments (Block fallback)
+                                    if (!item.attachments) {
+                                      // Supports URLs or filenames with extensions, allows optional colon
+                                      const attachMatch = block.match(/Attachments[:\s\r\n]+((?:https?:\/\/[^\s]+)|(?:[^\r\n]+\.[a-zA-Z0-9]{3,5}))/i);
+                                      if (attachMatch) {
+                                        item.attachments = attachMatch[1].trim();
+                                      }
                                     }
-                                  }
 
-                                  // Extract Attachments
-                                  const attachMatch = block.match(/Attachments[\s\r\n]+([^\r\n]+\.(?:pdf|doc|docx|pptx?|xlsx?))/i);
-                                  if (attachMatch) {
-                                    item.attachments = attachMatch[1].trim();
-                                  }
+                                    // Extract Content section
+                                    const contentMatch = block.match(/Content[\s\r\n]+([\s\S]*?)(?=Principal Investigator|View Source|Attachments|$)/i);
+                                    if (contentMatch) {
+                                      item.content = contentMatch[1].trim();
+                                    }
 
-                                  // Extract Content section
-                                  const contentMatch = block.match(/Content[\s\r\n]+([\s\S]*?)(?=Principal Investigator|View Source|Attachments|$)/i);
-                                  if (contentMatch) {
-                                    item.content = contentMatch[1].trim();
-                                  }
+                                    // Extract Principal Investigators
+                                    const piMatches = [...block.matchAll(/Principal Investigator[\s:]*([^\n]+)/gi)];
+                                    if (piMatches.length > 0) {
+                                      item.principal_investigators = piMatches.map(m => m[1].trim()).join('\n');
+                                    }
 
-                                  // Extract Principal Investigators
-                                  const piMatches = [...block.matchAll(/Principal Investigator[\s:]*([^\n]+)/gi)];
-                                  if (piMatches.length > 0) {
-                                    item.principal_investigators = piMatches.map(m => m[1].trim()).join('\n');
-                                  }
+                                    // Extract Study Chair
+                                    const chairMatch = block.match(/Study Chair[\s:]*([^\n]+)/i);
+                                    if (chairMatch && item.principal_investigators) {
+                                      item.principal_investigators += '\n' + chairMatch[1].trim();
+                                    }
 
-                                  // Extract Study Chair
-                                  const chairMatch = block.match(/Study Chair[\s:]*([^\n]+)/i);
-                                  if (chairMatch && item.principal_investigators) {
-                                    item.principal_investigators += '\n' + chairMatch[1].trim();
-                                  }
+                                    // Fallback content if nothing else extracted
+                                    if (!item.content && !item.principal_investigators) {
+                                      // Get everything after the header, removing known fields
+                                      let fallbackContent = block
+                                        .replace(/Site\s*Info\s*\d+/i, '')
+                                        .replace(/Date[\s\r\n]*\d{2}-\d{2}-\d{4}/i, '')
+                                        .replace(/Date[\s\r\n]*\d{4}-\d{2}-\d{2}/i, '')
+                                        .replace(/Registry\s*Type[\s\r\n]+[^\r\n]+/i, '')
+                                        .replace(/View\s*Source[\s\S]*?https?:\/\/[^\s]+/i, '')
+                                        .replace(/Attachments[\s\S]*/i, '')
+                                        .trim();
+                                      if (fallbackContent) item.content = fallbackContent;
+                                    }
 
-                                  // Fallback content if nothing else extracted
-                                  if (!item.content && !item.principal_investigators) {
-                                    // Get everything after the header, removing known fields
-                                    let fallbackContent = block
-                                      .replace(/Site\s*Info\s*\d+/i, '')
-                                      .replace(/Date[\s\r\n]*\d{2}-\d{2}-\d{4}/i, '')
-                                      .replace(/Date[\s\r\n]*\d{4}-\d{2}-\d{2}/i, '')
-                                      .replace(/Registry\s*Type[\s\r\n]+[^\r\n]+/i, '')
-                                      .replace(/View\s*Source[\s\S]*?https?:\/\/[^\s]+/i, '')
-                                      .replace(/Attachments[\s\S]*/i, '')
-                                      .trim();
-                                    if (fallbackContent) item.content = fallbackContent;
-                                  }
-
-                                  siteItems.push(item);
-                                });
+                                    siteItems.push(item);
+                                  });
+                                }
                               }
 
                               // 3. Fallback: Treat as single string object if neither (legacy)
@@ -3105,28 +3437,37 @@ function ClinicalTrialsPage() {
                                             </Button>
                                           )}
 
-                                          {/* Attachments button in collapsed state */}
-                                          {item.attachments && (Array.isArray(item.attachments) ? item.attachments.length > 0 : true) && (
-                                            <Button
-                                              size="sm"
-                                              className="h-8 px-4 text-sm font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                let url: string | undefined;
-                                                if (Array.isArray(item.attachments)) {
-                                                  url = item.attachments[0];
-                                                } else if (typeof item.attachments === 'string') {
-                                                  url = item.attachments;
-                                                } else if (item.attachments?.url) {
-                                                  url = item.attachments.url;
-                                                }
-                                                if (url) window.open(url, '_blank');
-                                              }}
-                                            >
-                                              Attachments
-                                              <FileText className="ml-2 h-3.5 w-3.5" />
-                                            </Button>
-                                          )}
+                                          {/* Attachments button in collapsed state - Robust Anchor */}
+                                          {(() => {
+                                            const raw = item.attachments;
+                                            let url = "";
+
+                                            if (typeof raw === 'string') url = raw;
+                                            else if (Array.isArray(raw) && raw.length > 0) {
+                                              const first = raw[0];
+                                              if (typeof first === 'string') url = first;
+                                              else if (typeof first === 'object' && first) url = first.url || first.fileUrl;
+                                            }
+                                            else if (typeof raw === 'object' && raw) {
+                                              url = raw.url || raw.fileUrl;
+                                            }
+
+                                            if (!url || typeof url !== 'string' || !url.startsWith('http')) return null;
+
+                                            return (
+                                              <a
+                                                href={url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center justify-center rounded-md text-sm font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90 h-8 px-4"
+                                                onClick={(e) => e.stopPropagation()}
+                                                title={url}
+                                              >
+                                                Attachments
+                                                <FileText className="ml-2 h-3.5 w-3.5" />
+                                              </a>
+                                            );
+                                          })()}
                                         </div>
                                       </div>
                                     )}
@@ -3167,28 +3508,41 @@ function ClinicalTrialsPage() {
                                             </Button>
                                           )}
 
-                                          {item.attachments && (Array.isArray(item.attachments) ? item.attachments.length > 0 : true) && (
-                                            <Button
-                                              size="sm"
-                                              className="h-8 px-4 text-sm font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90"
-                                              onClick={() => {
-                                                // Handle attachments array of URLs or single string
-                                                let url: string | undefined;
-                                                if (Array.isArray(item.attachments)) {
-                                                  // Array of URL strings
-                                                  url = item.attachments[0];
-                                                } else if (typeof item.attachments === 'string') {
-                                                  url = item.attachments;
-                                                } else if (item.attachments?.url) {
-                                                  url = item.attachments.url;
-                                                }
-                                                if (url) window.open(url, '_blank');
-                                              }}
-                                            >
-                                              Attachments
-                                              <FileText className="ml-2 h-3.5 w-3.5" />
-                                            </Button>
-                                          )}
+                                          {/* Robust Attachment Link */}
+                                          {(() => {
+                                            const raw = item.attachments;
+                                            let url = "";
+
+                                            // 1. String check
+                                            if (typeof raw === 'string') url = raw;
+                                            // 2. Array check
+                                            else if (Array.isArray(raw) && raw.length > 0) {
+                                              const first = raw[0];
+                                              if (typeof first === 'string') url = first;
+                                              else if (typeof first === 'object' && first) url = first.url || first.fileUrl;
+                                            }
+                                            // 3. Object check
+                                            else if (typeof raw === 'object' && raw) {
+                                              url = raw.url || raw.fileUrl;
+                                            }
+
+                                            // Only render if we have a valid HTTP URL
+                                            if (!url || typeof url !== 'string' || !url.startsWith('http')) return null;
+
+                                            return (
+                                              <a
+                                                href={url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center justify-center rounded-md text-sm font-medium text-white shadow-sm bg-[#204B73] hover:bg-[#204B73]/90 h-8 px-4"
+                                                onClick={(e) => e.stopPropagation()}
+                                                title={url} // Show URL on hover for debug
+                                              >
+                                                Attachments
+                                                <FileText className="ml-2 h-3.5 w-3.5" />
+                                              </a>
+                                            );
+                                          })()}
                                         </div>
                                       </div>
                                     )}
@@ -3595,6 +3949,7 @@ function ClinicalTrialsPage() {
                   </CardContent>
                 </Card>
               )}
+
             </div>
           </div>
         </div>
@@ -3863,6 +4218,35 @@ function ClinicalTrialsPage() {
                       ) : (
                         "Complete trial document with all sections"
                       )}
+                    </div>
+                  </div>
+                </div>
+              </Button>
+
+              <Button
+                onClick={exportAsCSV}
+                disabled={isExporting}
+                className="w-full justify-start h-16 text-left"
+                variant="outline"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <svg
+                      className="w-5 h-5 text-green-600"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="font-medium">Export as CSV</div>
+                    <div className="text-sm text-gray-500">
+                      Export trial data as a CSV file
                     </div>
                   </div>
                 </div>

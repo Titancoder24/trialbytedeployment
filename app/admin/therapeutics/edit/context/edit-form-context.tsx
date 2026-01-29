@@ -236,6 +236,7 @@ const clearTrialDrafts = (trialId: string) => {
     localStorage.removeItem(`trial_timing_${trialId}`);
     localStorage.removeItem(`trial_results_${trialId}`);
     localStorage.removeItem(`trial_other_sources_${trialId}`);
+    localStorage.removeItem(`trial_sites_${trialId}`);
     localStorage.removeItem(`trial_db_saved_${trialId}`);
     localStorage.removeItem(`trial_updated_${trialId}`);
 
@@ -764,6 +765,26 @@ function editFormReducer(state: EditTherapeuticFormData, action: EditFormAction)
         }
       }
 
+      // Save step5_6 (Sites) to localStorage immediately for persistence
+      if (action.step === "step5_6") {
+        try {
+          const trialId = currentEditingTrialId || getTrialIdFromURL();
+          if (trialId) {
+            const storageKey = `trial_sites_${trialId}`;
+            const sitesData = newState.step5_6;
+            localStorage.setItem(storageKey, JSON.stringify({
+              ...sitesData,
+              timestamp: new Date().toISOString(),
+            }));
+            console.log('💾 Saved Sites to localStorage:', storageKey, sitesData);
+          } else {
+            console.warn('Cannot save Sites to localStorage: No trialId found');
+          }
+        } catch (e) {
+          console.warn('Failed to save Sites to localStorage:', e);
+        }
+      }
+
       return newState;
     case "ADD_ARRAY_ITEM":
       newState = {
@@ -812,6 +833,20 @@ function editFormReducer(state: EditTherapeuticFormData, action: EditFormAction)
               timestamp: new Date().toISOString(),
             }));
             console.log('💾 Saved Timing array to localStorage (ADD)');
+          }
+        } catch (e) { }
+      }
+
+      // Save to localStorage for step5_6 (Sites)
+      if (action.step === "step5_6") {
+        try {
+          const trialId = currentEditingTrialId || getTrialIdFromURL();
+          if (trialId) {
+            localStorage.setItem(`trial_sites_${trialId}`, JSON.stringify({
+              ...newState.step5_6,
+              timestamp: new Date().toISOString(),
+            }));
+            console.log('💾 Saved Sites array to localStorage (ADD)');
           }
         } catch (e) { }
       }
@@ -2149,9 +2184,9 @@ export function EditTherapeuticFormProvider({ children, trialId }: { children: R
                   const trimmed = candidateUrl.trim();
                   // EdgeStore URLs typically contain 'edgestore' or are from the file upload service
                   // Regular web links should not be treated as file attachments
-                  return trimmed.includes('edgestore') || 
-                         trimmed.includes('/api/edgestore') ||
-                         trimmed.includes('file') && (trimmed.endsWith('.pdf') || trimmed.endsWith('.doc') || trimmed.endsWith('.docx') || trimmed.endsWith('.xls') || trimmed.endsWith('.xlsx') || trimmed.endsWith('.csv') || trimmed.endsWith('.png') || trimmed.endsWith('.jpg') || trimmed.endsWith('.jpeg'));
+                  return trimmed.includes('edgestore') ||
+                    trimmed.includes('/api/edgestore') ||
+                    trimmed.includes('file') && (trimmed.endsWith('.pdf') || trimmed.endsWith('.doc') || trimmed.endsWith('.docx') || trimmed.endsWith('.xls') || trimmed.endsWith('.xlsx') || trimmed.endsWith('.csv') || trimmed.endsWith('.png') || trimmed.endsWith('.jpg') || trimmed.endsWith('.jpeg'));
                 };
 
                 const considerFileUrl = (candidateUrl: string | undefined | null) => {
@@ -2242,7 +2277,7 @@ export function EditTherapeuticFormProvider({ children, trialId }: { children: R
                 if (urlValue && isFileUrl(String(urlValue))) {
                   considerUnknown(urlValue, false);
                 }
-                
+
                 // Process fileValue - this is definitely a file field
                 considerUnknown(fileValue, true);
 
@@ -3005,13 +3040,25 @@ export function EditTherapeuticFormProvider({ children, trialId }: { children: R
             }
 
             // Also update the sites data if we have a trial_id
-            const filteredReferences = formData.step5_6.references.filter((ref: any) => ref.isVisible && (ref.date || ref.content));
+            // FIXED: Include references with attachments, not just date/content
+            const filteredReferences = formData.step5_6.references.filter((ref: any) =>
+              ref.isVisible && (ref.date || ref.content || (ref.attachments && ref.attachments.length > 0))
+            );
             const sitesData = {
               total: formData.step5_6.total_sites ? parseInt(String(formData.step5_6.total_sites)) : 0,
               site_notes: filteredReferences.length > 0 ? JSON.stringify(filteredReferences) : null,
             };
 
             console.log('Updating sites with data:', sitesData);
+            console.log('Filtered references count:', filteredReferences.length);
+            filteredReferences.forEach((ref: any, idx: number) => {
+              console.log(`Reference ${idx}:`, {
+                hasDate: !!ref.date,
+                hasContent: !!ref.content,
+                hasAttachments: ref.attachments?.length > 0,
+                attachments: ref.attachments
+              });
+            });
 
             // Update sites section via API
             try {

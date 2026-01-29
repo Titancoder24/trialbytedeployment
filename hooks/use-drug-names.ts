@@ -11,6 +11,7 @@ export interface DrugNameOption {
 
 export const useDrugNames = () => {
   const [drugNames, setDrugNames] = useState<DrugNameOption[]>([]);
+  const [drugAliasesMap, setDrugAliasesMap] = useState<Record<string, string[]>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
 
@@ -25,9 +26,10 @@ export const useDrugNames = () => {
       const drugs = data.drugs || [];
       console.log('Total drugs from API:', drugs.length);
 
-      // Extract all unique drug names from drug_name, generic_name, and other_name
+      // Extract all unique drug names and map aliases
       const allDrugNames = new Set<string>();
       const drugNameMap = new Map<string, DrugNameOption>();
+      const aliasesMap: Record<string, string[]> = {};
 
       let drugsProcessed = 0;
       let namesExtracted = 0;
@@ -60,37 +62,29 @@ export const useDrugNames = () => {
         genericName = cleanName(genericName);
         otherName = cleanName(otherName);
 
-        // Add drug_name
-        if (drugName && !allDrugNames.has(drugName.toLowerCase())) {
-          allDrugNames.add(drugName.toLowerCase());
-          drugNameMap.set(drugName.toLowerCase(), {
-            value: drugName,
-            label: drugName,
-            source: 'drug_name'
-          });
-          namesExtracted++;
-        }
+        if (drugName) {
+          const lowerName = drugName.toLowerCase();
 
-        // Add generic_name
-        if (genericName && !allDrugNames.has(genericName.toLowerCase())) {
-          allDrugNames.add(genericName.toLowerCase());
-          drugNameMap.set(genericName.toLowerCase(), {
-            value: genericName,
-            label: genericName,
-            source: 'generic_name'
-          });
-          namesExtracted++;
-        }
+          // Collect aliases (generic and other names)
+          const currentAliases = aliasesMap[lowerName] || [];
+          if (genericName && !currentAliases.includes(genericName.toLowerCase()) && genericName.toLowerCase() !== lowerName) {
+            currentAliases.push(genericName.toLowerCase());
+          }
+          if (otherName && !currentAliases.includes(otherName.toLowerCase()) && otherName.toLowerCase() !== lowerName) {
+            currentAliases.push(otherName.toLowerCase());
+          }
+          aliasesMap[lowerName] = currentAliases;
 
-        // Add other_name
-        if (otherName && !allDrugNames.has(otherName.toLowerCase())) {
-          allDrugNames.add(otherName.toLowerCase());
-          drugNameMap.set(otherName.toLowerCase(), {
-            value: otherName,
-            label: otherName,
-            source: 'other_name'
-          });
-          namesExtracted++;
+          // Add drug_name
+          if (!allDrugNames.has(lowerName)) {
+            allDrugNames.add(lowerName);
+            drugNameMap.set(lowerName, {
+              value: drugName,
+              label: drugName,
+              source: 'drug_name'
+            });
+            namesExtracted++;
+          }
         }
       });
 
@@ -99,50 +93,38 @@ export const useDrugNames = () => {
       // Convert map to array (preserve original case from first occurrence)
       const uniqueDrugNames = Array.from(drugNameMap.values());
 
-      console.log('Unique drug names extracted:', uniqueDrugNames.length);
-      if (uniqueDrugNames.length > 0) {
-        console.log('Sample drug names:', uniqueDrugNames.slice(0, 5).map(d => d.value));
-      }
-
       setDrugNames(uniqueDrugNames);
+      setDrugAliasesMap(aliasesMap);
       setHasLoaded(true);
 
       // Also save to localStorage for offline access
       if (uniqueDrugNames.length > 0) {
         localStorage.setItem('drugNames', JSON.stringify(uniqueDrugNames));
-        console.log('Fetched and saved drug names from API:', uniqueDrugNames.length, 'unique names');
+        localStorage.setItem('drugAliasesMap', JSON.stringify(aliasesMap));
+        console.log('Fetched and saved drug names/aliases from API');
       } else {
-        console.warn('No drug names extracted from API response. Check if drugs have drug_name, generic_name, or other_name fields populated.');
-        // Still try localStorage as fallback
+        // Fallback load
         try {
-          const stored = localStorage.getItem('drugNames');
-          if (stored) {
-            const parsed = JSON.parse(stored);
-            setDrugNames(parsed);
-            console.log('Using cached drug names from localStorage:', parsed.length);
-          }
-        } catch (localError) {
-          console.error('Error loading from localStorage:', localError);
-        }
+          const storedNames = localStorage.getItem('drugNames');
+          const storedAliases = localStorage.getItem('drugAliasesMap');
+          if (storedNames) setDrugNames(JSON.parse(storedNames));
+          if (storedAliases) setDrugAliasesMap(JSON.parse(storedAliases));
+        } catch (e) { console.error(e); }
       }
     } catch (error: any) {
       console.error('Error fetching drug names from API:', error);
       setHasLoaded(true);
-      // Fallback to localStorage if API fails
+      // Fallback
       try {
-        const stored = localStorage.getItem('drugNames');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          setDrugNames(parsed);
-          console.log('Fell back to localStorage drug names:', parsed.length);
-        } else {
-          console.warn('No drugs available in API or localStorage. Please add drugs in the drug module first.');
-          // Set empty array to ensure component knows loading is complete
-          setDrugNames([]);
-        }
-      } catch (localError) {
-        console.error('Error loading from localStorage:', localError);
+        const storedNames = localStorage.getItem('drugNames');
+        const storedAliases = localStorage.getItem('drugAliasesMap');
+        if (storedNames) setDrugNames(JSON.parse(storedNames));
+        else setDrugNames([]);
+        if (storedAliases) setDrugAliasesMap(JSON.parse(storedAliases));
+        else setDrugAliasesMap({});
+      } catch (e) {
         setDrugNames([]);
+        setDrugAliasesMap({});
       }
     } finally {
       setIsLoading(false);
@@ -159,7 +141,6 @@ export const useDrugNames = () => {
     if (drugNames.length > 0) {
       try {
         localStorage.setItem('drugNames', JSON.stringify(drugNames));
-        console.log('Saved drug names to localStorage:', drugNames);
       } catch (error) {
         console.error('Error saving drug names to localStorage:', error);
       }
@@ -209,7 +190,9 @@ export const useDrugNames = () => {
 
   const clearAllDrugNames = useCallback(() => {
     setDrugNames([]);
+    setDrugAliasesMap({});
     localStorage.removeItem('drugNames');
+    localStorage.removeItem('drugAliasesMap');
     console.log('Cleared all drug names');
   }, []);
 
@@ -220,10 +203,13 @@ export const useDrugNames = () => {
   const refreshFromLocalStorage = useCallback(() => {
     try {
       const stored = localStorage.getItem('drugNames');
+      const storedAliases = localStorage.getItem('drugAliasesMap');
       if (stored) {
         const parsed = JSON.parse(stored);
         setDrugNames(parsed);
-        console.log('Refreshed drug names from localStorage:', parsed);
+      }
+      if (storedAliases) {
+        setDrugAliasesMap(JSON.parse(storedAliases));
       }
     } catch (error) {
       console.error('Error refreshing drug names from localStorage:', error);
@@ -236,6 +222,7 @@ export const useDrugNames = () => {
 
   return {
     drugNames,
+    drugAliasesMap,
     isLoading,
     hasLoaded,
     addDrugName,

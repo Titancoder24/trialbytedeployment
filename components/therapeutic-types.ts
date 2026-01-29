@@ -20,6 +20,8 @@ export interface TherapeuticFilterState {
     trialTags: string[]
     regions: string[]
     trialRecordStatus: string[]
+    // Allow dynamic access for other fields used in filter mapping
+    [key: string]: string[]
 }
 
 // Default empty filter state

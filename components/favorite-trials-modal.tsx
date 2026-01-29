@@ -7,11 +7,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import jsPDF from "jspdf"
+import autoTable from "jspdf-autotable"
 
 // Types for favorite trials
 interface FavoriteTrial {
@@ -80,7 +88,7 @@ export function FavoriteTrialsModal({
     }
   };
 
-  const handleExportSelected = () => {
+  const handleExportSelectedCSV = () => {
     // Get selected trials data
     const trialsToExport = favoriteTrials.filter(trial => selectedTrials.includes(trial.id));
 
@@ -90,11 +98,11 @@ export function FavoriteTrialsModal({
       headers.join(","),
       ...trialsToExport.map(trial => [
         trial.trialId,
-        trial.therapeuticArea,
-        trial.diseaseType,
-        trial.primaryDrug || 'N/A',
+        `"${trial.therapeuticArea}"`,
+        `"${trial.diseaseType}"`,
+        `"${trial.primaryDrug || 'N/A'}"`,
         trial.status,
-        trial.sponsor,
+        `"${trial.sponsor}"`,
         trial.phase
       ].join(","))
     ].join("\n");
@@ -104,11 +112,45 @@ export function FavoriteTrialsModal({
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", "favorite_trials_export.csv");
+    link.setAttribute("download", `favorite_trials_export_${new Date().toISOString().split('T')[0]}.csv`);
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleExportSelectedPDF = () => {
+    // Get selected trials data
+    const trialsToExport = favoriteTrials.filter(trial => selectedTrials.includes(trial.id));
+    const doc = new jsPDF();
+
+    // Define columns
+    const columns = [
+      { header: "Trial ID", dataKey: "trialId" },
+      { header: "Therapeutic Area", dataKey: "therapeuticArea" },
+      { header: "Primary Drug", dataKey: "primaryDrug" },
+      { header: "Status", dataKey: "status" },
+      { header: "Phase", dataKey: "phase" }
+    ];
+
+    // Generate table
+    autoTable(doc, {
+      head: [columns.map(col => col.header)],
+      body: trialsToExport.map(row => columns.map(col => row[col.dataKey as keyof typeof row])),
+      startY: 20,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [32, 75, 115] }, // Matches #204B73
+      didDrawPage: (data) => {
+        // Add header
+        doc.setFontSize(16);
+        doc.text("Favorite Trials Report", 14, 15);
+        doc.setFontSize(10);
+        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 10);
+      }
+    });
+
+    // Save PDF
+    doc.save(`favorite_trials_report_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   return (
@@ -220,21 +262,32 @@ export function FavoriteTrialsModal({
             Open
           </Button>
 
-          <Button
-            onClick={handleExportSelected}
-            disabled={selectedTrials.length === 0}
-            className="px-6 py-2 rounded-lg text-white hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
-            style={{ backgroundColor: "#204B73", fontFamily: "Poppins, sans-serif" }}
-          >
-            <Image
-              src="/pngs/exporticon.png"
-              alt="Export"
-              width={16}
-              height={16}
-              style={{ filter: "brightness(0) invert(1)" }}
-            />
-            Export
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                disabled={selectedTrials.length === 0}
+                className="px-6 py-2 rounded-lg text-white hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+                style={{ backgroundColor: "#204B73", fontFamily: "Poppins, sans-serif" }}
+              >
+                <Image
+                  src="/pngs/exporticon.png"
+                  alt="Export"
+                  width={16}
+                  height={16}
+                  style={{ filter: "brightness(0) invert(1)" }}
+                />
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[160px]">
+              <DropdownMenuItem onClick={handleExportSelectedCSV} className="cursor-pointer">
+                Export to CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportSelectedPDF} className="cursor-pointer">
+                Export to PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </DialogContent>
     </Dialog>

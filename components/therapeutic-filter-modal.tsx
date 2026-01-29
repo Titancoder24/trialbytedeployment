@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
 import { SaveQueryModal } from "@/components/save-query-modal"
 import { useDrugNames } from "@/hooks/use-drug-names"
 import { useMultipleDynamicDropdowns } from "@/hooks/use-dynamic-dropdown"
@@ -239,15 +240,10 @@ const DROPDOWN_OPTIONS: Record<keyof TherapeuticFilterState, SearchableSelectOpt
     { value: "no_information", label: "No Information" },
   ],
 
-  // Trial Record Status Options
   trialRecordStatus: [
     { value: "development_in_progress", label: "Development In Progress (DIP)" },
     { value: "in_production", label: "In Production (IP)" },
     { value: "update_in_progress", label: "Update In Progress (UIP)" },
-    { value: "active", label: "Active" },
-    { value: "completed", label: "Completed" },
-    { value: "terminated", label: "Terminated" },
-    { value: "suspended", label: "Suspended" },
   ],
 
   // Other Drugs Options (same as primary drugs)
@@ -1017,8 +1013,13 @@ export function TherapeuticFilterModal({ open, onOpenChange, onApplyFilters, cur
     associatedCro: [],
     trialTags: [],
     regions: [],
-    trialRecordStatus: []
+    trialRecordStatus: [],
+    sex: [],
+    healthyVolunteers: [],
+    trialOutcome: [],
+    studyDesignKeywords: []
   })
+  const [itemSearchTerm, setItemSearchTerm] = useState("")
 
   // Use the drug names hook to get drug options from API
   const { drugNames, isLoading: drugsLoading, refreshFromAPI } = useDrugNames()
@@ -1099,7 +1100,7 @@ export function TherapeuticFilterModal({ open, onOpenChange, onApplyFilters, cur
 
     // Helper function to get fallback options from DROPDOWN_OPTIONS for a category
     const getFallbackOptions = (category: keyof TherapeuticFilterState): string[] => {
-      // For drug fields, use API data
+      // For drug fields, use API data ONLY - do not merge with trial data to prevent duplicates
       if (category === 'primaryDrugs' || category === 'otherDrugs') {
         return getDrugOptions()
       }
@@ -1119,9 +1120,18 @@ export function TherapeuticFilterModal({ open, onOpenChange, onApplyFilters, cur
     // Helper function to merge trial data with fallback options
     const mergeWithFallback = (trialValues: string[], category: keyof TherapeuticFilterState): string[] => {
       const fallbackValues = getFallbackOptions(category)
+
+      // For drug fields, DO NOT merge trial values. Use only the official API list.
+      // This prevents "dirty" data from trials (e.g. typos, legacy names) from appearing in the filter.
+      if (category === 'primaryDrugs' || category === 'otherDrugs') {
+        return fallbackValues;
+      }
+
       if (trialValues.length > 0) {
         // Merge trial values with fallback, removing duplicates
-        const merged = [...new Set([...trialValues, ...fallbackValues])]
+        // Normalize trial values to match fallback format (Title Case/Display Value)
+        const normalizedTrialValues = trialValues.map(v => formatDisplayValue(v));
+        const merged = [...new Set([...normalizedTrialValues, ...fallbackValues])]
         return merged.sort()
       }
       return fallbackValues
@@ -1144,6 +1154,10 @@ export function TherapeuticFilterModal({ open, onOpenChange, onApplyFilters, cur
         trialTags: mergeWithFallback(getUniqueValues(trials, 'trial_tags'), 'trialTags'),
         regions: mergeWithFallback(getUniqueValues(trials, 'region'), 'regions'),
         trialRecordStatus: mergeWithFallback(getUniqueValues(trials, 'trial_record_status'), 'trialRecordStatus'),
+        sex: mergeWithFallback(getUniqueValues(trials, 'sex'), 'sex'),
+        healthyVolunteers: mergeWithFallback(getUniqueValues(trials, 'healthy_volunteers'), 'healthyVolunteers'),
+        trialOutcome: mergeWithFallback(getUniqueValues(trials, 'trial_outcome'), 'trialOutcome'),
+        studyDesignKeywords: mergeWithFallback(getUniqueValues(trials, 'study_design_keywords'), 'studyDesignKeywords'),
       }
 
       console.log('TherapeuticFilterModal: Updated filter categories with merged data')
@@ -1215,13 +1229,14 @@ export function TherapeuticFilterModal({ open, onOpenChange, onApplyFilters, cur
     regions: "Regions",
     studyDesignKeywords: "Study Design Keywords",
     trialOutcome: "Trial Outcome",
-    registryName: "Registry Name",
-    gender: "Gender",
-    studySites: "Study Sites",
-    siteStatus: "Site Status",
-    siteCountries: "Site Countries",
-    siteRegions: "Site Regions",
-    trialResults: "Trial Results",
+    // Hidden fields (empty labels to hide from sidebar)
+    registryName: "",
+    gender: "",
+    studySites: "",
+    siteStatus: "",
+    siteCountries: "",
+    siteRegions: "",
+    trialResults: "",
     // Hidden fields (empty labels)
     ageMin: "",
     ageMax: "",
@@ -1294,7 +1309,10 @@ export function TherapeuticFilterModal({ open, onOpenChange, onApplyFilters, cur
                   return (
                     <button
                       key={category}
-                      onClick={() => setActiveCategory(category)}
+                      onClick={() => {
+                        setActiveCategory(category)
+                        setItemSearchTerm("") // Clear search when changing category
+                      }}
                       className={`w-full text-left px-3 py-2 rounded text-sm flex items-center justify-between ${activeCategory === category ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100"
                         }`}
                     >
@@ -1331,23 +1349,34 @@ export function TherapeuticFilterModal({ open, onOpenChange, onApplyFilters, cur
                 </Button>
               </div>
 
+              <div className="mb-3">
+                <Input
+                  placeholder={`Search ${categoryLabels[activeCategory]}...`}
+                  value={itemSearchTerm}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setItemSearchTerm(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+
               <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
-                {(filterCategories[activeCategory] || []).map((item) => (
-                  <div key={item} className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded">
-                    <Checkbox
-                      id={`${activeCategory}-${item}`}
-                      checked={(filters[activeCategory] || []).includes(item)}
-                      onCheckedChange={() => handleItemToggle(activeCategory, item)}
-                      className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-                    />
-                    <label
-                      htmlFor={`${activeCategory}-${item}`}
-                      className="text-sm text-gray-700 flex-1 cursor-pointer"
-                    >
-                      {formatDisplayValue(item)}
-                    </label>
-                  </div>
-                ))}
+                {(filterCategories[activeCategory] || [])
+                  .filter(item => item.toLowerCase().includes(itemSearchTerm.toLowerCase()))
+                  .map((item) => (
+                    <div key={item} className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded">
+                      <Checkbox
+                        id={`${activeCategory}-${item}`}
+                        checked={(filters[activeCategory] || []).includes(item)}
+                        onCheckedChange={() => handleItemToggle(activeCategory, item)}
+                        className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                      />
+                      <label
+                        htmlFor={`${activeCategory}-${item}`}
+                        className="text-sm text-gray-700 flex-1 cursor-pointer"
+                      >
+                        {formatDisplayValue(item)}
+                      </label>
+                    </div>
+                  ))}
                 {(filterCategories[activeCategory]?.length || 0) === 0 && (
                   <div className="text-center text-gray-500 text-sm py-8">
                     No options available

@@ -34,6 +34,11 @@ export interface ClinicalTrialFilterState {
   sponsorFieldActivity: string[]
   associatedCro: string[]
   trialTags: string[]
+  trialRecordStatus: string[]
+  sex: string[]
+  healthyVolunteers: string[]
+  trialOutcome: string[]
+  studyDesignKeywords: string[]
 }
 
 // Static filter options that match the add trial form
@@ -82,6 +87,22 @@ const staticFilterCategories = {
     "IO/IO Combination", "IO/Other Combination", "IO/Radiotherapy Combination", "IO/Targeted Combination",
     "Microdosing", "PGX-Biomarker Identification/Evaluation", "PGX-Pathogen",
     "PGX-Patient Preselection/Stratification", "Post-Marketing Commitment", "Registration"
+  ],
+  trialRecordStatus: ["Development In Progress (DIP)", "In Production (IP)", "Update In Progress (UIP)"],
+  sex: ["Male", "Female", "Both", "Unknown"],
+  healthyVolunteers: ["Yes", "No", "No Information"],
+  trialOutcome: [
+    "Completed – Primary endpoints met.", "Completed – Primary endpoints not met.", "Completed – Outcome unknown",
+    "Completed – Outcome indeterminate", "Terminated – Safety/adverse effects", "Terminated – Lack of efficacy",
+    "Terminated – Insufficient enrolment", "Terminated – Business Decision, Drug strategy shift",
+    "Terminated - Business Decision, Pipeline Reprioritization", "Terminated - Business Decision, Other",
+    "Terminated – Lack of funding", "Terminated – Planned but never initiated", "Terminated – Other", "Terminated – Unknown"
+  ],
+  studyDesignKeywords: [
+    "Placebo-control", "Active control", "Randomized", "Non-Randomized", "Multiple-Blinded",
+    "Single-Blinded", "Open", "Multi-centre", "Safety", "Efficacy", "Tolerability",
+    "Pharmacokinetics", "Pharmacodynamics", "Interventional", "Treatment",
+    "Parallel Assignment", "Single group assignment", "Prospective", "Cohort"
   ]
 }
 
@@ -97,6 +118,7 @@ export function ClinicalTrialFilterModal({
   const [filters, setFilters] = useState<ClinicalTrialFilterState>(currentFilters)
   const [activeCategory, setActiveCategory] = useState<keyof ClinicalTrialFilterState>("trialPhases")
   const [saveQueryModalOpen, setSaveQueryModalOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
   const { getPrimaryDrugsOptions, isLoading: isDrugsLoading } = useDrugNames()
 
   // Build filter categories with dynamic drug data from API
@@ -115,6 +137,7 @@ export function ClinicalTrialFilterModal({
   useEffect(() => {
     if (open) {
       setFilters(currentFilters)
+      setSearchTerm("")
     }
   }, [open, currentFilters])
 
@@ -171,7 +194,12 @@ export function ClinicalTrialFilterModal({
     sponsorsCollaborators: "Sponsors & Collaborators",
     sponsorFieldActivity: "Sponsor Field of Activity",
     associatedCro: "Associated CRO",
-    trialTags: "Trial Tags"
+    trialTags: "Trial Tags",
+    trialRecordStatus: "Trial Record Status",
+    sex: "Sex",
+    healthyVolunteers: "Healthy Volunteers",
+    trialOutcome: "Trial Outcome",
+    studyDesignKeywords: "Study Design Keywords"
   }
 
   // Order of categories as shown in the image
@@ -188,8 +216,17 @@ export function ClinicalTrialFilterModal({
     "sponsorsCollaborators",
     "sponsorFieldActivity",
     "associatedCro",
-    "trialTags"
+    "trialTags",
+    "trialRecordStatus",
+    "sex",
+    "healthyVolunteers",
+    "trialOutcome",
+    "studyDesignKeywords"
   ]
+
+  const filteredItems = filterCategories[activeCategory].filter(item =>
+    item.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <>
@@ -236,7 +273,10 @@ export function ClinicalTrialFilterModal({
                   return (
                     <button
                       key={category}
-                      onClick={() => setActiveCategory(category)}
+                      onClick={() => {
+                        setActiveCategory(category);
+                        setSearchTerm("");
+                      }}
                       className={`w-full text-left px-3 py-1.5 transition-colors rounded-md flex items-center justify-between ${isActive
                         ? "bg-[#204B73] text-white font-medium"
                         : hasSelection
@@ -264,6 +304,16 @@ export function ClinicalTrialFilterModal({
 
             {/* Right content area */}
             <div className="flex-1 p-6 overflow-y-auto">
+              <div className="flex items-center gap-3 mb-4">
+                <input
+                  type="text"
+                  placeholder={`Search ${categoryLabels[activeCategory]}...`}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#204B73]"
+                />
+              </div>
+
               {/* Select All/Deselect All Header */}
               <div
                 className="flex items-center gap-3 p-3 rounded-lg mb-4"
@@ -285,8 +335,8 @@ export function ClinicalTrialFilterModal({
               </div>
 
               {/* Filter Options */}
-              <div className="space-y-3 max-h-[262px] overflow-y-auto">
-                {filterCategories[activeCategory].map((item) => (
+              <div className="space-y-3 max-h-[220px] overflow-y-auto">
+                {filteredItems.map((item) => (
                   <div key={item} className="flex items-center gap-3">
                     <Checkbox
                       id={`${activeCategory}-${item}`}

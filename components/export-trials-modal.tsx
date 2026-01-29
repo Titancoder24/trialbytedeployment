@@ -7,6 +7,12 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
@@ -76,13 +82,46 @@ export function ExportTrialsModal({
         }
     };
 
-    const handleExport = () => {
+    const handleExportCSV = () => {
+        // Get selected trials data
+        const trialsToExport = trials.filter(trial => selectedTrials.includes(trial.id));
+
+        // Create CSV content
+        const headers = ["Trial ID", "Therapeutic Area", "Disease Type", "Primary Drug", "Status", "Sponsor", "Phase"];
+        const csvContent = [
+            headers.join(","),
+            ...trialsToExport.map(trial => [
+                trial.trialId,
+                `"${trial.therapeuticArea}"`,
+                `"${trial.diseaseType}"`,
+                `"${trial.primaryDrug || 'N/A'}"`,
+                trial.status,
+                `"${trial.sponsor}"`,
+                trial.phase
+            ].join(","))
+        ].join("\n");
+
+        // Download CSV
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `selected_trials_export_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = "hidden";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleExportPDF = () => {
         // Get selected trials data
         const trialsToExport = trials.filter(trial => selectedTrials.includes(trial.id));
 
         // Import jsPDF dynamically and create PDF
         import('jspdf').then(({ default: jsPDF }) => {
             const doc = new jsPDF();
+            // ... (rest of PDF logic is same, using doc)
+            // Reusing existing logic but wrapping in handleExportPDF
 
             // Set title
             doc.setFontSize(18);
@@ -168,7 +207,7 @@ export function ExportTrialsModal({
             }
 
             // Download PDF
-            doc.save("clinical_trials_export.pdf");
+            doc.save(`clinical_trials_export_${new Date().toISOString().split('T')[0]}.pdf`);
         });
 
         onOpenChange(false);
@@ -277,21 +316,32 @@ export function ExportTrialsModal({
 
                 {/* Footer Button */}
                 <div className="flex justify-end items-center gap-3 px-6 py-4 border-t">
-                    <Button
-                        onClick={handleExport}
-                        disabled={selectedTrials.length === 0}
-                        className="px-6 py-2 rounded-lg text-white hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
-                        style={{ backgroundColor: "#204B73", fontFamily: "Poppins, sans-serif" }}
-                    >
-                        <Image
-                            src="/pngs/exporticon.png"
-                            alt="Export"
-                            width={16}
-                            height={16}
-                            style={{ filter: "brightness(0) invert(1)" }}
-                        />
-                        Export
-                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                disabled={selectedTrials.length === 0}
+                                className="px-6 py-2 rounded-lg text-white hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+                                style={{ backgroundColor: "#204B73", fontFamily: "Poppins, sans-serif" }}
+                            >
+                                <Image
+                                    src="/pngs/exporticon.png"
+                                    alt="Export"
+                                    width={16}
+                                    height={16}
+                                    style={{ filter: "brightness(0) invert(1)" }}
+                                />
+                                Export
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-[160px]">
+                            <DropdownMenuItem onClick={handleExportCSV} className="cursor-pointer">
+                                Export to CSV
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleExportPDF} className="cursor-pointer">
+                                Export to PDF
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </DialogContent>
         </Dialog>

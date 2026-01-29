@@ -1038,6 +1038,10 @@ export default function AdminTherapeuticsPage() {
       // Timing fields
       case "startDateEstimated": return trial.timing?.[0]?.start_date_estimated || "";
       case "trialEndDateEstimated": return trial.timing?.[0]?.trial_end_date_estimated || "";
+      case "actualStartDate": return trial.timing?.[0]?.start_date_actual || "";
+      case "actualEnrollmentClosedDate": return trial.timing?.[0]?.actual_enrollment_closed_date || "";
+      case "actualTrialCompletionDate": return trial.timing?.[0]?.actual_trial_completion_date || "";
+      case "actualPublishedDate": return trial.timing?.[0]?.actual_published_date || "";
       case "estimatedEnrollmentClosedDate": return ""; // TODO: Add field when available
       case "estimatedResultPublishedDate": return ""; // TODO: Add field when available
 
@@ -1050,7 +1054,7 @@ export default function AdminTherapeuticsPage() {
       case "totalSites": return parseInt(String(trial.sites?.[0]?.total || "0")) || 0;
 
       // Admin-only fields
-      case "referenceLinks": return trial.overview?.reference_links?.join(", ") || "";
+      case "referenceLinks": return Array.isArray(trial.overview?.reference_links) ? trial.overview.reference_links.join(", ") : "";
       case "nextReviewDate": return trial.logs?.[0]?.next_review_date || "";
       case "lastModifiedDate": return trial.logs?.[0]?.last_modified_date || "";
 
@@ -1098,158 +1102,80 @@ export default function AdminTherapeuticsPage() {
       // Get the field value from the trial data
       switch (field) {
         // Overview fields
-        case "title":
-          fieldValue = trial.overview.title || "";
-          break;
-        case "therapeutic_area":
-          fieldValue = trial.overview.therapeutic_area || "";
-          break;
-        case "trial_identifier":
-          fieldValue = trial.overview.trial_identifier?.join(", ") || "";
-          break;
-        case "trial_phase":
-          fieldValue = trial.overview.trial_phase || "";
-          break;
-        case "status":
-          fieldValue = trial.overview.status || "";
-          break;
-        case "primary_drugs":
-          // For drug searches, we need to check if the search value matches any related drug names
-          const primaryDrugValue = trial.overview.primary_drugs || "";
-          fieldValue = primaryDrugValue;
-          break;
-        case "other_drugs":
-          // For drug searches, we need to check if the search value matches any related drug names
-          const otherDrugValue = trial.overview.other_drugs || "";
-          fieldValue = otherDrugValue;
-          break;
-        case "disease_type":
-          fieldValue = trial.overview.disease_type || "";
-          break;
-        case "patient_segment":
-          fieldValue = trial.overview.patient_segment || "";
-          break;
-        case "line_of_therapy":
-          fieldValue = trial.overview.line_of_therapy || "";
-          break;
+        case "title": fieldValue = trial.overview.title || ""; break;
+        case "therapeutic_area": fieldValue = trial.overview.therapeutic_area || ""; break;
+        case "trial_identifier": fieldValue = trial.overview.trial_identifier?.join(", ") || ""; break;
+        case "trial_id": fieldValue = trial.overview.trial_id || trial.trial_id || ""; break; // Added
+        case "trial_phase": fieldValue = trial.overview.trial_phase || ""; break;
+        case "status": fieldValue = trial.overview.status || ""; break;
+        case "primary_drugs": fieldValue = trial.overview.primary_drugs || ""; break;
+        case "other_drugs": fieldValue = trial.overview.other_drugs || ""; break; // Admin uses "other_drugs"
+        case "disease_type": fieldValue = trial.overview.disease_type || ""; break;
+        case "patient_segment": fieldValue = trial.overview.patient_segment || ""; break;
+        case "line_of_therapy": fieldValue = trial.overview.line_of_therapy || ""; break;
+        case "sponsor_collaborators": fieldValue = trial.overview.sponsor_collaborators || ""; break;
+        case "sponsor_field_activity": fieldValue = trial.overview.sponsor_field_activity || ""; break;
+        case "associated_cro": fieldValue = trial.overview.associated_cro || ""; break;
+        case "countries": fieldValue = trial.overview.countries || ""; break;
+        case "region": fieldValue = trial.overview.region || ""; break;
+        case "trial_record_status": fieldValue = trial.overview.trial_record_status || ""; break;
+        case "created_at": fieldValue = trial.overview.created_at || ""; break;
+        case "updated_at": fieldValue = trial.overview.updated_at || ""; break;
+        case "reference_links": fieldValue = trial.overview.reference_links?.join(" ") || ""; break;
+
         case "trial_tags":
           // Search in both trial_tags and disease_type since the UI shows disease_type as tags
           const trialTags = trial.overview.trial_tags || "";
           const diseaseType = trial.overview.disease_type || "";
           fieldValue = `${trialTags} ${diseaseType}`.trim();
           break;
-        case "sponsor_collaborators":
-          fieldValue = trial.overview.sponsor_collaborators || "";
-          break;
-        case "sponsor_field_activity":
-          fieldValue = trial.overview.sponsor_field_activity || "";
-          break;
-        case "associated_cro":
-          fieldValue = trial.overview.associated_cro || "";
-          break;
-        case "countries":
-          fieldValue = trial.overview.countries || "";
-          break;
-        case "region":
-          fieldValue = trial.overview.region || "";
-          break;
-        case "trial_record_status":
-          fieldValue = trial.overview.trial_record_status || "";
-          break;
-        case "created_at":
-          fieldValue = trial.overview.created_at || "";
-          break;
-        case "updated_at":
-          fieldValue = trial.overview.updated_at || "";
-          break;
 
         // Outcomes fields
-        case "purpose_of_trial":
-          fieldValue = trial.outcomes.length > 0 ? (trial.outcomes[0].purpose_of_trial || "") : "";
-          break;
-        case "summary":
-          fieldValue = trial.outcomes.length > 0 ? (trial.outcomes[0].summary || "") : "";
-          break;
-        case "primary_outcome_measure":
-          fieldValue = trial.outcomes.length > 0 ? (trial.outcomes[0].primary_outcome_measure || "") : "";
-          break;
-        case "other_outcome_measure":
-          fieldValue = trial.outcomes.length > 0 ? (trial.outcomes[0].other_outcome_measure || "") : "";
-          break;
-        case "study_design_keywords":
-          fieldValue = trial.outcomes.length > 0 ? (trial.outcomes[0].study_design_keywords || "") : "";
-          break;
-        case "study_design":
-          fieldValue = trial.outcomes.length > 0 ? (trial.outcomes[0].study_design || "") : "";
-          break;
-        case "treatment_regimen":
-          fieldValue = trial.outcomes.length > 0 ? (trial.outcomes[0].treatment_regimen || "") : "";
-          break;
-        case "number_of_arms":
-          fieldValue = trial.outcomes.length > 0 ? (trial.outcomes[0].number_of_arms?.toString() || "") : "";
-          break;
+        case "purpose_of_trial": fieldValue = trial.outcomes[0]?.purpose_of_trial || ""; break;
+        case "summary": fieldValue = trial.outcomes[0]?.summary || ""; break;
+        case "primary_outcome_measure": fieldValue = trial.outcomes[0]?.primary_outcome_measure || ""; break;
+        case "other_outcome_measure": fieldValue = trial.outcomes[0]?.other_outcome_measure || ""; break;
+        case "study_design_keywords": fieldValue = trial.outcomes[0]?.study_design_keywords || ""; break;
+        case "study_design": fieldValue = trial.outcomes[0]?.study_design || ""; break;
+        case "treatment_regimen": fieldValue = trial.outcomes[0]?.treatment_regimen || ""; break;
+        case "number_of_arms": fieldValue = trial.outcomes[0]?.number_of_arms?.toString() || ""; break;
 
         // Criteria fields
-        case "inclusion_criteria":
-          fieldValue = trial.criteria.length > 0 ? (trial.criteria[0].inclusion_criteria || "") : "";
-          break;
-        case "exclusion_criteria":
-          fieldValue = trial.criteria.length > 0 ? (trial.criteria[0].exclusion_criteria || "") : "";
-          break;
-        case "age_from":
-          fieldValue = trial.criteria.length > 0 ? (trial.criteria[0].age_from || "") : "";
-          break;
-        case "age_to":
-          fieldValue = trial.criteria.length > 0 ? (trial.criteria[0].age_to || "") : "";
-          break;
-        case "subject_type":
-          fieldValue = trial.criteria.length > 0 ? (trial.criteria[0].subject_type || "") : "";
-          break;
-        case "sex":
-          fieldValue = trial.criteria.length > 0 ? (trial.criteria[0].sex || "") : "";
-          break;
-        case "healthy_volunteers":
-          fieldValue = trial.criteria.length > 0 ? (trial.criteria[0].healthy_volunteers || "") : "";
-          break;
+        case "inclusion_criteria": fieldValue = trial.criteria[0]?.inclusion_criteria || ""; break;
+        case "exclusion_criteria": fieldValue = trial.criteria[0]?.exclusion_criteria || ""; break;
+        case "age_from": fieldValue = trial.criteria[0]?.age_from || ""; break;
+        case "age_to": fieldValue = trial.criteria[0]?.age_to || ""; break;
+        case "subject_type": fieldValue = trial.criteria[0]?.subject_type || ""; break;
+        case "sex": fieldValue = trial.criteria[0]?.sex || ""; break; // Sex
+        case "healthy_volunteers": fieldValue = trial.criteria[0]?.healthy_volunteers || ""; break;
         case "target_no_volunteers":
-          fieldValue = trial.criteria.length > 0 ? (trial.criteria[0].target_no_volunteers?.toString() || "") : "";
-          break;
-        case "actual_enrolled_volunteers":
-          fieldValue = trial.criteria.length > 0 ? (trial.criteria[0].actual_enrolled_volunteers?.toString() || "") : "";
-          break;
+        case "target_enrolled_volunteers": fieldValue = trial.criteria[0]?.target_no_volunteers?.toString() || ""; break;
+        case "actual_enrolled_volunteers": fieldValue = trial.criteria[0]?.actual_enrolled_volunteers?.toString() || ""; break;
 
         // Timing fields
         case "start_date_estimated":
-          fieldValue = trial.timing.length > 0 ? (trial.timing[0].start_date_estimated || "") : "";
-          break;
+        case "estimated_start_date": fieldValue = trial.timing[0]?.start_date_estimated || ""; break;
+        case "actual_start_date": fieldValue = trial.timing[0]?.start_date_actual || ""; break; // Added
         case "trial_end_date_estimated":
-          fieldValue = trial.timing.length > 0 ? (trial.timing[0].trial_end_date_estimated || "") : "";
-          break;
+        case "estimated_trial_end_date": fieldValue = trial.timing[0]?.trial_end_date_estimated || ""; break;
+        case "actual_trial_end_date": fieldValue = trial.timing[0]?.actual_trial_completion_date || ""; break; // Added
+        case "actual_enrollment_closed_date": fieldValue = trial.timing[0]?.actual_enrollment_closed_date || ""; break; // Added
+        case "actual_result_published_date": fieldValue = trial.timing[0]?.actual_published_date || ""; break; // Added
 
         // Results fields
-        case "trial_outcome":
-          fieldValue = trial.results.length > 0 ? (trial.results[0].trial_outcome || "") : "";
-          break;
-        case "trial_results":
-          fieldValue = trial.results.length > 0 ? (trial.results[0].trial_results?.join(", ") || "") : "";
-          break;
-        case "adverse_event_reported":
-          fieldValue = trial.results.length > 0 ? (trial.results[0].adverse_event_reported || "") : "";
-          break;
-        case "adverse_event_type":
-          fieldValue = trial.results.length > 0 ? (trial.results[0].adverse_event_type || "") : "";
-          break;
-        case "treatment_for_adverse_events":
-          fieldValue = trial.results.length > 0 ? (trial.results[0].treatment_for_adverse_events || "") : "";
-          break;
+        case "trial_outcome": fieldValue = trial.results[0]?.trial_outcome || ""; break;
+        case "trial_results": fieldValue = trial.results[0]?.trial_results?.join(", ") || ""; break;
+        case "adverse_event_reported": fieldValue = trial.results[0]?.adverse_event_reported || ""; break;
+        case "adverse_event_type": fieldValue = trial.results[0]?.adverse_event_type || ""; break;
+        case "treatment_for_adverse_events": fieldValue = trial.results[0]?.treatment_for_adverse_events || ""; break;
+        case "results_available": fieldValue = trial.results && trial.results.length > 0 ? "Yes" : "No"; break; // Added
+        case "endpoints_met": fieldValue = trial.results?.[0]?.trial_results?.length > 0 ? "Yes" : "No"; break; // Added
 
         // Sites fields
         case "total_sites":
-          fieldValue = trial.sites.length > 0 ? (trial.sites[0].total?.toString() || "") : "";
-          break;
-        case "site_notes":
-          fieldValue = trial.sites.length > 0 ? (trial.sites[0].notes || "") : "";
-          break;
+        case "total_number_of_sites": fieldValue = trial.sites[0]?.total?.toString() || ""; break;
+        case "site_notes": fieldValue = trial.sites[0]?.notes || ""; break;
+        case "internal_note": fieldValue = trial.notes?.map(n => n.notes).join(" ") || ""; break; // Added
 
         // Logs fields
         case "last_modified_date":
@@ -1261,7 +1187,7 @@ export default function AdminTherapeuticsPage() {
               .sort()
               .reverse(); // Most recent first
             fieldValue = dates.length > 0 ? dates[0] : "";
-            console.log('last_modified_date search:', { trialId: trial.trial_id, fieldValue, dates });
+            // Console removed to reduce noise
           } else {
             fieldValue = "";
           }
@@ -1273,18 +1199,20 @@ export default function AdminTherapeuticsPage() {
               .map(log => {
                 const userId = log.last_modified_user;
                 if (!userId || userId.trim() === "") return null;
-
-                // Convert user ID to name using cached mapping
                 return getUserNameSync(userId);
               })
               .filter(user => user !== null && user !== undefined && user.trim() !== "")
               .filter((user, index, self) => self.indexOf(user) === index); // Get unique values
-
             fieldValue = users.join(", ");
-            console.log('last_modified_user search:', { trialId: trial.trial_id, fieldValue, users });
           } else {
             fieldValue = "";
           }
+          break;
+        case "full_review_user":
+          if (trial.logs && trial.logs.length > 0) {
+            const users = trial.logs.map(l => getUserNameSync(l.full_review_user || "")).filter(Boolean);
+            fieldValue = users.join(", ");
+          } else { fieldValue = ""; }
           break;
 
         default:
@@ -1292,7 +1220,7 @@ export default function AdminTherapeuticsPage() {
       }
 
       // Apply the operator
-      const targetValue = fieldValue.toLowerCase();
+      const targetValue = String(fieldValue).toLowerCase();
 
       // Extract search value early (handle both string and array values)
       // This must be done before any special handling that uses searchValue
@@ -1300,69 +1228,23 @@ export default function AdminTherapeuticsPage() {
       const searchValue = rawSearchValue.trim();
       const searchValueLower = searchValue.toLowerCase();
 
-      // Special handling for dropdown fields - use contains matching for flexibility
-      const dropdownFields = [
-        'trial_phase', 'status', 'therapeutic_area', 'disease_type',
-        'patient_segment', 'line_of_therapy', 'trial_record_status',
-        'sex', 'healthy_volunteers', 'trial_outcome', 'adverse_event_reported',
-        'study_design_keywords', 'gender', 'region', 'countries', 'registry_name'
+      // Categorical "Strict Is" and "Smart Contains" Logic
+      const categoricalFields = [
+        "sex", "trial_phase", "status", "results_available", "endpoints_met",
+        "trial_record_status", "healthy_volunteers", "adverse_event_reported",
+        "countries", "region", "sponsor_collaborators", "trial_outcome",
+        "therapeutic_area", "disease_type", "patient_segment", "line_of_therapy"
       ];
 
-      // For dropdown fields, use contains matching for better flexibility
-      if (dropdownFields.includes(field) && (operator === "contains" || operator === "is")) {
-        // Check if the search value matches exactly first
-        if (targetValue === searchValueLower) {
-          return true;
+      if (categoricalFields.includes(field)) {
+        const tokens = fieldValue.split(/[,;]+/).map(t => t.trim().toLowerCase());
+
+        if (operator === "is") {
+          return targetValue === searchValueLower;
         }
-
-        // For trial_phase specifically, handle all variations
-        if (field === 'trial_phase') {
-          const normalizedSearch = normalizePhaseValue(searchValue).toLowerCase();
-          const normalizedTarget = normalizePhaseValue(targetValue).toLowerCase();
-
-          // Check for exact match
-          if (normalizedTarget === normalizedSearch) {
-            return true;
-          }
-
-          // For "is" operator, only do exact matching after normalization
-          if (operator === "is") {
-            return false; // No partial matching for "is" operator
-          }
-
-          // Check for partial matches (e.g., "Phase 3" should match "Phase III") - only for "contains"
-          const phaseEquivalents = {
-            'phase i': ['phase 1', 'phase i', 'phase 1/2', 'phase_i', 'phase_1', 'phase_i_ii', 'phase_1_2'],
-            'phase ii': ['phase 2', 'phase ii', 'phase 2/3', 'phase_ii', 'phase_2', 'phase_ii_iii', 'phase_2_3'],
-            'phase iii': ['phase 3', 'phase iii', 'phase_iii', 'phase_3', 'phase_iii_iv', 'phase_3_4'],
-            'phase iv': ['phase 4', 'phase iv', 'phase_iv', 'phase_4'],
-            'phase 1': ['phase i', 'phase 1', 'phase 1/2', 'phase_i', 'phase_1', 'phase_i_ii', 'phase_1_2'],
-            'phase 2': ['phase ii', 'phase 2', 'phase 2/3', 'phase_ii', 'phase_2', 'phase_ii_iii', 'phase_2_3'],
-            'phase 3': ['phase iii', 'phase 3', 'phase_iii', 'phase_3', 'phase_iii_iv', 'phase_3_4'],
-            'phase 4': ['phase iv', 'phase 4', 'phase_iv', 'phase_4']
-          };
-
-          // Check if search value matches any equivalent
-          for (const [key, equivalents] of Object.entries(phaseEquivalents)) {
-            if (key === normalizedSearch) {
-              return equivalents.some(equiv => normalizedTarget.includes(equiv));
-            }
-          }
-
-          // Also check if target contains search (for cases like "Phase 1/2" matching "Phase 1")
-          return normalizedTarget.includes(normalizedSearch) || normalizedSearch.includes(normalizedTarget);
+        if (operator === "contains") {
+          return tokens.includes(searchValueLower);
         }
-
-        // For other dropdown fields, use CONTAINS matching for flexibility
-        // This allows 'infectious' to match 'infectious_disease', etc.
-        if (targetValue.includes(searchValueLower) || searchValueLower.includes(targetValue)) {
-          return true;
-        }
-
-        // Also check with underscores removed/replaced
-        const targetNoUnderscore = targetValue.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
-        const searchNoUnderscore = searchValueLower.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
-        return targetNoUnderscore.includes(searchNoUnderscore) || searchNoUnderscore.includes(targetNoUnderscore);
       }
 
       // Special handling for trial_tags with multiple values
@@ -1392,91 +1274,24 @@ export default function AdminTherapeuticsPage() {
       }
 
       // Special handling for date fields
-      const dateFields = ['created_at', 'updated_at', 'last_modified_date', 'start_date_estimated', 'trial_end_date_estimated'];
-      if (dateFields.includes(field)) {
-        // Parse dates for comparison
-        const parseDate = (dateStr: string): Date | null => {
-          if (!dateStr || dateStr.trim() === '') return null;
+      const dateFields = ['created_at', 'updated_at', 'last_modified_date', 'start_date_estimated', 'trial_end_date_estimated', 'actual_start_date', 'actual_trial_end_date', 'actual_enrollment_closed_date', 'actual_result_published_date'];
+      if (dateFields.includes(field) || field.includes("date")) {
+        const fieldDate = new Date(fieldValue).getTime();
+        const searchDate = new Date(rawSearchValue).getTime();
 
-          // Try multiple date formats
-          const formats = [
-            /^\d{4}-\d{2}-\d{2}/, // YYYY-MM-DD
-            /^\d{2}\/\d{2}\/\d{4}/, // MM/DD/YYYY
-            /^\d{2}-\d{2}-\d{4}/, // MM-DD-YYYY
-          ];
+        if (isNaN(fieldDate)) return false;
+        // If search value is not a valid date, maybe text comparison? But let's be strict for date fields.
+        if (isNaN(searchDate)) return false;
 
-          let date: Date | null = null;
-          try {
-            // Try ISO format first
-            if (dateStr.match(/^\d{4}-\d{2}-\d{2}/)) {
-              date = new Date(dateStr);
-            } else if (dateStr.match(/^\d{2}[\/-]\d{2}[\/-]\d{4}/)) {
-              // MM/DD/YYYY or MM-DD-YYYY
-              const parts = dateStr.split(/[\/-]/);
-              if (parts.length === 3) {
-                date = new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1]));
-              }
-            }
-
-            if (!date || isNaN(date.getTime())) {
-              return null;
-            }
-            return date;
-          } catch (e) {
-            console.log('Date parsing error:', e, 'for value:', dateStr);
-            return null;
-          }
-        };
-
-        const trialDate = parseDate(fieldValue);
-        const searchDate = parseDate(value as string);
-
-        console.log('Date field search:', { field, fieldValue, searchValue: value, trialDate, searchDate, operator });
-
-        if (!trialDate || !searchDate) {
-          // If either date is invalid, fall back to string comparison
-          console.log('Date parsing failed, using string comparison');
-          switch (operator) {
-            case "contains":
-              return targetValue.includes(searchValueLower);
-            case "equals":
-            case "is":
-              return targetValue === searchValueLower;
-            case "not_equals":
-            case "is_not":
-              return targetValue !== searchValueLower;
-            default:
-              return false;
-          }
+        switch (operator) {
+          case "is": return fieldDate === searchDate;
+          case "is_not": return fieldDate !== searchDate;
+          case "greater_than": return fieldDate > searchDate;
+          case "greater_than_equal": return fieldDate >= searchDate;
+          case "less_than": return fieldDate < searchDate;
+          case "less_than_equal": return fieldDate <= searchDate;
+          default: return false;
         }
-
-        // Date comparison
-        const comparisonResult = (() => {
-          switch (operator) {
-            case "equals":
-            case "is":
-              return trialDate.getTime() === searchDate.getTime();
-            case "not_equals":
-            case "is_not":
-              return trialDate.getTime() !== searchDate.getTime();
-            case "greater_than":
-              return trialDate.getTime() > searchDate.getTime();
-            case "greater_than_equal":
-              return trialDate.getTime() >= searchDate.getTime();
-            case "less_than":
-              return trialDate.getTime() < searchDate.getTime();
-            case "less_than_equal":
-              return trialDate.getTime() <= searchDate.getTime();
-            case "contains":
-              // For date fields, "contains" means same day (ignore time)
-              return trialDate.toDateString() === searchDate.toDateString();
-            default:
-              return false;
-          }
-        })();
-
-        console.log('Date comparison result:', { comparisonResult, operator });
-        return comparisonResult;
       }
 
       // Special handling for drug fields (primary_drugs, other_drugs) - check related drug names
@@ -1645,34 +1460,36 @@ export default function AdminTherapeuticsPage() {
       }
 
       switch (operator) {
-        case "contains":
-          // Handle multi-value fields: split by comma, semicolon, or newline and check if any part contains the search value
-          const valueParts = targetValue.split(/[,;\n\r]+/).map(p => p.trim().toLowerCase());
-          // Check if any part contains the search value, or if the whole string contains it
-          return valueParts.some(part => part.includes(searchValueLower)) || targetValue.includes(searchValueLower);
-        case "is":
-          // Exact match (case-insensitive): normalize both values
-          const normalizedTarget = targetValue.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
-          const normalizedSearch = searchValueLower.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
-          return normalizedTarget === normalizedSearch || targetValue === searchValueLower;
-        case "is_not":
-          const normalizedTargetNot = targetValue.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
-          const normalizedSearchNot = searchValueLower.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
-          return normalizedTargetNot !== normalizedSearchNot && targetValue !== searchValueLower;
-        case "equals":
-          return targetValue === searchValueLower;
-        case "not_equals":
-          return targetValue !== searchValueLower;
-        case "greater_than":
-          return parseFloat(fieldValue) > parseFloat(value as string);
-        case "greater_than_equal":
-          return parseFloat(fieldValue) >= parseFloat(value as string);
-        case "less_than":
-          return parseFloat(fieldValue) < parseFloat(value as string);
-        case "less_than_equal":
-          return parseFloat(fieldValue) <= parseFloat(value as string);
-        default:
-          return true;
+        case "contains": return targetValue.includes(searchValueLower);
+        case "is": return targetValue === searchValueLower;
+        case "is_not": return targetValue !== searchValueLower;
+        case "starts_with": return targetValue.startsWith(searchValueLower);
+        case "ends_with": return targetValue.endsWith(searchValueLower);
+        case "greater_than": {
+          const nF1 = parseFloat(fieldValue); const nS1 = parseFloat(searchValue);
+          return !isNaN(nF1) && !isNaN(nS1) && nF1 > nS1;
+        }
+        case "greater_than_equal": {
+          const nF2 = parseFloat(fieldValue); const nS2 = parseFloat(searchValue);
+          return !isNaN(nF2) && !isNaN(nS2) && nF2 >= nS2;
+        }
+        case "less_than": {
+          const nF3 = parseFloat(fieldValue); const nS3 = parseFloat(searchValue);
+          return !isNaN(nF3) && !isNaN(nS3) && nF3 < nS3;
+        }
+        case "less_than_equal": {
+          const nF4 = parseFloat(fieldValue); const nS4 = parseFloat(searchValue);
+          return !isNaN(nF4) && !isNaN(nS4) && nF4 <= nS4;
+        }
+        case "equals": {
+          const nF5 = parseFloat(fieldValue); const nS5 = parseFloat(searchValue);
+          return !isNaN(nF5) && !isNaN(nS5) && nF5 === nS5;
+        }
+        case "not_equals": {
+          const nF6 = parseFloat(fieldValue); const nS6 = parseFloat(searchValue);
+          return !isNaN(nF6) && !isNaN(nS6) && nF6 !== nS6;
+        }
+        default: return true;
       }
     });
 
@@ -1923,21 +1740,88 @@ export default function AdminTherapeuticsPage() {
         });
       };
 
+      // Helper: Check drug with aliases (for Primary/Other Drugs)
+      const checkDrugWithAliases = (filterValues: string[] | undefined, value: string | undefined | null) => {
+        if (!filterValues || filterValues.length === 0) return true;
+        if (!value) return false;
+
+        const lowerValue = value.toLowerCase();
+
+        return filterValues.some(filter => {
+          const filterLower = filter.toLowerCase();
+          // Check direct match
+          if (lowerValue.includes(filterLower)) return true;
+
+          // Check aliases from mapping
+          let aliasMatch = false;
+          // Find the filter term in the mapping (search both keys and values)
+          // Case 1: Filter term is a key
+          drugNameMapping.forEach((aliases, key) => {
+            if (aliasMatch) return;
+            if (key.toLowerCase() === filterLower) {
+              // Check if any alias matches the trial value
+              aliasMatch = Array.from(aliases).some(alias => lowerValue.includes(alias.toLowerCase())) ||
+                lowerValue.includes(key.toLowerCase());
+            }
+            // Case 2: Filter term is in the aliases set
+            if (!aliasMatch && aliases.has(filter)) { // Check exact case in set first, or iterate
+              // If filter is an alias, we should check against the key (canonical name) and other aliases
+              if (Array.from(aliases).some(a => a.toLowerCase() === filterLower)) {
+                aliasMatch = lowerValue.includes(key.toLowerCase()) ||
+                  Array.from(aliases).some(a => lowerValue.includes(a.toLowerCase()));
+              }
+            }
+          });
+
+          if (!aliasMatch) {
+            // Fallback: iterate all to find if filter is an alias (slower but thorough)
+            for (const [key, aliases] of Array.from(drugNameMapping.entries())) {
+              const keyLower = key.toLowerCase();
+              const aliasesArr = Array.from(aliases).map(a => a.toLowerCase());
+              if (keyLower === filterLower || aliasesArr.includes(filterLower)) {
+                // Filter matches this group. Check if trial value matches any in group
+                if (lowerValue.includes(keyLower) || aliasesArr.some(a => lowerValue.includes(a))) {
+                  return true;
+                }
+              }
+            }
+          }
+
+          return aliasMatch;
+        });
+      };
+
+      // Helper: Check tags (handle comma separation and normalization)
+      const checkTags = (filterValues: string[] | undefined, value: string | undefined | null) => {
+        if (!filterValues || filterValues.length === 0) return true;
+        if (!value) return false;
+
+        const lowerValue = value.toLowerCase();
+        // Normalize underscores to spaces for comparison
+        const normalizedValue = lowerValue.replace(/_/g, ' ');
+
+        return filterValues.some(filter => {
+          const filterLower = filter.toLowerCase();
+          const normalizedFilter = filterLower.replace(/_/g, ' ');
+          return normalizedValue.includes(normalizedFilter) || lowerValue.includes(filterLower);
+        });
+      };
+
       // Overview Fields
       if (!checkExact(appliedFilters.therapeuticAreas, trial.overview?.therapeutic_area)) return false;
       if (!checkExact(appliedFilters.statuses, trial.overview?.status)) return false;
       if (!checkExact(appliedFilters.diseaseTypes, trial.overview?.disease_type)) return false;
-      if (!checkPartial(appliedFilters.primaryDrugs, trial.overview?.primary_drugs)) return false;
+      if (!checkDrugWithAliases(appliedFilters.primaryDrugs, trial.overview?.primary_drugs)) return false;
       if (!checkExact(appliedFilters.trialPhases, trial.overview?.trial_phase)) return false;
       if (!checkPartial(appliedFilters.countries, trial.overview?.countries)) return false;
       if (!checkPartial(appliedFilters.sponsorsCollaborators, trial.overview?.sponsor_collaborators)) return false;
       if (!checkExact(appliedFilters.trialRecordStatus, trial.overview?.trial_record_status)) return false;
       if (!checkPartial(appliedFilters.patientSegments, trial.overview?.patient_segment)) return false;
       if (!checkPartial(appliedFilters.lineOfTherapy, trial.overview?.line_of_therapy)) return false;
-      if (!checkPartial(appliedFilters.trialTags, trial.overview?.trial_tags)) return false;
+      if (!checkTags(appliedFilters.trialTags, trial.overview?.trial_tags)) return false;
 
       // Expanded Overview Fields
-      if (!checkPartial(appliedFilters.otherDrugs, trial.overview?.other_drugs)) return false;
+      if (!checkDrugWithAliases(appliedFilters.otherDrugs, trial.overview?.other_drugs)) return false;
       if (!checkPartial(appliedFilters.regions, trial.overview?.region)) return false;
       if (!checkPartial(appliedFilters.sponsorFieldActivity, trial.overview?.sponsor_field_activity)) return false;
       if (!checkPartial(appliedFilters.associatedCro, trial.overview?.associated_cro)) return false;
@@ -2718,6 +2602,10 @@ export default function AdminTherapeuticsPage() {
                 {/* Timing Section */}
                 {columnSettings.startDateEstimated && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Start Date Est.</th>}
                 {columnSettings.trialEndDateEstimated && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">End Date Est.</th>}
+                {columnSettings.actualStartDate && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Actual Start Date</th>}
+                {columnSettings.actualEnrollmentClosedDate && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Actual Enrollment Closed</th>}
+                {columnSettings.actualTrialCompletionDate && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Actual Trial Completion</th>}
+                {columnSettings.actualPublishedDate && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Actual Published Date</th>}
                 {/* Results Section */}
                 {columnSettings.resultsAvailable && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Results Available</th>}
                 {columnSettings.endpointsMet && <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground sticky top-0 bg-muted/40">Endpoints Met</th>}
@@ -2871,6 +2759,18 @@ export default function AdminTherapeuticsPage() {
                     )}
                     {columnSettings.trialEndDateEstimated && (
                       <td className="p-4 align-middle text-sm">{formatDate(trial.timing[0]?.trial_end_date_estimated) || "N/A"}</td>
+                    )}
+                    {columnSettings.actualStartDate && (
+                      <td className="p-4 align-middle text-sm">{formatDate(trial.timing[0]?.start_date_actual) || "N/A"}</td>
+                    )}
+                    {columnSettings.actualEnrollmentClosedDate && (
+                      <td className="p-4 align-middle text-sm">{formatDate(trial.timing[0]?.enrollment_closed_actual) || "N/A"}</td>
+                    )}
+                    {columnSettings.actualTrialCompletionDate && (
+                      <td className="p-4 align-middle text-sm">{formatDate(trial.timing[0]?.trial_completion_date_actual) || "N/A"}</td>
+                    )}
+                    {columnSettings.actualPublishedDate && (
+                      <td className="p-4 align-middle text-sm">{formatDate(trial.timing[0]?.published_date_actual) || "N/A"}</td>
                     )}
                     {/* Results Section */}
                     {columnSettings.resultsAvailable && (
