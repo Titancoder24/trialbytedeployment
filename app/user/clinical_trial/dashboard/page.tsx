@@ -218,6 +218,8 @@ export default function ClinicalTrialDashboard() {
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [showLogoutDropdown, setShowLogoutDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  const [sidebarTop, setSidebarTop] = useState(0);
   const [appliedFilters, setAppliedFilters] = useState<ClinicalTrialFilterState>(DEFAULT_FILTER_STATE);
   const [appliedSearchCriteria, setAppliedSearchCriteria] = useState<ClinicalTrialSearchCriteria[]>([]);
   const [viewType, setViewType] = useState<'list' | 'card'>('list');
@@ -409,6 +411,38 @@ export default function ClinicalTrialDashboard() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Scroll handler for sticky sidebar effect
+  useEffect(() => {
+    let rafId: number;
+    const HEADER_OFFSET = 5; // Height of fixed header
+    const SCROLL_THRESHOLD = 150; // Start moving after scrolling this much
+
+    const handleScroll = () => {
+      // Cancel any pending animation frame
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+
+      rafId = requestAnimationFrame(() => {
+        const scrollY = window.scrollY;
+        // Start adjusting sidebar position after scrolling past threshold
+        if (scrollY > SCROLL_THRESHOLD) {
+          setSidebarTop(scrollY - SCROLL_THRESHOLD + HEADER_OFFSET);
+        } else {
+          setSidebarTop(0);
+        }
+      });
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
     };
   }, []);
 
@@ -1629,9 +1663,19 @@ export default function ClinicalTrialDashboard() {
 
 
 
-          <div className="flex">
+          <div className="flex items-start">
             {/* Sidebar - TrialsListing Style */}
-            <div className="w-64 flex-shrink-0 h-fit rounded-[12px] bg-white sticky top-[100px] self-start z-50" style={{ fontFamily: "Poppins, sans-serif", marginLeft: "20px", width: "256px" }}>
+            <div
+              ref={sidebarRef}
+              className="w-64 flex-shrink-0 rounded-[12px] bg-white z-40"
+              style={{
+                fontFamily: "Poppins, sans-serif",
+                marginLeft: "20px",
+                width: "256px",
+                transform: `translateY(${sidebarTop}px)`,
+                transition: "transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1)"
+              }}
+            >
               {/* Search Button */}
               {/* Search Button Removed */}
 

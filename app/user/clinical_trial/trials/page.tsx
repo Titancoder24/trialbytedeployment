@@ -278,6 +278,7 @@ function ClinicalTrialsPage() {
   const associatedStudiesRef = useRef<HTMLDivElement>(null);
   const logsRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [sidebarTop, setSidebarTop] = useState(0);
   // Helper function to fetch from API
   const fetchFromAPI = useCallback(async (showLoading: boolean) => {
     try {
@@ -865,6 +866,38 @@ function ClinicalTrialsPage() {
     };
   }, []);
 
+  // Scroll handler for sticky sidebar effect
+  useEffect(() => {
+    let rafId: number;
+    const HEADER_OFFSET = 5; // Height of fixed header
+    const SCROLL_THRESHOLD = 150; // Start moving after scrolling this much
+
+    const handleScroll = () => {
+      // Cancel any pending animation frame
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+
+      rafId = requestAnimationFrame(() => {
+        const scrollY = window.scrollY;
+        // Start adjusting sidebar position after scrolling past threshold
+        if (scrollY > SCROLL_THRESHOLD) {
+          setSidebarTop(scrollY - SCROLL_THRESHOLD + HEADER_OFFSET);
+        } else {
+          setSidebarTop(0);
+        }
+      });
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+    };
+  }, []);
+
   // Handle keyboard shortcuts for tab management
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1347,7 +1380,7 @@ function ClinicalTrialsPage() {
 
         {/* Content Container - Overlaying the gradient */}
         <div
-          className="flex relative"
+          className="flex items-start relative"
           style={{
             marginTop: "-60px",
             zIndex: 20,
@@ -1355,7 +1388,11 @@ function ClinicalTrialsPage() {
           }}
         >
           {/* Left Sidebar - CSS-based with icons */}
-          <div className="sticky top-[100px] h-fit self-start z-50">
+          <div style={{
+            transform: `translateY(${sidebarTop}px)`,
+            transition: "transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1)",
+            zIndex: 40
+          }}>
             <TrialSidebar
               activeSection={activeSection}
               onSectionClick={scrollToSection}
