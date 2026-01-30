@@ -62,26 +62,69 @@ export const useDrugNames = () => {
         genericName = cleanName(genericName);
         otherName = cleanName(otherName);
 
+        // Collect all non-empty name variants for this drug
+        const allNames = [drugName, genericName, otherName].filter(n => n);
+
+        // Skip if no name fields are set at all
+        if (allNames.length === 0) {
+          return;
+        }
+
+        // Build bidirectional alias mapping: each name maps to ALL other names for this drug
+        // This ensures filtering works regardless of which name variant is selected
+        allNames.forEach(name => {
+          const lowerName = name.toLowerCase();
+          const currentAliases = aliasesMap[lowerName] || [];
+
+          // Add all OTHER names from this drug as aliases
+          allNames.forEach(otherNameVariant => {
+            const lowerOther = otherNameVariant.toLowerCase();
+            if (lowerOther !== lowerName && !currentAliases.includes(lowerOther)) {
+              currentAliases.push(lowerOther);
+            }
+          });
+
+          aliasesMap[lowerName] = currentAliases;
+        });
+
+        // Add each non-empty name field to the dropdown options
+        // Add drug_name if present
         if (drugName) {
           const lowerName = drugName.toLowerCase();
-
-          // Collect aliases (generic and other names)
-          const currentAliases = aliasesMap[lowerName] || [];
-          if (genericName && !currentAliases.includes(genericName.toLowerCase()) && genericName.toLowerCase() !== lowerName) {
-            currentAliases.push(genericName.toLowerCase());
-          }
-          if (otherName && !currentAliases.includes(otherName.toLowerCase()) && otherName.toLowerCase() !== lowerName) {
-            currentAliases.push(otherName.toLowerCase());
-          }
-          aliasesMap[lowerName] = currentAliases;
-
-          // Add drug_name
           if (!allDrugNames.has(lowerName)) {
             allDrugNames.add(lowerName);
             drugNameMap.set(lowerName, {
               value: drugName,
               label: drugName,
               source: 'drug_name'
+            });
+            namesExtracted++;
+          }
+        }
+
+        // Add generic_name if present and not already added
+        if (genericName) {
+          const lowerName = genericName.toLowerCase();
+          if (!allDrugNames.has(lowerName)) {
+            allDrugNames.add(lowerName);
+            drugNameMap.set(lowerName, {
+              value: genericName,
+              label: genericName,
+              source: 'generic_name'
+            });
+            namesExtracted++;
+          }
+        }
+
+        // Add other_name if present and not already added
+        if (otherName) {
+          const lowerName = otherName.toLowerCase();
+          if (!allDrugNames.has(lowerName)) {
+            allDrugNames.add(lowerName);
+            drugNameMap.set(lowerName, {
+              value: otherName,
+              label: otherName,
+              source: 'other_name'
             });
             namesExtracted++;
           }

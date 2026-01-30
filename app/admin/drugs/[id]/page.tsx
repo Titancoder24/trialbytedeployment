@@ -1115,7 +1115,7 @@ export default function DrugDetailPage({ params }: { params: Promise<{ id: strin
                         </div>
                         <div className="flex items-start justify-between">
                           <span className="text-sm font-medium text-gray-600 min-w-[100px] flex-shrink-0">
-                            Secondary Drug :
+                            Other Drugs :
                           </span>
                           <span className="text-sm text-gray-700 text-right">
                             {drug.overview.other_drugs || "N/A"}

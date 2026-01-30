@@ -1498,7 +1498,7 @@ export default function TherapeuticDetailPage({ params }: { params: Promise<{ id
                         </div>
                         <div className="flex items-start">
                           <span className="text-sm font-medium text-gray-600 min-w-[140px] flex-shrink-0">
-                            Secondary Drug :
+                            Other Drugs :
                           </span>
                           <span className="text-sm text-gray-700">
                             {trial.overview.other_drugs || "N/A"}

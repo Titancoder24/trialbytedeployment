@@ -101,18 +101,18 @@ const DROPDOWN_OPTIONS: Record<keyof TherapeuticFilterState, SearchableSelectOpt
 
   // Patient Segment Options
   patientSegments: [
-    { value: "children", label: "Children" },
-    { value: "adults", label: "Adults" },
-    { value: "healthy_volunteers", label: "Healthy Volunteers" },
-    { value: "unknown", label: "Unknown" },
-    { value: "first_line", label: "First Line" },
-    { value: "second_line", label: "Second Line" },
-    { value: "adjuvant", label: "Adjuvant" },
-    { value: "early_stage", label: "Early Stage" },
-    { value: "locally_advanced", label: "Locally Advanced" },
-    { value: "metastatic", label: "Metastatic" },
-    { value: "geriatric", label: "Geriatric" },
-    { value: "pediatric", label: "Pediatric" },
+    { value: "her2_positive_breast_cancer", label: "HER2+ Breast Cancer" },
+    { value: "her2_negative_breast_cancer", label: "HER2- Breast Cancer" },
+    { value: "hr_positive_breast_cancer", label: "HR+ Breast Cancer (ER+ and/or PR+)" },
+    { value: "triple_negative_breast_cancer", label: "Triple-Negative Breast Cancer (TNBC)" },
+    { value: "early_stage_breast_cancer", label: "Early-Stage Breast Cancer" },
+    { value: "locally_advanced_breast_cancer", label: "Locally Advanced Breast Cancer" },
+    { value: "metastatic_breast_cancer", label: "Metastatic Breast Cancer" },
+    { value: "recurrent_breast_cancer", label: "Recurrent Breast Cancer" },
+    { value: "advanced_breast_cancer_non_metastatic", label: "Advanced Breast Cancer (Non-Metastatic)" },
+    { value: "premenopausal_breast_cancer", label: "Premenopausal Breast Cancer Patients" },
+    { value: "postmenopausal_breast_cancer", label: "Postmenopausal Breast Cancer Patients" },
+    { value: "breast_cancer_nos", label: "Breast Cancer (NOS)" },
   ],
 
   // Line of Therapy Options
@@ -990,8 +990,43 @@ const getUniqueValues = (trials: any[], fieldPath: string): string[] => {
   })
 
   const result = Array.from(values).sort()
-  console.log(`Found ${result.length} unique values for ${fieldPath}:`, result)
-  return result
+
+  // Deduplicate values that are essentially the same but differ by formatting
+  // (e.g., "Completed Outcome Unknown" vs "Completed — Outcome Unknown")
+  // Keep the version with em dash (—) as the preferred format
+  const normalizeForComparison = (str: string): string => {
+    return str
+      .replace(/\s*[—–-]\s*/g, '') // Remove all types of dashes with surrounding spaces
+      .replace(/\s+/g, ' ')        // Normalize multiple spaces to single space
+      .toLowerCase()
+      .trim()
+  }
+
+  const deduplicatedMap = new Map<string, string>()
+  result.forEach(value => {
+    const normalized = normalizeForComparison(value)
+    const existing = deduplicatedMap.get(normalized)
+
+    if (!existing) {
+      deduplicatedMap.set(normalized, value)
+    } else {
+      // Prefer the version with em dash (—) over regular dash or no dash
+      const hasEmDash = (str: string) => str.includes('—')
+      const hasEnDash = (str: string) => str.includes('–')
+      const hasRegularDash = (str: string) => str.includes('-') && !str.includes('—') && !str.includes('–')
+
+      if (hasEmDash(value) && !hasEmDash(existing)) {
+        deduplicatedMap.set(normalized, value)
+      } else if (hasEnDash(value) && !hasEmDash(existing) && !hasEnDash(existing)) {
+        deduplicatedMap.set(normalized, value)
+      }
+      // Keep existing if it already has better formatting
+    }
+  })
+
+  const deduplicated = Array.from(deduplicatedMap.values()).sort()
+  console.log(`Found ${deduplicated.length} unique values for ${fieldPath} (after dedup from ${result.length}):`, deduplicated)
+  return deduplicated
 }
 
 export function TherapeuticFilterModal({ open, onOpenChange, onApplyFilters, currentFilters, trials = [] }: TherapeuticFilterModalProps) {
@@ -1104,6 +1139,15 @@ export function TherapeuticFilterModal({ open, onOpenChange, onApplyFilters, cur
       if (category === 'primaryDrugs' || category === 'otherDrugs') {
         return getDrugOptions()
       }
+      // For patient segments, ALWAYS use static options (the 12 breast cancer values)
+      // Skip dynamic dropdown lookup to prevent unwanted values from appearing
+      if (category === 'patientSegments') {
+        const options = DROPDOWN_OPTIONS.patientSegments
+        if (options && Array.isArray(options)) {
+          return options.map(opt => opt.label)
+        }
+        return []
+      }
       // For categories with dynamic dropdown options, use them
       const categoryName = categoryMapping[category]
       if (categoryName && dynamicDropdowns[categoryName]) {
@@ -1123,18 +1167,58 @@ export function TherapeuticFilterModal({ open, onOpenChange, onApplyFilters, cur
 
       // For drug fields, DO NOT merge trial values. Use only the official API list.
       // This prevents "dirty" data from trials (e.g. typos, legacy names) from appearing in the filter.
+      // For patient segments, use only the static whitelist to ensure clean options.
       if (category === 'primaryDrugs' || category === 'otherDrugs') {
         return fallbackValues;
       }
+
+      // For patient segments, ONLY use static options - do not merge with trial data
+      if (category === 'patientSegments') {
+        return DROPDOWN_OPTIONS.patientSegments?.map(opt => opt.label) || [];
+      }
+
+      // Helper to deduplicate values that differ only by dash formatting
+      const deduplicateByDash = (values: string[]): string[] => {
+        const normalizeForDedupe = (str: string): string => {
+          return str
+            .replace(/\s*[—–-]\s*/g, ' ') // Replace all dash types with single space
+            .replace(/\s+/g, ' ')          // Normalize multiple spaces
+            .toLowerCase()
+            .trim();
+        };
+
+        const dedupeMap = new Map<string, string>();
+        values.forEach(value => {
+          const normalized = normalizeForDedupe(value);
+          const existing = dedupeMap.get(normalized);
+
+          if (!existing) {
+            dedupeMap.set(normalized, value);
+          } else {
+            // Prefer version with em dash (—) over en dash (–) over hyphen (-) over no dash
+            const hasEmDash = (s: string) => s.includes('—');
+            const hasEnDash = (s: string) => s.includes('–');
+
+            if (hasEmDash(value) && !hasEmDash(existing)) {
+              dedupeMap.set(normalized, value);
+            } else if (hasEnDash(value) && !hasEmDash(existing) && !hasEnDash(existing)) {
+              dedupeMap.set(normalized, value);
+            }
+          }
+        });
+
+        return Array.from(dedupeMap.values()).sort();
+      };
 
       if (trialValues.length > 0) {
         // Merge trial values with fallback, removing duplicates
         // Normalize trial values to match fallback format (Title Case/Display Value)
         const normalizedTrialValues = trialValues.map(v => formatDisplayValue(v));
         const merged = [...new Set([...normalizedTrialValues, ...fallbackValues])]
-        return merged.sort()
+        // Apply final deduplication to remove values that differ only by dash formatting
+        return deduplicateByDash(merged);
       }
-      return fallbackValues
+      return deduplicateByDash(fallbackValues);
     }
 
     if (trials.length > 0) {

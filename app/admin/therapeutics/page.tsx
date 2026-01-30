@@ -118,6 +118,8 @@ interface TherapeuticTrial {
     adverse_event_reported: string;
     adverse_event_type: string | null;
     treatment_for_adverse_events: string | null;
+    results_available: boolean | string;
+    endpoints_met: boolean | string;
   }>;
   sites: Array<{
     id: string;
@@ -1040,10 +1042,10 @@ export default function AdminTherapeuticsPage() {
       case "trialEndDateEstimated": return trial.timing?.[0]?.trial_end_date_estimated || "";
       case "actualStartDate": return trial.timing?.[0]?.start_date_actual || "";
       case "actualEnrollmentClosedDate": return trial.timing?.[0]?.actual_enrollment_closed_date || "";
-      case "actualTrialCompletionDate": return trial.timing?.[0]?.actual_trial_completion_date || "";
-      case "actualPublishedDate": return trial.timing?.[0]?.actual_published_date || "";
-      case "estimatedEnrollmentClosedDate": return ""; // TODO: Add field when available
-      case "estimatedResultPublishedDate": return ""; // TODO: Add field when available
+      case "actualTrialCompletionDate": return trial.timing?.[0]?.trial_end_date_actual || "";
+      case "actualPublishedDate": return trial.timing?.[0]?.result_published_date_actual || "";
+      case "estimatedEnrollmentClosedDate": return trial.timing?.[0]?.enrollment_closed_estimated || "";
+      case "estimatedResultPublishedDate": return trial.timing?.[0]?.result_published_date_estimated || "";
 
       // Results fields
       case "resultsAvailable": return trial.results?.[0]?.trial_results?.length ? "Yes" : "No";
@@ -2767,17 +2769,23 @@ export default function AdminTherapeuticsPage() {
                       <td className="p-4 align-middle text-sm">{formatDate(trial.timing[0]?.enrollment_closed_actual) || "N/A"}</td>
                     )}
                     {columnSettings.actualTrialCompletionDate && (
-                      <td className="p-4 align-middle text-sm">{formatDate(trial.timing[0]?.trial_completion_date_actual) || "N/A"}</td>
+                      <td className="p-4 align-middle text-sm">{formatDate(trial.timing[0]?.trial_end_date_actual) || "N/A"}</td>
                     )}
                     {columnSettings.actualPublishedDate && (
-                      <td className="p-4 align-middle text-sm">{formatDate(trial.timing[0]?.published_date_actual) || "N/A"}</td>
+                      <td className="p-4 align-middle text-sm">{formatDate(trial.timing[0]?.result_published_date_actual) || "N/A"}</td>
                     )}
                     {/* Results Section */}
                     {columnSettings.resultsAvailable && (
-                      <td className="p-4 align-middle">{trial.results?.length > 0 ? "Yes" : "No"}</td>
+                      <td className="p-4 align-middle">{(() => {
+                        console.log(`[DEBUG] Trial ${trial.trial_id} - Results object:`, trial.results?.[0]);
+                        console.log(`[DEBUG] Trial ${trial.trial_id} - results_available value:`, trial.results?.[0]?.results_available, typeof trial.results?.[0]?.results_available);
+                        console.log(`[DEBUG] Trial ${trial.trial_id} - endpoints_met value:`, trial.results?.[0]?.endpoints_met, typeof trial.results?.[0]?.endpoints_met);
+                        const isAvailable = trial.results?.[0]?.results_available === true || trial.results?.[0]?.results_available === "Yes" || trial.results?.[0]?.results_available === "yes";
+                        return isAvailable ? "Yes" : "No";
+                      })()}</td>
                     )}
                     {columnSettings.endpointsMet && (
-                      <td className="p-4 align-middle">N/A</td>
+                      <td className="p-4 align-middle">{trial.results?.[0]?.endpoints_met === true || trial.results?.[0]?.endpoints_met === "Yes" || trial.results?.[0]?.endpoints_met === "yes" ? "Yes" : "No"}</td>
                     )}
                     {columnSettings.trialOutcome && (
                       <td className="p-4 align-middle">{trial.results[0]?.trial_outcome || "N/A"}</td>
@@ -2788,10 +2796,10 @@ export default function AdminTherapeuticsPage() {
                     )}
                     {/* New Fields */}
                     {columnSettings.estimatedEnrollmentClosedDate && (
-                      <td className="p-4 align-middle text-sm">N/A</td>
+                      <td className="p-4 align-middle text-sm">{formatDate(trial.timing[0]?.enrollment_closed_estimated) || "N/A"}</td>
                     )}
                     {columnSettings.estimatedResultPublishedDate && (
-                      <td className="p-4 align-middle text-sm">N/A</td>
+                      <td className="p-4 align-middle text-sm">{formatDate(trial.timing[0]?.result_published_date_estimated) || "N/A"}</td>
                     )}
                     {columnSettings.referenceLinks && (
                       <td className="p-4 align-middle max-w-[200px] truncate">{trial.overview.reference_links?.join(", ") || "N/A"}</td>

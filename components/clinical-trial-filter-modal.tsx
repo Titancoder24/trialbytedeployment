@@ -188,7 +188,7 @@ export function ClinicalTrialFilterModal({
     patientSegments: "Patient Segment",
     lineOfTherapy: "Line of Therapy",
     primaryDrugs: "Primary Drug",
-    otherDrugs: "Secondary Drug",
+    otherDrugs: "Other Drugs",
     trialPhases: "Trial Phase",
     countries: "Countries",
     sponsorsCollaborators: "Sponsors & Collaborators",

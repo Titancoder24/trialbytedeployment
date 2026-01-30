@@ -177,8 +177,8 @@ export const COLUMN_OPTIONS = [
   { key: 'treatmentRegimen' as keyof ColumnSettings, label: 'Treatment Regimen' },
   { key: 'numberOfArms' as keyof ColumnSettings, label: 'Number of Arms' },
   // Timing Section
-  { key: 'startDateEstimated' as keyof ColumnSettings, label: 'Start Date (Estimated)' },
-  { key: 'trialEndDateEstimated' as keyof ColumnSettings, label: 'Trial End Date (Estimated)' },
+  { key: 'startDateEstimated' as keyof ColumnSettings, label: 'Estimated Trial Start Date' },
+  { key: 'trialEndDateEstimated' as keyof ColumnSettings, label: 'Estimated Trial End Date' },
   { key: 'actualStartDate' as keyof ColumnSettings, label: 'Actual Start Date' },
   { key: 'actualEnrollmentClosedDate' as keyof ColumnSettings, label: 'Actual Enrollment Closed Date' },
   { key: 'actualTrialCompletionDate' as keyof ColumnSettings, label: 'Actual Trial Completion Date' },

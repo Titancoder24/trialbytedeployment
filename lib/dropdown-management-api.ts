@@ -174,7 +174,7 @@ export const useDropdownOptions = (categoryName: string) => {
         setLoading(true);
         setError(null);
         const response = await dropdownManagementAPI.getOptions(categoryName);
-        
+
         if (response.success && response.data) {
           setOptions(response.data);
         } else {
@@ -194,9 +194,45 @@ export const useDropdownOptions = (categoryName: string) => {
 };
 
 // Utility function to convert dropdown options to SearchableSelectOption format
+// Also deduplicates values that are essentially the same but differ by formatting
 export const convertToSearchableSelectOptions = (options: DropdownOption[]) => {
-  return options.map(option => ({
+  // First, convert to the target format
+  const converted = options.map(option => ({
     value: option.value,
     label: option.label,
   }));
+
+  // Normalize for comparison: remove all types of dashes and extra spaces
+  const normalizeForComparison = (str: string): string => {
+    return str
+      .replace(/\s*[—–-]\s*/g, '') // Remove all types of dashes with surrounding spaces
+      .replace(/\s+/g, ' ')        // Normalize multiple spaces to single space
+      .toLowerCase()
+      .trim();
+  };
+
+  // Deduplicate: keep the version with em dash (—) as preferred format
+  const deduplicatedMap = new Map<string, { value: string; label: string }>();
+
+  converted.forEach(option => {
+    const normalized = normalizeForComparison(option.label);
+    const existing = deduplicatedMap.get(normalized);
+
+    if (!existing) {
+      deduplicatedMap.set(normalized, option);
+    } else {
+      // Prefer the version with em dash (—) over regular dash or no dash
+      const hasEmDash = (str: string) => str.includes('—');
+      const hasEnDash = (str: string) => str.includes('–');
+
+      if (hasEmDash(option.label) && !hasEmDash(existing.label)) {
+        deduplicatedMap.set(normalized, option);
+      } else if (hasEnDash(option.label) && !hasEmDash(existing.label) && !hasEnDash(existing.label)) {
+        deduplicatedMap.set(normalized, option);
+      }
+      // Keep existing if it already has better formatting
+    }
+  });
+
+  return Array.from(deduplicatedMap.values());
 };

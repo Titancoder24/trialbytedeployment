@@ -56,17 +56,37 @@ export function TrialSidebar({
 
   return (
     <div
-      className="bg-white absolute overflow-hidden h-fit"
+      className="bg-white absolute overflow-hidden h-fit sidebar-scroll"
       style={{
         width: "249px",
         top: "75px",
         left: "39.33px",
         borderRadius: "12px",
+        maxHeight: "calc(100vh - 100px)",
+        overflowY: "auto",
       }}
     >
+      <style jsx>{`
+        .sidebar-scroll::-webkit-scrollbar {
+          width: 12px;
+        }
+        .sidebar-scroll::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 4px;
+          margin: 4px 0;
+        }
+        .sidebar-scroll::-webkit-scrollbar-thumb {
+          background: #204B73;
+          border-radius: 4px;
+          border: 2px solid #f1f1f1;
+        }
+        .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+          background: #1a3d5c;
+        }
+      `}</style>
       {/* Section Buttons */}
       <div className="flex flex-col h-full relative">
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1">
           {sidebarSections.map((section, index) => {
             if (!isSectionVisible(section.id)) return null;
 
@@ -84,7 +104,6 @@ export function TrialSidebar({
                 <div key={section.id} className="relative">
                   <button
                     onClick={() => {
-                      setOtherSourcesExpanded(!otherSourcesExpanded);
                       onSectionClick(section.id);
                     }}
                     className="w-full text-left px-4 py-3 transition-all flex items-center justify-between bg-[#204B73] text-white"
@@ -124,9 +143,17 @@ export function TrialSidebar({
                         {t(section.labelKey)}
                       </span>
                     </div>
-                    <ChevronDown
-                      className={`h-4 w-4 transition-transform ${otherSourcesExpanded ? "rotate-180" : ""} text-white`}
-                    />
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOtherSourcesExpanded(!otherSourcesExpanded);
+                      }}
+                      className="p-2 hover:bg-white/20 rounded-full cursor-pointer"
+                    >
+                      <ChevronDown
+                        className={`h-4 w-4 transition-transform ${otherSourcesExpanded ? "rotate-180" : ""} text-white`}
+                      />
+                    </div>
                   </button>
 
                   {/* Sub-items */}

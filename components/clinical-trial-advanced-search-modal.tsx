@@ -41,7 +41,7 @@ const searchFields = [
   { value: "therapeutic_area", label: "Therapeutic Area", type: "dropdown" },
   { value: "trial_phase", label: "Trial Phase", type: "dropdown" },
   { value: "primary_drugs", label: "Primary Drug", type: "dropdown" },
-  { value: "secondary_drugs", label: "Secondary Drug", type: "dropdown" },
+  { value: "secondary_drugs", label: "Other Drugs", type: "dropdown" },
   { value: "trial_status", label: "Status", type: "dropdown" },
   { value: "trial_record_status", label: "Trial Record Status", type: "dropdown" },
   { value: "sponsor_collaborators", label: "Sponsor", type: "dropdown" },

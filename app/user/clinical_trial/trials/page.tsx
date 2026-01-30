@@ -1622,22 +1622,22 @@ function ClinicalTrialsPage() {
                           {t("common.endpointsMet")}
                         </span>
                         <Switch
-                          checked={Boolean(currentTrial.results[0]?.endpoints_met)}
+                          checked={currentTrial.results[0]?.endpoints_met === true || currentTrial.results[0]?.endpoints_met === "Yes" || currentTrial.results[0]?.endpoints_met === "yes"}
                           disabled={true}
                           className="data-[state=checked]:bg-green-500 scale-100"
                         />
                       </div>
                       <div className="flex items-center space-x-3">
                         <span style={{ fontFamily: "Poppins", fontSize: "14px", color: "#2B4863", fontWeight: 600 }}>
-                          {t("common.resultPosted")}
+                          Results Available
                         </span>
-                        {/* Non-interactive badges showing result posted status */}
+                        {/* Non-interactive badges showing results available status */}
                         <div className="flex items-center overflow-hidden rounded-sm border-[1.5px] border-black">
                           <Badge
                             className="px-2.5 py-1 rounded-none cursor-default"
                             style={{
-                              backgroundColor: currentTrial.results[0]?.result_posted ? "#22c55e" : "#ffffff",
-                              color: currentTrial.results[0]?.result_posted ? "#ffffff" : "#374151",
+                              backgroundColor: currentTrial.results[0]?.results_available === true || currentTrial.results[0]?.results_available === "Yes" || currentTrial.results[0]?.results_available === "yes" ? "#22c55e" : "#ffffff",
+                              color: currentTrial.results[0]?.results_available === true || currentTrial.results[0]?.results_available === "Yes" || currentTrial.results[0]?.results_available === "yes" ? "#ffffff" : "#374151",
                               fontFamily: "Poppins",
                               fontSize: "12px",
                               fontWeight: 600,
@@ -1650,8 +1650,8 @@ function ClinicalTrialsPage() {
                           <Badge
                             className="px-2.5 py-1 rounded-none cursor-default"
                             style={{
-                              backgroundColor: !currentTrial.results[0]?.result_posted ? "#6b7280" : "#f3f4f6",
-                              color: !currentTrial.results[0]?.result_posted ? "#ffffff" : "#374151",
+                              backgroundColor: !(currentTrial.results[0]?.results_available === true || currentTrial.results[0]?.results_available === "Yes" || currentTrial.results[0]?.results_available === "yes") ? "#6b7280" : "#f3f4f6",
+                              color: !(currentTrial.results[0]?.results_available === true || currentTrial.results[0]?.results_available === "Yes" || currentTrial.results[0]?.results_available === "yes") ? "#ffffff" : "#374151",
                               fontFamily: "Poppins",
                               fontSize: "12px",
                               fontWeight: 600,
@@ -2238,7 +2238,7 @@ function ClinicalTrialsPage() {
                             { key: "Study Type", value: "Interventional" }, // Default as per user request example
                             {
                               key: "Primary Purpose",
-                              value: outcome?.purpose_of_trial || "Treatment"
+                              value: "N/A"
                             },
                             {
                               key: "Allocation",
@@ -2419,7 +2419,19 @@ function ClinicalTrialsPage() {
                             Ages Eligible for Study
                           </h4>
                           <p className="text-sm text-gray-900">
-                            {(currentTrial.criteria[0]?.age_from?.replace(/,/g, ' ').replace(/years/i, '').trim()) || "18"} Years
+                            {(() => {
+                              const ageFrom = currentTrial.criteria[0]?.age_from?.replace(/,/g, ' ').replace(/years/i, '').trim();
+                              const ageTo = currentTrial.criteria[0]?.age_to?.replace(/,/g, ' ').replace(/years/i, '').trim();
+
+                              if (ageFrom && ageTo) {
+                                return `${ageFrom} Years to ${ageTo} Years`;
+                              } else if (ageFrom) {
+                                return `${ageFrom} Years`;
+                              } else if (ageTo) {
+                                return `Up to ${ageTo} Years`;
+                              }
+                              return "18 Years";
+                            })()}
                           </p>
                         </div>
 
@@ -2521,6 +2533,10 @@ function ClinicalTrialsPage() {
                             </tr>
                           </thead>
                           <tbody>
+                            {(() => {
+                              console.log('[DEBUG] Timing object:', currentTrial.timing[0]);
+                              return null;
+                            })()}
                             <tr className="bg-white">
                               <td className="border border-gray-300 px-3 py-3 text-center font-medium">
                                 Actual
@@ -2552,6 +2568,40 @@ function ClinicalTrialsPage() {
                               <td className="border border-gray-300 px-3 py-3 text-center">
                                 {currentTrial.timing[0]?.result_published_date_actual
                                   ? formatDateToMMDDYYYY(currentTrial.timing[0].result_published_date_actual)
+                                  : "N/A"}
+                              </td>
+                            </tr>
+                            <tr className="bg-gray-50">
+                              <td className="border border-gray-300 px-3 py-3 text-center font-medium">
+                                Estimated
+                              </td>
+                              <td className="border border-gray-300 px-3 py-3 text-center">
+                                {currentTrial.timing[0]?.start_date_estimated
+                                  ? formatDateToMMDDYYYY(currentTrial.timing[0].start_date_estimated)
+                                  : "N/A"}
+                              </td>
+                              <td className="border border-gray-300 px-3 py-3 text-center">
+                                {currentTrial.timing[0]?.inclusion_period_estimated || "N/A"}
+                              </td>
+                              <td className="border border-gray-300 px-3 py-3 text-center">
+                                {currentTrial.timing[0]?.enrollment_closed_estimated
+                                  ? formatDateToMMDDYYYY(currentTrial.timing[0].enrollment_closed_estimated)
+                                  : "N/A"}
+                              </td>
+                              <td className="border border-gray-300 px-3 py-3 text-center">
+                                {currentTrial.timing[0]?.primary_outcome_duration_estimated || "N/A"}
+                              </td>
+                              <td className="border border-gray-300 px-3 py-3 text-center">
+                                {currentTrial.timing[0]?.trial_end_date_estimated
+                                  ? formatDateToMMDDYYYY(currentTrial.timing[0].trial_end_date_estimated)
+                                  : "N/A"}
+                              </td>
+                              <td className="border border-gray-300 px-3 py-3 text-center">
+                                {currentTrial.timing[0]?.result_duration_estimated || "N/A"}
+                              </td>
+                              <td className="border border-gray-300 px-3 py-3 text-center">
+                                {currentTrial.timing[0]?.result_published_date_estimated
+                                  ? formatDateToMMDDYYYY(currentTrial.timing[0].result_published_date_estimated)
                                   : "N/A"}
                               </td>
                             </tr>
@@ -2656,12 +2706,6 @@ function ClinicalTrialsPage() {
                                             </span>
                                           </div>
                                         )}
-                                        <div className="flex text-sm py-1">
-                                          <span className="font-bold text-[#204B73] min-w-[200px]">Registry Type :</span>
-                                          <span className="text-gray-900">
-                                            {sourceType || "N/A"}
-                                          </span>
-                                        </div>
                                       </div>
 
                                       {/* Buttons */}
@@ -2715,20 +2759,8 @@ function ClinicalTrialsPage() {
                   </div>
                   <CardContent className="p-6">
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                      {/* Left Column - Results Available and Trial Outcome */}
+                      {/* Left Column - Trial Outcome */}
                       <div className="border border-gray-200 rounded-lg p-4">
-                        {/* Results Available Toggle */}
-                        <div className="flex items-center space-x-3 mb-6">
-                          <span className="text-sm font-medium text-gray-900">
-                            Results available
-                          </span>
-                          <Switch
-                            checked={Boolean(currentTrial.results[0]?.results_available)}
-                            disabled
-                            className="data-[state=checked]:bg-[#28B463]"
-                          />
-                        </div>
-
                         {/* Trial Outcome */}
                         <div>
                           <span className="text-sm font-medium text-gray-900 block mb-2">
@@ -2901,30 +2933,49 @@ function ClinicalTrialsPage() {
                   </div>
                   <CardContent className="p-6">
                     <div className="space-y-6">
-                      {currentTrial.results && currentTrial.results.length > 0 ? (
-                        currentTrial.results.map((result, index) => {
-                          // Determine the date to show in the header badge
-                          let referenceDate = result.result_date || result.trial_outcome_reference_date;
+                      {(() => {
+                        // Get site_notes from the first result
+                        const siteNotes = (currentTrial.results?.[0] as any)?.site_notes || [];
 
-                          // Check site_notes for a date (Prioritize this as it comes from the Edit form)
-                          const notes = (result as any).site_notes || [];
-                          const noteWithDate = notes.find((n: any) => n.date);
-                          if (noteWithDate && noteWithDate.date) {
-                            referenceDate = noteWithDate.date;
-                          }
+                        if (siteNotes.length === 0) {
+                          return (
+                            <div className="text-center py-8">
+                              <p className="text-sm text-gray-600">
+                                No published results available for this trial.
+                              </p>
+                            </div>
+                          );
+                        }
 
-                          // If no explicit date field, check if 'reference' serves as the date (YYYY-MM-DD)
-                          if (!referenceDate && result.reference && /^\d{4}-\d{2}-\d{2}$/.test(result.reference.trim())) {
-                            referenceDate = result.reference;
-                          }
-
+                        return siteNotes.map((note: any, index: number) => {
                           const isExpanded = expandedPublishedResults[index];
-                          const totalResults = currentTrial.results.length;
-                          const cardTitle = totalResults > 1 ? `Result Note ${index + 1}` : "Result Note";
+                          const totalNotes = siteNotes.length;
+                          const cardTitle = totalNotes > 1 ? `Result Note ${index + 1}` : "Result Note";
+
+                          // Get date from this specific note
+                          const noteDate = note.date;
+
+                          // Get result type from this specific note
+                          const noteType = note.type || "N/A";
+
+                          // Get source from this specific note
+                          const noteSource = note.sourceLink || note.viewSource;
+                          let sourceLabel = "N/A";
+                          if (noteSource) {
+                            if (noteSource.toLowerCase().includes('pubmed')) {
+                              sourceLabel = "PubMed";
+                            } else {
+                              try {
+                                sourceLabel = new URL(noteSource).hostname.replace('www.', '');
+                              } catch (e) {
+                                sourceLabel = "Source";
+                              }
+                            }
+                          }
 
                           return (
                             <div
-                              key={result.id || index}
+                              key={index}
                               className={`border-2 rounded-xl transition-all duration-300 overflow-hidden ${isExpanded ? 'bg-white shadow-md' : 'bg-white'}`}
                               style={{ borderColor: isExpanded ? '#2B4863' : '#E2E8F0' }}
                             >
@@ -2935,51 +2986,22 @@ function ClinicalTrialsPage() {
                               >
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center space-x-4 flex-wrap gap-2">
+                                    {/* Date Badge */}
+                                    {noteDate && (
+                                      <Badge variant="secondary" className={`${isExpanded ? 'bg-white' : 'bg-gray-100'} rounded-lg font-bold text-black px-4 py-2 text-sm`}>
+                                        <span style={{ color: '#2B4863' }}>Date :</span>
+                                        <span className="font-normal ms-1">{formatDateToMMDDYYYY(noteDate)}</span>
+                                      </Badge>
+                                    )}
+                                    {/* Result Type Badge */}
                                     <Badge variant="secondary" className={`${isExpanded ? 'bg-white' : 'bg-gray-100'} rounded-lg font-bold text-black px-4 py-2 text-sm`}>
                                       <span style={{ color: '#2B4863' }}>Result Type :</span>
-                                      <span className="font-normal ms-1">
-                                        {(() => {
-                                          const validTypes = ['Interim', 'Full Results', 'Primary Endpoint Results', 'Analysis'];
-
-                                          // 1. Check if trial_outcome is valid
-                                          if (result.trial_outcome && validTypes.includes(result.trial_outcome)) return result.trial_outcome;
-
-                                          // 2. Check site_notes for valid types
-                                          const notes = (result as any).site_notes || [];
-                                          const validNote = notes.find((n: any) => validTypes.includes(n.type));
-                                          if (validNote) return validNote.type;
-
-                                          return "N/A";
-                                        })()}
-                                      </span>
+                                      <span className="font-normal ms-1">{noteType}</span>
                                     </Badge>
+                                    {/* Source Badge */}
                                     <Badge variant="secondary" className={`${isExpanded ? 'bg-white' : 'bg-gray-100'} rounded-lg font-bold text-black px-4 py-2 text-sm`}>
                                       <span style={{ color: '#2B4863' }}>Source :</span>
-                                      <span className="font-normal ms-1">
-                                        {(() => {
-                                          // 1. Try result.trial_outcome_link
-                                          let url = result.trial_outcome_link;
-                                          // 2. Try result.reference (if URL)
-                                          if (!url && result.reference?.startsWith('http')) url = result.reference;
-                                          // 3. Try site_notes viewSource or sourceLink
-                                          if (!url) {
-                                            const notes = (result as any).site_notes || [];
-                                            const noteWithLink = notes.find((n: any) => n.viewSource || n.sourceLink);
-                                            if (noteWithLink) url = noteWithLink.viewSource || noteWithLink.sourceLink;
-                                          }
-
-                                          if (!url) return "N/A";
-
-                                          // Check for PubMed specifically
-                                          if (url.toLowerCase().includes('pubmed')) return "PubMed";
-
-                                          try {
-                                            return new URL(url).hostname.replace('www.', '');
-                                          } catch (e) {
-                                            return "Source";
-                                          }
-                                        })()}
-                                      </span>
+                                      <span className="font-normal ms-1">{sourceLabel}</span>
                                     </Badge>
                                   </div>
                                   <button
@@ -3006,161 +3028,58 @@ function ClinicalTrialsPage() {
                               {isExpanded && (
                                 <div className="bg-white px-6 pb-6 pt-2 space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
 
-                                  {/* Date or Reference Handling */}
-                                  {/* Date or Reference Handling */}
-                                  {(() => {
-                                    // 1. Show the prioritized Date if available (from site_notes or other fields)
-                                    if (referenceDate) {
-                                      return (
-                                        <div className="mb-4">
-                                          <span style={{ color: '#2B4863' }} className="font-bold text-sm mr-2">Date :</span>
-                                          <span className="text-gray-900 font-medium">{formatDateToMMDDYYYY(referenceDate)}</span>
-                                        </div>
-                                      );
-                                    }
+                                  {/* Note Content with Results: and Conclusions: highlighting */}
+                                  {note.content && (
+                                    <div className="text-sm text-gray-900 leading-relaxed text-left whitespace-pre-wrap">
+                                      {(() => {
+                                        const parts = note.content.split(/(Results:|Conclusions:|Conclusion:)/g);
 
-                                    // 2. Fallback: If result.reference is textual (not a date), show it as text
-                                    const refText = result.reference || "";
-                                    const isDate = /^\d{4}-\d{2}-\d{2}$/.test(refText.trim());
-
-                                    if (refText && !isDate) {
-                                      return (
-                                        <p className="text-gray-900 font-medium italic mt-4 border-b pb-4">
-                                          {refText}
-                                        </p>
-                                      );
-                                    }
-                                    return null;
-                                  })()}
-
-                                  {/* Trial Results - Only show trial_results array, NOT fallback to outcome content */}
-                                  {result.trial_results && result.trial_results.length > 0 ? (
-                                    <div className="mt-4">
-                                      <h4 style={{ color: '#2B4863' }} className="font-bold text-sm mb-2">Results :</h4>
-                                      <div className="text-sm text-gray-900 leading-relaxed text-justify whitespace-pre-wrap">
-                                        {result.trial_results.map((res, idx) => (
-                                          <p key={idx} className="mb-4">
-                                            {res}
-                                          </p>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  ) : null}
-
-                                  {/* Additional Details */}
-                                  {/* Additional Details (Notes) - Render as distinct sections like Results */}
-                                  {((result as any).site_notes || []).length > 0 && (
-                                    <div className="space-y-4 pt-2">
-                                      {((result as any).site_notes || []).map((note: any, nIdx: number) => {
-                                        // Removed skip for 'Full Results' based on user request to show content
-
-                                        return (
-                                          <div key={nIdx} className="mt-4">
-                                            {note.type && (
-                                              <h4 style={{ color: '#2B4863' }} className="font-bold text-sm mb-2">
-                                                {note.type === 'Full Results' ? 'Additional Details' : note.type} :
-                                              </h4>
-                                            )}
-                                            <div className="text-sm text-gray-900 leading-relaxed text-left whitespace-pre-wrap">
-                                              {(() => {
-                                                if (!note.content) return null;
-
-                                                // Split logic to style 'Results:' and 'Conclusion:'
-                                                // Assuming standard format which often has newlines. 
-                                                // We'll replace the specific strings with styled spans.
-
-                                                const parts = note.content.split(/(Results:|Conclusion:)/g);
-
-                                                return parts.map((part: string, i: number) => {
-                                                  if (part === 'Results:' || part === 'Conclusion:') {
-                                                    return (
-                                                      <span key={i} style={{ color: '#2B4863' }} className="font-bold block mt-3 mb-1">
-                                                        {part}
-                                                      </span>
-                                                    );
-                                                  }
-                                                  return <span key={i}>{part}</span>;
-                                                });
-                                              })()}
-                                            </div>
-                                          </div>
-                                        );
-                                      })}
+                                        return parts.map((part: string, i: number) => {
+                                          if (part === 'Results:' || part === 'Conclusions:' || part === 'Conclusion:') {
+                                            return (
+                                              <span key={i} style={{ color: '#2B4863' }} className="font-bold block mt-3 mb-1">
+                                                {part}
+                                              </span>
+                                            );
+                                          }
+                                          return <span key={i}>{part}</span>;
+                                        });
+                                      })()}
                                     </div>
                                   )}
 
                                   {/* Action Buttons */}
                                   <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-100">
-                                    <Button
-                                      className="bg-[#204B73] hover:bg-[#1a3d5c] text-white text-sm px-5 h-10"
-                                      onClick={() => {
-                                        // View Source link logic
-                                        let link = result.trial_outcome_link || (result.reference?.startsWith('http') ? result.reference : null);
+                                    {/* View Source Button */}
+                                    {noteSource && (
+                                      <Button
+                                        className="bg-[#204B73] hover:bg-[#1a3d5c] text-white text-sm px-5 h-10"
+                                        onClick={() => window.open(noteSource, '_blank')}
+                                      >
+                                        View source
+                                      </Button>
+                                    )}
 
-                                        // If no main link, check site_notes
-                                        if (!link) {
-                                          const notes = (result as any).site_notes || [];
-                                          const note = notes.find((n: any) => n.viewSource || n.sourceLink);
-                                          if (note) link = note.viewSource || note.sourceLink;
-                                        }
-
-                                        if (link) window.open(link, '_blank');
-                                      }}
-                                    >
-                                      View source
-                                    </Button>
-
-                                    {/* Attachment Button logic */}
-                                    {(() => {
-                                      let hasAttachment = !!result.trial_outcome_attachment;
-                                      if (!hasAttachment) {
-                                        const notes = (result as any).site_notes || [];
-                                        hasAttachment = notes.some((n: any) => n.attachments && n.attachments.length > 0);
-                                      }
-
-                                      if (!hasAttachment) return null;
-
-                                      return (
-                                        <Button
-                                          className="bg-[#204B73] hover:bg-[#1a3d5c] text-white text-sm px-5 h-10 flex items-center gap-2"
-                                          onClick={() => {
-                                            let url = "";
-                                            // 1. Try main attachment
-                                            const att = result.trial_outcome_attachment;
-                                            if (typeof att === 'string') url = att;
-                                            else if (att && typeof att === 'object') url = (att as any).url || (att as any).fileUrl;
-
-                                            // 2. Try site_notes attachment
-                                            if (!url) {
-                                              const notes = (result as any).site_notes || [];
-                                              const note = notes.find((n: any) => n.attachments && n.attachments.length > 0);
-                                              if (note) {
-                                                const nAtt = note.attachments[0];
-                                                if (typeof nAtt === 'string') url = nAtt;
-                                                else if (nAtt) url = nAtt.url || nAtt.fileUrl;
-                                              }
-                                            }
-
-                                            if (url) window.open(url, '_blank');
-                                          }}
-                                        >
-                                          Attachment <FileText size={16} />
-                                        </Button>
-                                      );
-                                    })()}
+                                    {/* Attachment Button */}
+                                    {note.attachments && note.attachments.length > 0 && (
+                                      <Button
+                                        className="bg-[#204B73] hover:bg-[#1a3d5c] text-white text-sm px-5 h-10 flex items-center gap-2"
+                                        onClick={() => {
+                                          const att = note.attachments[0];
+                                          const url = typeof att === 'string' ? att : (att?.url || att?.fileUrl);
+                                          if (url) window.open(url, '_blank');
+                                        }}
+                                      >
+                                        Attachment <FileText size={16} />
+                                      </Button>
+                                    )}
                                   </div>
                                 </div>
                               )}
                             </div>
                           );
-                        })
-                      ) : (
-                        <div className="text-center py-8">
-                          <p className="text-sm text-gray-600">
-                            No published results available for this trial.
-                          </p>
-                        </div>
-                      )}
+                        });
+                      })()}
                     </div>
                   </CardContent>
                 </Card>
@@ -3671,15 +3590,16 @@ function ClinicalTrialsPage() {
                           const labels: Record<string, string> = {
                             'pipeline_data': 'Pipeline Data',
                             'press_releases': 'Press Release',
-                            'publications': 'Publication',
-                            'trial_registries': 'Trial Registry',
+                            'publications': '', // Hide third badge for publications since Publication Type is shown
+                            'trial_registries': 'Trial Registry Name',
                             'legacy': 'Other Source'
                           };
 
                           const label = labels[type] || 'Other Source';
 
-                          if (type === 'trial_registries' && data.registry) return `Trial Registry : ${formatTextValue(data.registry)}`;
-                          if (type === 'publications' && data.type && data.type !== 'publications') return `Publication : ${formatTextValue(data.type)}`;
+                          if (type === 'trial_registries' && data.registry) return `Trial Registry Name : ${formatTextValue(data.registry)}`;
+                          // Don't return a label for publications - Publication Type badge handles it
+                          if (type === 'publications') return '';
 
                           return label;
                         };
@@ -3719,9 +3639,17 @@ function ClinicalTrialsPage() {
                                               <Badge variant="secondary" className={`${isExpanded ? 'bg-white' : 'bg-gray-100'} rounded-lg font-bold text-black px-4 py-2 text-sm`}>
                                                 Date : {parsedData?.date ? formatDateToMMDDYYYY(parsedData.date) : "N/A"}
                                               </Badge>
-                                              <Badge variant="secondary" className={`${isExpanded ? 'bg-white' : 'bg-gray-100'} rounded-lg font-bold text-black px-4 py-2 text-sm`}>
-                                                {getTypeHeaderLabel(parsedData)}
-                                              </Badge>
+                                              {/* Publication Type badge for publications */}
+                                              {parsedData?.type === 'publications' && parsedData?.publicationType && (
+                                                <Badge variant="secondary" className={`${isExpanded ? 'bg-white' : 'bg-gray-100'} rounded-lg font-bold text-black px-4 py-2 text-sm`}>
+                                                  Publication Type : {formatTextValue(parsedData.publicationType)}
+                                                </Badge>
+                                              )}
+                                              {getTypeHeaderLabel(parsedData) && (
+                                                <Badge variant="secondary" className={`${isExpanded ? 'bg-white' : 'bg-gray-100'} rounded-lg font-bold text-black px-4 py-2 text-sm`}>
+                                                  {getTypeHeaderLabel(parsedData)}
+                                                </Badge>
+                                              )}
                                             </div>
                                             <button
                                               onClick={() => toggleOtherSource(currentIndex)}
@@ -3741,14 +3669,12 @@ function ClinicalTrialsPage() {
                                               <div className="space-y-1 border-t pt-3">
                                                 {parsedData.type === 'pipeline_data' && (
                                                   <>
-                                                    <Row label="Pipeline Date" value={parsedData.date ? formatDateToMMDDYYYY(parsedData.date) : "N/A"} />
                                                     <Row label="Information" value={parsedData.information} />
                                                   </>
                                                 )}
 
                                                 {parsedData.type === 'press_releases' && (
                                                   <>
-                                                    <Row label="Date" value={parsedData.date ? formatDateToMMDDYYYY(parsedData.date) : "N/A"} />
                                                     <Row label="Title" value={parsedData.title} />
                                                     <Row label="Description" value={parsedData.description} />
                                                   </>
@@ -3756,17 +3682,13 @@ function ClinicalTrialsPage() {
 
                                                 {parsedData.type === 'publications' && (
                                                   <>
-                                                    <Row label="Date" value={parsedData.date ? formatDateToMMDDYYYY(parsedData.date) : "N/A"} />
                                                     <Row label="Title" value={parsedData.title} />
-                                                    <Row label="Publication Type" value={formatTextValue(parsedData.publicationType || (parsedData.type !== 'publications' ? parsedData.type : ""))} />
                                                     <Row label="Description" value={parsedData.description} />
                                                   </>
                                                 )}
 
                                                 {parsedData.type === 'trial_registries' && (
                                                   <>
-                                                    <Row label="Date" value={parsedData.date ? formatDateToMMDDYYYY(parsedData.date) : "N/A"} />
-                                                    <Row label="Registry Name" value={formatTextValue(parsedData.registry)} />
                                                     <Row label="Registry Identifier" value={parsedData.identifier} />
                                                     <Row label="Description" value={parsedData.description} />
                                                   </>
@@ -3857,8 +3779,8 @@ function ClinicalTrialsPage() {
                 );
 
                 const getTypeHeaderLabel = (data: any) => {
-                  if (data.studyType && data.studyType !== 'associated_studies') return `Associated Study : ${formatTextValue(data.studyType)}`;
-                  return 'Associated Study';
+                  if (data.studyType && data.studyType !== 'associated_studies') return `Associated Study Type : ${formatTextValue(data.studyType)}`;
+                  return 'Associated Study Type';
                 };
 
                 return (
@@ -3908,9 +3830,7 @@ function ClinicalTrialsPage() {
                               {isExpanded && parsedData && (
                                 <div className="px-4 pb-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                                   <div className="space-y-1 border-t pt-3">
-                                    <Row label="Study Type" value={formatTextValue(parsedData.studyType || (parsedData.type !== 'associated_studies' ? parsedData.type : ""))} />
                                     <Row label="Title" value={parsedData.title} />
-                                    <Row label="Date" value={parsedData.date ? formatDateToMMDDYYYY(parsedData.date) : "N/A"} />
                                     <Row label="Description" value={parsedData.description} />
                                   </div>
 

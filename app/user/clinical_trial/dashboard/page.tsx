@@ -867,10 +867,8 @@ export default function ClinicalTrialDashboard() {
         appliedFilters.trialPhases.some(phase => {
           const trialPhase = normalizeForComparison(trial.overview.trial_phase || '');
           const filterPhase = normalizeForComparison(phase);
-          // Handle both "Phase I" and "I" formats
-          return trialPhase.includes(filterPhase) ||
-            filterPhase.includes(trialPhase) ||
-            `phase ${trialPhase}` === filterPhase;
+          // Use exact matching for trial phases to avoid "Phase I" matching "Phase I/II" or "Phase III"
+          return trialPhase === filterPhase;
         })) &&
       (appliedFilters.patientSegments.length === 0 ||
         appliedFilters.patientSegments.some(segment =>
@@ -1667,15 +1665,35 @@ export default function ClinicalTrialDashboard() {
             {/* Sidebar - TrialsListing Style */}
             <div
               ref={sidebarRef}
-              className="w-64 flex-shrink-0 rounded-[12px] bg-white z-40"
+              className="w-64 flex-shrink-0 rounded-[12px] bg-white z-40 dashboard-sidebar-scroll"
               style={{
                 fontFamily: "Poppins, sans-serif",
                 marginLeft: "20px",
                 width: "256px",
                 transform: `translateY(${sidebarTop}px)`,
-                transition: "transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1)"
+                transition: "transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1)",
+                maxHeight: "calc(100vh - 100px)",
+                overflowY: "auto"
               }}
             >
+              <style jsx>{`
+                .dashboard-sidebar-scroll::-webkit-scrollbar {
+                  width: 12px;
+                }
+                .dashboard-sidebar-scroll::-webkit-scrollbar-track {
+                  background: #f1f1f1;
+                  border-radius: 4px;
+                  margin: 4px 0;
+                }
+                .dashboard-sidebar-scroll::-webkit-scrollbar-thumb {
+                  background: #204B73;
+                  border-radius: 4px;
+                  border: 2px solid #f1f1f1;
+                }
+                .dashboard-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+                  background: #1a3d5c;
+                }
+              `}</style>
               {/* Search Button */}
               {/* Search Button Removed */}
 
@@ -3425,12 +3443,12 @@ export default function ClinicalTrialDashboard() {
                             {/* Results Section Cells */}
                             {columnSettings.resultsAvailable && (
                               <td className="p-4 align-middle w-[100px]">
-                                <span>{trial.results && trial.results.length > 0 ? "Yes" : "No"}</span>
+                                <span>{trial.results?.[0]?.results_available === true || trial.results?.[0]?.results_available === "Yes" || trial.results?.[0]?.results_available === "yes" ? "Yes" : "No"}</span>
                               </td>
                             )}
                             {columnSettings.endpointsMet && (
                               <td className="p-4 align-middle w-[100px]">
-                                <span>{trial.results?.[0]?.trial_results?.length > 0 ? "Yes" : "N/A"}</span>
+                                <span>{trial.results?.[0]?.endpoints_met === true || trial.results?.[0]?.endpoints_met === "Yes" || trial.results?.[0]?.endpoints_met === "yes" ? "Yes" : "No"}</span>
                               </td>
                             )}
                             {columnSettings.adverseEventsReported && (
