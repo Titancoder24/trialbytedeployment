@@ -40,19 +40,19 @@ export default function EditTherapeuticsStep5_5() {
   const [openAdverseType, setOpenAdverseType] = useState(false);
 
   const outcomes = [
-    "Completed – Primary endpoints met.",
-    "Completed – Primary endpoints not met.",
-    "Completed – Outcome unknown",
-    "Completed – Outcome indeterminate",
-    "Terminated – Safety/adverse effects",
-    "Terminated – Lack of efficacy",
-    "Terminated – Insufficient enrolment",
-    "Terminated – Business Decision, Drug strategy shift",
-    "Terminated - Business Decision, Pipeline Reprioritization",
+    "Completed – Outcome Indeterminate",
+    "Completed – Outcome Unknown",
+    "Completed – Primary Endpoints Met",
+    "Completed – Primary Endpoints Not Met",
     "Terminated - Business Decision, Other",
-    "Terminated – Lack of funding",
-    "Terminated – Planned but never initiated",
+    "Terminated - Business Decision, Pipeline Reprioritization",
+    "Terminated – Business Decision, Drug Strategy Shift",
+    "Terminated – Insufficient Enrolment",
+    "Terminated – Lack Of Efficacy",
+    "Terminated – Lack Of Funding",
     "Terminated – Other",
+    "Terminated – Planned But Never Initiated",
+    "Terminated – Safety/adverse Effects",
     "Terminated – Unknown"
   ];
   const adverseReported = ["Yes", "No"];
@@ -97,21 +97,21 @@ export default function EditTherapeuticsStep5_5() {
 
       {/* Top buttons */}
       <div className="flex justify-end w-full gap-3">
-            <Button
-              variant="outline"
-              onClick={() => router.push("/admin/therapeutics")}
-            >
+        <Button
+          variant="outline"
+          onClick={() => router.push("/admin/therapeutics")}
+        >
           Cancel
-            </Button>
-            <Button
+        </Button>
+        <Button
           className="text-white font-medium px-6 py-2"
           style={{ backgroundColor: "#204B73" }}
           onClick={handleSaveChanges}
-              disabled={isSavingStep || isSaving}
+          disabled={isSavingStep || isSaving}
         >
           {isSavingStep || isSaving ? "Saving..." : "Save Changes"}
-            </Button>
-          </div>
+        </Button>
+      </div>
 
       <Card>
         <CardContent className="space-y-6">
@@ -134,7 +134,7 @@ export default function EditTherapeuticsStep5_5() {
                   updateField("step5_5", "endpoints_met", val)
                 }
               />
-        </div>
+            </div>
             <div className="flex items-center gap-2">
               <Label>Adverse Events Reported</Label>
               <Switch
@@ -144,7 +144,7 @@ export default function EditTherapeuticsStep5_5() {
                 }
               />
             </div>
-        </div>
+          </div>
 
           {/* Trial Outcome + Reference */}
           <div className="grid gap-4 md:grid-cols-2">
@@ -229,14 +229,14 @@ export default function EditTherapeuticsStep5_5() {
                   />
                   <Button type="button" variant="outline" size="icon">
                     <Plus className="h-4 w-4" />
-              </Button>
-            </div>
+                  </Button>
+                </div>
               </div>
             </div>
-            </div>
+          </div>
 
           {/* Trial Results */}
-            <div className="space-y-2">
+          <div className="space-y-2">
             <Label>Trial Results</Label>
             <div className="space-y-3">
               {(form.trial_results || []).length > 0 ? (
@@ -251,15 +251,15 @@ export default function EditTherapeuticsStep5_5() {
                     />
                     <div className="absolute top-2 right-2 flex gap-1">
                       {(form.trial_results || []).length > 1 && (
-                  <Button
+                        <Button
                           type="button"
-                    variant="outline"
+                          variant="outline"
                           size="icon"
                           className="rounded-full h-8 w-8"
                           onClick={() => removeArrayItem("step5_5", "trial_results", index)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
                       )}
                       <Button
                         type="button"
@@ -271,7 +271,7 @@ export default function EditTherapeuticsStep5_5() {
                         <Plus className="h-4 w-4" />
                       </Button>
                     </div>
-                </div>
+                  </div>
                 ))
               ) : (
                 <div className="relative">
@@ -287,20 +287,20 @@ export default function EditTherapeuticsStep5_5() {
                     className="border-gray-600 focus:border-gray-800 focus:ring-gray-800 pr-12"
                   />
                   <div className="absolute top-2 right-2 flex gap-1">
-              <Button
+                    <Button
                       type="button"
-                variant="outline"
+                      variant="outline"
                       size="icon"
                       className="rounded-full h-8 w-8"
                       onClick={() => addArrayItem("step5_5", "trial_results", "")}
-              >
+                    >
                       <Plus className="h-4 w-4" />
-              </Button>
+                    </Button>
                   </div>
                 </div>
               )}
             </div>
-            </div>
+          </div>
 
           {/* Adverse Event */}
           <div className="grid gap-4 md:grid-cols-2">
@@ -389,7 +389,7 @@ export default function EditTherapeuticsStep5_5() {
                 </PopoverContent>
               </Popover>
             </div>
-              </div>
+          </div>
 
           {/* Treatment For Adverse Events */}
           <div className="space-y-2">
@@ -403,7 +403,7 @@ export default function EditTherapeuticsStep5_5() {
               }}
               className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
             />
-              </div>
+          </div>
 
           {/* Navigation */}
           <div className="flex justify-between">
@@ -413,9 +413,9 @@ export default function EditTherapeuticsStep5_5() {
             <Button asChild>
               <Link href={`/admin/therapeutics/edit/${params.id}/5-6`}>Next</Link>
             </Button>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -13,6 +13,7 @@ import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { SaveQueryModal } from "@/components/save-query-modal"
 import { useDrugNames } from "@/hooks/use-drug-names"
+import { useDynamicDropdown } from "@/hooks/use-dynamic-dropdown"
 import { SearchableSelect } from "@/components/ui/searchable-select"
 
 interface ClinicalTrialAdvancedSearchModalProps {
@@ -220,6 +221,14 @@ const getOperatorsForField = (fieldValue: string) => {
   const field = searchFields.find(f => f.value === fieldValue)
   if (!field) return textOperators
 
+  // Binary yes/no fields - only allow "is" and "is not"
+  const binaryFields = ["results_available", "endpoints_met"]
+  const binaryOperators = [
+    { value: "is", label: "is" },
+    { value: "is_not", label: "is not" }
+  ]
+  if (binaryFields.includes(fieldValue)) return binaryOperators
+
   switch (field.type) {
     case "number":
       return numericOperators
@@ -255,7 +264,13 @@ export function ClinicalTrialAdvancedSearchModal({
   // Get drug names from API
   const { getPrimaryDrugsOptions, isLoading: isDrugsLoading } = useDrugNames()
 
-  // Build dynamic field options with drug data
+  // Get regions dynamically from dropdown management
+  const { options: dynamicRegions, loading: isRegionsLoading } = useDynamicDropdown({
+    categoryName: 'region',
+    fallbackOptions: fieldOptions.regions
+  })
+
+  // Build dynamic field options with drug and region data
   const dynamicFieldOptions = useMemo((): Record<string, { value: string; label: string }[]> => {
     const drugOptions = getPrimaryDrugsOptions()
     return {
@@ -266,8 +281,11 @@ export function ClinicalTrialAdvancedSearchModal({
       secondary_drugs: drugOptions.length > 0
         ? drugOptions
         : [{ value: "no_drugs", label: "No drugs available" }],
+      regions: dynamicRegions.length > 0
+        ? dynamicRegions
+        : fieldOptions.regions,
     }
-  }, [getPrimaryDrugsOptions])
+  }, [getPrimaryDrugsOptions, dynamicRegions])
 
   // Sync internal state with props when modal opens or currentSearchCriteria change
   useEffect(() => {

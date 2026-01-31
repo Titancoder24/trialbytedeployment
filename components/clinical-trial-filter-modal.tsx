@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { X } from "lucide-react"
 import { FaBookmark } from "react-icons/fa"
 import { useDrugNames } from "@/hooks/use-drug-names"
+import { useDynamicDropdown } from "@/hooks/use-dynamic-dropdown"
 import { SaveQueryModal } from "@/components/save-query-modal"
 
 interface ClinicalTrialFilterModalProps {
@@ -90,19 +91,29 @@ const staticFilterCategories = {
   ],
   trialRecordStatus: ["Development In Progress (DIP)", "In Production (IP)", "Update In Progress (UIP)"],
   sex: ["Male", "Female", "Both", "Unknown"],
-  healthyVolunteers: ["Yes", "No", "No Information"],
+  healthyVolunteers: ["Yes", "No", "Unknown"],
   trialOutcome: [
-    "Completed – Primary endpoints met.", "Completed – Primary endpoints not met.", "Completed – Outcome unknown",
-    "Completed – Outcome indeterminate", "Terminated – Safety/adverse effects", "Terminated – Lack of efficacy",
-    "Terminated – Insufficient enrolment", "Terminated – Business Decision, Drug strategy shift",
-    "Terminated - Business Decision, Pipeline Reprioritization", "Terminated - Business Decision, Other",
-    "Terminated – Lack of funding", "Terminated – Planned but never initiated", "Terminated – Other", "Terminated – Unknown"
+    "Completed – Outcome Indeterminate",
+    "Completed – Outcome Unknown",
+    "Completed – Primary Endpoints Met",
+    "Completed – Primary Endpoints Not Met",
+    "Terminated - Business Decision, Other",
+    "Terminated - Business Decision, Pipeline Reprioritization",
+    "Terminated – Business Decision, Drug Strategy Shift",
+    "Terminated – Insufficient Enrolment",
+    "Terminated – Lack Of Efficacy",
+    "Terminated – Lack Of Funding",
+    "Terminated – Other",
+    "Terminated – Planned But Never Initiated",
+    "Terminated – Safety/adverse Effects",
+    "Terminated – Unknown"
   ],
   studyDesignKeywords: [
-    "Placebo-control", "Active control", "Randomized", "Non-Randomized", "Multiple-Blinded",
-    "Single-Blinded", "Open", "Multi-centre", "Safety", "Efficacy", "Tolerability",
-    "Pharmacokinetics", "Pharmacodynamics", "Interventional", "Treatment",
-    "Parallel Assignment", "Single group assignment", "Prospective", "Cohort"
+    "Active control", "Cohort", "Cross over", "Double-Blinded", "Efficacy",
+    "Interventional", "Multi-centre", "Non-Randomized", "Observational", "Open",
+    "Parallel Assignment", "Pharmacodynamics", "Pharmacokinetics", "Placebo-control",
+    "Prospective", "Randomized", "Safety", "Single group assignment", "Single-Blinded",
+    "Tolerability", "Treatment"
   ]
 }
 
@@ -121,17 +132,25 @@ export function ClinicalTrialFilterModal({
   const [searchTerm, setSearchTerm] = useState("")
   const { getPrimaryDrugsOptions, isLoading: isDrugsLoading } = useDrugNames()
 
-  // Build filter categories with dynamic drug data from API
+  // Fetch countries dynamically from the dropdown management database
+  const { options: dynamicCountries, loading: isCountriesLoading } = useDynamicDropdown({
+    categoryName: 'country',
+    fallbackOptions: staticFilterCategories.countries.map(c => ({ value: c, label: c }))
+  })
+
+  // Build filter categories with dynamic drug and country data from API
   const filterCategories = useMemo(() => {
     const drugOptions = getPrimaryDrugsOptions()
     const drugLabels = drugOptions.map(drug => drug.label)
+    const countryLabels = dynamicCountries.map(country => country.label)
 
     return {
       ...staticFilterCategories,
       primaryDrugs: drugLabels.length > 0 ? drugLabels : ["No drugs available - add drugs in the drug module"],
       otherDrugs: drugLabels.length > 0 ? drugLabels : ["No drugs available - add drugs in the drug module"],
+      countries: countryLabels.length > 0 ? countryLabels : staticFilterCategories.countries,
     }
-  }, [getPrimaryDrugsOptions])
+  }, [getPrimaryDrugsOptions, dynamicCountries])
 
   // Sync internal state with props when modal opens or currentFilters change
   useEffect(() => {

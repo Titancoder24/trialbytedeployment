@@ -467,7 +467,17 @@ export default function ClinicalTrialDashboard() {
   const getFieldValue = (trial: TherapeuticTrial, field: string): any => {
     switch (field) {
       // Basic Info
-      case "trial_id": return trial.overview.trial_id || trial.trial_id || "";
+      case "trial_id":
+        // Search across multiple identifier fields
+        const ids = [
+          trial.overview.trial_id,
+          trial.trial_id,
+          trial.nct_id,
+          trial.protocol_id,
+          trial.overview.trial_identifier ? trial.overview.trial_identifier.join(" ") : "",
+          trial.other_ids ? String(trial.other_ids) : ""
+        ].filter(Boolean).join(" ");
+        return ids;
       case "trial_identifier": return trial.overview.trial_identifier?.join(", ") || "";
       case "title": return trial.overview.title || "";
       case "disease_type": return trial.overview.disease_type || "";
@@ -506,21 +516,30 @@ export default function ClinicalTrialDashboard() {
 
       // Sites & Results
       case "total_number_of_sites": return trial.sites[0]?.total?.toString() || "";
-      case "results_available": return trial.results && trial.results.length > 0 ? "Yes" : "No";
-      case "endpoints_met": return trial.results?.[0]?.trial_results?.length > 0 ? "Yes" : "No";
+      case "results_available":
+        {
+          const val = trial.results?.[0]?.results_available;
+          return (val === true || val === "Yes" || val === "yes") ? "Yes" : "No";
+        }
+      case "endpoints_met":
+        {
+          const val = trial.results?.[0]?.endpoints_met;
+          return (val === true || val === "Yes" || val === "yes") ? "Yes" : "No";
+        }
 
       // Notes
       case "internal_note": return trial.notes?.map(n => n.notes).join(" ") || "";
+      case "next_review_date": return trial.logs?.[0]?.next_review_date || trial.notes?.[0]?.next_review_date || "";
 
       // Dates
       case "actual_start_date": return trial.timing[0]?.start_date_actual || "";
       case "estimated_start_date": return trial.timing[0]?.start_date_estimated || "";
       case "actual_enrollment_closed_date": return trial.timing[0]?.actual_enrollment_closed_date || "";
-      case "estimated_enrollment_closed_date": return trial.timing[0]?.actual_enrollment_closed_date || ""; // Mapping estimated to actual as per Sort? Re-verify if explicit field exists. Using same as sort mapping.
+      case "estimated_enrollment_closed_date": return trial.timing[0]?.enrollment_closed_estimated || trial.timing[0]?.actual_enrollment_closed_date || "";
       case "actual_trial_end_date": return trial.timing[0]?.actual_trial_completion_date || "";
       case "estimated_trial_end_date": return trial.timing[0]?.trial_end_date_estimated || "";
       case "actual_result_published_date": return trial.timing[0]?.actual_published_date || "";
-      case "estimated_result_published_date": return trial.results[0]?.id ? trial.results[0]["estimated_result_published_date" as any] || "" : ""; // Try access property if exists
+      case "estimated_result_published_date": return trial.timing[0]?.result_published_date_estimated || "";
 
       default: return "";
     }
@@ -729,14 +748,22 @@ export default function ClinicalTrialDashboard() {
       const fieldDate = typeof fieldValue === 'number' ? fieldValue : new Date(fieldValue).getTime();
       const searchDate = new Date(searchValue).getTime();
 
-      if (isNaN(fieldDate)) return false; // Invalid date in field
-      // If search value is not a valid date, maybe treat as text? 
-      // But operator implies date comparison. default to false if search invalid.
+      const isFieldValid = !isNaN(fieldDate);
       if (isNaN(searchDate)) return false;
 
+      // Normalize to YYYY-MM-DD for date-only comparison
+      const toDateString = (ts: number) => new Date(ts).toISOString().split('T')[0];
+      const fieldDateStr = isFieldValid ? toDateString(fieldDate) : "";
+      const searchDateStr = toDateString(searchDate);
+
+      // For "is_not", if the field date is invalid (empty), it is NOT the search date, so return true.
+      if (!isFieldValid) {
+        return operator === "is_not";
+      }
+
       switch (operator) {
-        case "is": return fieldDate === searchDate;
-        case "is_not": return fieldDate !== searchDate;
+        case "is": return fieldDateStr === searchDateStr;
+        case "is_not": return fieldDateStr !== searchDateStr;
         case "greater_than": return fieldDate > searchDate;
         case "greater_than_equal": return fieldDate >= searchDate;
         case "less_than": return fieldDate < searchDate;
@@ -751,6 +778,9 @@ export default function ClinicalTrialDashboard() {
       // Tokenize comma-separated values
       const tokens = field.split(',').map(t => t.trim());
 
+      // Define singleValueFields for exact matching on single-value fields
+      const singleValueFields = ["sex", "results_available", "endpoints_met", "healthy_volunteers"];
+
       if (operator === "is") {
         // "Is" Operator: only return trials where *only* that exact value is present.
         // Exact match on the whole string (normalized) covers "Only that value".
@@ -759,17 +789,51 @@ export default function ClinicalTrialDashboard() {
       }
 
       if (operator === "contains") {
+        // For single-value fields, use exact match
+        if (singleValueFields.includes(fieldName)) {
+          return field === value;
+        }
         // "Contains" Operator: include trials where value is part of multi-value field.
         // BUT avoid substring matching (Male in Female).
         // Check if ANY token equals the search value exactly.
         return tokens.includes(value);
       }
+
+      if (operator === "is_not") {
+        // For single-value fields, use exact match negation
+        if (singleValueFields.includes(fieldName)) {
+          return field !== value;
+        }
+        // "Is Not" Operator: exclude trials where value is part of multi-value field.
+        // Check that NONE of the tokens equal the search value exactly.
+        return !tokens.includes(value);
+      }
     }
 
+    // Handle text fields (Summary, Purpose, etc) that might be point-wise or multi-line
+    // Relaxed matching: Normalize whitespace and check for token presence or normalized exact match
+    if (operator === 'is' && typeof fieldValue === 'string' && (fieldValue.includes('\n') || fieldValue.includes('•') || fieldValue.includes('- '))) {
+      // 1. Normalize both field and search value (collapse whitespace)
+      const normalize = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+      const normField = normalize(fieldValue);
+      const normSearch = normalize(searchValue || "");
+
+      // If normalized values match exactly, return true
+      if (normField === normSearch) return true;
+
+      // 2. Tokenize by newlines or bullet points and check if any chunk matches normalized search
+      const chunks = fieldValue.split(/\n|•/).map(s => normalize(s)).filter(Boolean);
+      if (chunks.includes(normSearch)) return true;
+    }
+
+    // Default string comparison
     switch (operator) {
       case "contains": return field.includes(value);
       case "is": return field === value;
-      case "is_not": return field !== value;
+      case "is_not": {
+        // Improved is_not logic: if field contains the value, return false.
+        return !field.includes(value);
+      }
       case "starts_with": return field.startsWith(value);
       case "ends_with": return field.endsWith(value);
       case "greater_than":

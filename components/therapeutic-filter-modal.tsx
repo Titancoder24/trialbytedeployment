@@ -237,7 +237,7 @@ const DROPDOWN_OPTIONS: Record<keyof TherapeuticFilterState, SearchableSelectOpt
   healthyVolunteers: [
     { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
-    { value: "no_information", label: "No Information" },
+    { value: "unknown", label: "Unknown" },
   ],
 
   trialRecordStatus: [
@@ -518,9 +518,20 @@ const DROPDOWN_OPTIONS: Record<keyof TherapeuticFilterState, SearchableSelectOpt
 
   // Trial Outcome Options
   trialOutcome: [
-    { value: "positive", label: "Positive" },
-    { value: "negative", label: "Negative" },
-    { value: "inconclusive", label: "Inconclusive" },
+    { value: "completed_outcome_indeterminate", label: "Completed – Outcome Indeterminate" },
+    { value: "completed_outcome_unknown", label: "Completed – Outcome Unknown" },
+    { value: "completed_primary_endpoints_met", label: "Completed – Primary Endpoints Met" },
+    { value: "completed_primary_endpoints_not_met", label: "Completed – Primary Endpoints Not Met" },
+    { value: "terminated_business_other", label: "Terminated - Business Decision, Other" },
+    { value: "terminated_business_pipeline_reprioritization", label: "Terminated - Business Decision, Pipeline Reprioritization" },
+    { value: "terminated_business_drug_strategy_shift", label: "Terminated – Business Decision, Drug Strategy Shift" },
+    { value: "terminated_insufficient_enrolment", label: "Terminated – Insufficient Enrolment" },
+    { value: "terminated_lack_of_efficacy", label: "Terminated – Lack Of Efficacy" },
+    { value: "terminated_lack_of_funding", label: "Terminated – Lack Of Funding" },
+    { value: "terminated_other", label: "Terminated – Other" },
+    { value: "terminated_planned_but_never_initiated", label: "Terminated – Planned But Never Initiated" },
+    { value: "terminated_safety_adverse_effects", label: "Terminated – Safety/adverse Effects" },
+    { value: "terminated_unknown", label: "Terminated – Unknown" },
   ],
 
   // Adverse Event Reported Options
@@ -597,11 +608,27 @@ const DROPDOWN_OPTIONS: Record<keyof TherapeuticFilterState, SearchableSelectOpt
 
   // Study Design Keywords Options
   studyDesignKeywords: [
+    { value: "active_control", label: "Active control" },
+    { value: "cohort", label: "Cohort" },
+    { value: "cross_over", label: "Cross over" },
+    { value: "double_blinded", label: "Double-Blinded" },
+    { value: "efficacy", label: "Efficacy" },
+    { value: "interventional", label: "Interventional" },
+    { value: "multi_centre", label: "Multi-centre" },
+    { value: "non_randomized", label: "Non-Randomized" },
+    { value: "observational", label: "Observational" },
+    { value: "open", label: "Open" },
+    { value: "parallel_assignment", label: "Parallel Assignment" },
+    { value: "pharmacodynamics", label: "Pharmacodynamics" },
+    { value: "pharmacokinetics", label: "Pharmacokinetics" },
+    { value: "placebo_control", label: "Placebo-control" },
+    { value: "prospective", label: "Prospective" },
     { value: "randomized", label: "Randomized" },
-    { value: "double_blind", label: "Double-blind" },
-    { value: "placebo_controlled", label: "Placebo-controlled" },
-    { value: "open_label", label: "Open-label" },
-    { value: "crossover", label: "Crossover" },
+    { value: "safety", label: "Safety" },
+    { value: "single_group_assignment", label: "Single group assignment" },
+    { value: "single_blinded", label: "Single-Blinded" },
+    { value: "tolerability", label: "Tolerability" },
+    { value: "treatment", label: "Treatment" },
   ],
 
   // Study Design Options
@@ -1177,12 +1204,21 @@ export function TherapeuticFilterModal({ open, onOpenChange, onApplyFilters, cur
         return DROPDOWN_OPTIONS.patientSegments?.map(opt => opt.label) || [];
       }
 
-      // Helper to deduplicate values that differ only by dash formatting
+      // For trialOutcome, studyDesignKeywords, and regions - ONLY use static/dynamic options - do not merge with trial data
+      // This prevents duplicate entries with different formatting (trailing periods, spelling variations)
+      if (category === 'trialOutcome' || category === 'studyDesignKeywords' || category === 'regions') {
+        return fallbackValues;
+      }
+
+      // Helper to deduplicate values that differ only by dash formatting, trailing periods, or spelling variations
       const deduplicateByDash = (values: string[]): string[] => {
         const normalizeForDedupe = (str: string): string => {
           return str
-            .replace(/\s*[—–-]\s*/g, ' ') // Replace all dash types with single space
-            .replace(/\s+/g, ' ')          // Normalize multiple spaces
+            .replace(/\.$/g, '')              // Remove trailing periods
+            .replace(/\s*[—–-]\s*/g, ' ')     // Replace all dash types with single space
+            .replace(/\s+/g, ' ')             // Normalize multiple spaces
+            .replace(/enrollment/gi, 'enrolment') // Normalize spelling
+            .replace(/multiple.blinded/gi, 'double blinded') // Normalize blinding terms
             .toLowerCase()
             .trim();
         };

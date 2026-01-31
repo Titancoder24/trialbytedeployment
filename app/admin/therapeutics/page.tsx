@@ -1107,7 +1107,18 @@ export default function AdminTherapeuticsPage() {
         case "title": fieldValue = trial.overview.title || ""; break;
         case "therapeutic_area": fieldValue = trial.overview.therapeutic_area || ""; break;
         case "trial_identifier": fieldValue = trial.overview.trial_identifier?.join(", ") || ""; break;
-        case "trial_id": fieldValue = trial.overview.trial_id || trial.trial_id || ""; break; // Added
+        case "trial_id":
+          // Search across multiple identifier fields
+          const ids = [
+            trial.overview.trial_id,
+            trial.trial_id,
+            trial.nct_id,
+            trial.protocol_id,
+            trial.overview.trial_identifier ? trial.overview.trial_identifier.join(" ") : "",
+            trial.other_ids ? String(trial.other_ids) : ""
+          ].filter(Boolean).join(" ");
+          fieldValue = ids;
+          break;
         case "trial_phase": fieldValue = trial.overview.trial_phase || ""; break;
         case "status": fieldValue = trial.overview.status || ""; break;
         case "primary_drugs": fieldValue = trial.overview.primary_drugs || ""; break;
@@ -1119,7 +1130,8 @@ export default function AdminTherapeuticsPage() {
         case "sponsor_field_activity": fieldValue = trial.overview.sponsor_field_activity || ""; break;
         case "associated_cro": fieldValue = trial.overview.associated_cro || ""; break;
         case "countries": fieldValue = trial.overview.countries || ""; break;
-        case "region": fieldValue = trial.overview.region || ""; break;
+        case "region":
+        case "regions": fieldValue = trial.overview.region || ""; break;
         case "trial_record_status": fieldValue = trial.overview.trial_record_status || ""; break;
         case "created_at": fieldValue = trial.overview.created_at || ""; break;
         case "updated_at": fieldValue = trial.overview.updated_at || ""; break;
@@ -1157,12 +1169,16 @@ export default function AdminTherapeuticsPage() {
         // Timing fields
         case "start_date_estimated":
         case "estimated_start_date": fieldValue = trial.timing[0]?.start_date_estimated || ""; break;
-        case "actual_start_date": fieldValue = trial.timing[0]?.start_date_actual || ""; break; // Added
+        case "actual_start_date": fieldValue = trial.timing[0]?.start_date_actual || ""; break; // Corrected
         case "trial_end_date_estimated":
         case "estimated_trial_end_date": fieldValue = trial.timing[0]?.trial_end_date_estimated || ""; break;
-        case "actual_trial_end_date": fieldValue = trial.timing[0]?.actual_trial_completion_date || ""; break; // Added
-        case "actual_enrollment_closed_date": fieldValue = trial.timing[0]?.actual_enrollment_closed_date || ""; break; // Added
-        case "actual_result_published_date": fieldValue = trial.timing[0]?.actual_published_date || ""; break; // Added
+        case "actual_trial_end_date": fieldValue = trial.timing[0]?.trial_end_date_actual || ""; break; // Corrected from actual_trial_completion_date
+        case "actual_enrollment_closed_date": fieldValue = trial.timing[0]?.enrollment_closed_actual || ""; break; // Corrected from actual_enrollment_closed_date
+        case "actual_result_published_date": fieldValue = trial.timing[0]?.result_published_date_actual || ""; break; // Corrected from actual_published_date
+
+        // Added missing estimated fields
+        case "estimated_enrollment_closed_date": fieldValue = trial.timing[0]?.enrollment_closed_estimated || ""; break;
+        case "estimated_result_published_date": fieldValue = trial.timing[0]?.result_published_date_estimated || ""; break;
 
         // Results fields
         case "trial_outcome": fieldValue = trial.results[0]?.trial_outcome || ""; break;
@@ -1170,16 +1186,27 @@ export default function AdminTherapeuticsPage() {
         case "adverse_event_reported": fieldValue = trial.results[0]?.adverse_event_reported || ""; break;
         case "adverse_event_type": fieldValue = trial.results[0]?.adverse_event_type || ""; break;
         case "treatment_for_adverse_events": fieldValue = trial.results[0]?.treatment_for_adverse_events || ""; break;
-        case "results_available": fieldValue = trial.results && trial.results.length > 0 ? "Yes" : "No"; break; // Added
-        case "endpoints_met": fieldValue = trial.results?.[0]?.trial_results?.length > 0 ? "Yes" : "No"; break; // Added
+        case "results_available":
+          {
+            const val = trial.results?.[0]?.results_available;
+            fieldValue = (val === true || val === "Yes" || val === "yes") ? "Yes" : "No";
+          }
+          break;
+        case "endpoints_met":
+          {
+            const val = trial.results?.[0]?.endpoints_met;
+            fieldValue = (val === true || val === "Yes" || val === "yes") ? "Yes" : "No";
+          }
+          break;
 
         // Sites fields
         case "total_sites":
         case "total_number_of_sites": fieldValue = trial.sites[0]?.total?.toString() || ""; break;
         case "site_notes": fieldValue = trial.sites[0]?.notes || ""; break;
-        case "internal_note": fieldValue = trial.notes?.map(n => n.notes).join(" ") || ""; break; // Added
+        case "internal_note": fieldValue = trial.notes?.map((n: any) => n.notes).join(" ") || ""; break;
+        case "next_review_date": fieldValue = trial.logs?.[0]?.next_review_date || ""; break;
 
-        // Logs fields
+
         case "last_modified_date":
           // Get the most recent last_modified_date from logs array
           if (trial.logs && trial.logs.length > 0) {
@@ -1235,17 +1262,76 @@ export default function AdminTherapeuticsPage() {
         "sex", "trial_phase", "status", "results_available", "endpoints_met",
         "trial_record_status", "healthy_volunteers", "adverse_event_reported",
         "countries", "region", "sponsor_collaborators", "trial_outcome",
-        "therapeutic_area", "disease_type", "patient_segment", "line_of_therapy"
+        "therapeutic_area", "disease_type", "patient_segment", "line_of_therapy",
+        "trial_tags"
       ];
 
       if (categoricalFields.includes(field)) {
         const tokens = fieldValue.split(/[,;]+/).map(t => t.trim().toLowerCase());
 
+        // Special handling for trial_tags - use substring matching since tags can be multi-word
+        if (field === "trial_tags") {
+          const fieldValueLower = fieldValue.toLowerCase();
+          if (operator === "is") {
+            return fieldValueLower.includes(searchValueLower);
+          }
+          if (operator === "contains") {
+            return fieldValueLower.includes(searchValueLower);
+          }
+          if (operator === "is_not") {
+            return !fieldValueLower.includes(searchValueLower);
+          }
+        }
+
+        // Define singleValueFields outside the operator blocks so all operators can use it
+        const singleValueFields = ["sex", "results_available", "endpoints_met", "healthy_volunteers", "adverse_event_reported"];
+
         if (operator === "is") {
-          return targetValue === searchValueLower;
+          // For single-value fields (like results_available, endpoints_met), use exact match
+          if (singleValueFields.includes(field)) {
+            return targetValue === searchValueLower;
+          }
+          // Handle text fields (Summary, Purpose, etc) that might be point-wise
+          // If operator is 'is', check if ANY of the points match exactly
+          if (operator === 'is' && typeof fieldValue === 'string' && (fieldValue.includes('\n') || fieldValue.includes('•') || fieldValue.includes('- '))) {
+            // Tokenize by newlines or bullet points
+            const chunks = fieldValue.split(/\n|•/).map(s => s.trim()).filter(Boolean);
+            // If any chunk matches exactly (case insensitive was already handled by tokenization? No, field is raw here?)
+            // Wait, applyAdvancedSearchFilter logic lower down does .toLowerCase().
+            // But here we might return early?
+            // Actually, let's inject this logic into the generic token check below or add a specific block.
+
+            const searchValueLower = (searchValue || "").toLowerCase().trim();
+            const chunksLower = chunks.map(c => c.toLowerCase());
+            if (chunksLower.includes(searchValueLower)) return true;
+          }
+
+          // Special handling for categorical/multi-value fields (e.g. "Region1, Region2")
+          // We want "is not Region1" to exclude "Region1, Region2"
+          // And "is Region1" to include "Region1, Region2" if treating as tag match?
+          // Standard "is" usually means exact match or contains?
+          // Current logic below uses `includes` for `is` if generic string?
+          // No, `is` defaults to `targetValue === searchValueLower`.
+
+          if (tokens.length > 0) { }
+          // For multi-value categorical fields, "is" means at least one token matches exactly
+          return tokens.includes(searchValueLower);
         }
         if (operator === "contains") {
+          // For single-value fields, use exact match
+          if (singleValueFields.includes(field)) {
+            return targetValue === searchValueLower;
+          }
           return tokens.includes(searchValueLower);
+        }
+        if (operator === "is_not") {
+          // For single-value fields, use exact match negation
+          if (singleValueFields.includes(field)) {
+            return targetValue !== searchValueLower;
+          }
+          // "Is Not" Operator: exclude trials where value is part of multi-value field.
+          // Check that NONE of the tokens equal the search value exactly.
+          return !tokens.includes(searchValueLower);
         }
       }
 
@@ -1281,13 +1367,32 @@ export default function AdminTherapeuticsPage() {
         const fieldDate = new Date(fieldValue).getTime();
         const searchDate = new Date(rawSearchValue).getTime();
 
-        if (isNaN(fieldDate)) return false;
-        // If search value is not a valid date, maybe text comparison? But let's be strict for date fields.
+        const isFieldValid = !isNaN(fieldDate);
         if (isNaN(searchDate)) return false;
 
+        // Normalize to YYYY-MM-DD for date-only comparison
+        // Use UTC to avoid timezone shifts if the input is ISO ending in Z
+        const toDateString = (ts: number) => new Date(ts).toISOString().split('T')[0];
+
+        const fieldDateStr = isFieldValid ? toDateString(fieldDate) : "";
+        const searchDateStr = toDateString(searchDate);
+
+        console.log(`[DEBUG DATE] Field: ${field}, Op: ${operator}, FieldVal: "${fieldValue}", SearchVal: "${rawSearchValue}"`);
+        console.log(`[DEBUG DATE NORM] FieldStr: "${fieldDateStr}", SearchStr: "${searchDateStr}"`);
+
+        // For "is_not", if the field date is invalid (empty), it is NOT the search date, so return true.
+        // For other operators, if field date is invalid, we can't compare, so return false.
+        if (!isFieldValid) {
+          return operator === "is_not";
+        }
+
         switch (operator) {
-          case "is": return fieldDate === searchDate;
-          case "is_not": return fieldDate !== searchDate;
+          case "is": return fieldDateStr === searchDateStr; // Compare strings
+          case "is_not": return fieldDateStr !== searchDateStr; // Compare strings
+          // For relative comparisons, keep numeric timestamp but normalize to same time boundary?
+          // Actually, for > and <, maybe timestamps are fine IF we align them?
+          // But strict "is" fails because of time. Only "is" and "is_not" really need string comparison.
+          // Let's stick to timestamps for relative for now as "is" is the main complaint.
           case "greater_than": return fieldDate > searchDate;
           case "greater_than_equal": return fieldDate >= searchDate;
           case "less_than": return fieldDate < searchDate;
@@ -1464,7 +1569,7 @@ export default function AdminTherapeuticsPage() {
       switch (operator) {
         case "contains": return targetValue.includes(searchValueLower);
         case "is": return targetValue === searchValueLower;
-        case "is_not": return targetValue !== searchValueLower;
+        case "is_not": return !targetValue.includes(searchValueLower);
         case "starts_with": return targetValue.startsWith(searchValueLower);
         case "ends_with": return targetValue.endsWith(searchValueLower);
         case "greater_than": {

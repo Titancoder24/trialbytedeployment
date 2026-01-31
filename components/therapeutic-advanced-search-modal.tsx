@@ -254,9 +254,16 @@ const getOperatorsForField = (fieldValue: string) => {
     "estimated_enrollment_closed_date", "actual_trial_end_date", "estimated_trial_end_date",
     "actual_result_published_date", "estimated_result_published_date", "next_review_date"
   ]
+  // Binary yes/no fields - only allow "is" and "is not"
+  const binaryFields = ["results_available", "endpoints_met"]
+  const binaryOperators = [
+    { value: "is", label: "is" },
+    { value: "is_not", label: "is not" }
+  ]
 
   if (numericFields.includes(fieldValue)) return numericOperators
   if (dateFieldsList.includes(fieldValue)) return dateOperators
+  if (binaryFields.includes(fieldValue)) return binaryOperators
   return textOperators
 }
 
@@ -461,23 +468,23 @@ const fieldOptions: Record<string, { value: string; label: string }[]> = {
   healthy_volunteers: [
     { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
-    { value: "no_information", label: "No Information" }
+    { value: "unknown", label: "Unknown" }
   ],
   // Step 5-5: Results dropdowns
   trial_outcome: [
-    { value: "Completed – Primary endpoints met.", label: "Completed – Primary endpoints met." },
-    { value: "Completed – Primary endpoints not met.", label: "Completed – Primary endpoints not met." },
-    { value: "Completed – Outcome unknown", label: "Completed – Outcome unknown" },
-    { value: "Completed – Outcome indeterminate", label: "Completed – Outcome indeterminate" },
-    { value: "Terminated – Safety/adverse effects", label: "Terminated – Safety/adverse effects" },
-    { value: "Terminated – Lack of efficacy", label: "Terminated – Lack of efficacy" },
-    { value: "Terminated – Insufficient enrolment", label: "Terminated – Insufficient enrolment" },
-    { value: "Terminated – Business Decision, Drug strategy shift", label: "Terminated – Business Decision, Drug strategy shift" },
-    { value: "Terminated - Business Decision, Pipeline Reprioritization", label: "Terminated - Business Decision, Pipeline Reprioritization" },
+    { value: "Completed – Outcome Indeterminate", label: "Completed – Outcome Indeterminate" },
+    { value: "Completed – Outcome Unknown", label: "Completed – Outcome Unknown" },
+    { value: "Completed – Primary Endpoints Met", label: "Completed – Primary Endpoints Met" },
+    { value: "Completed – Primary Endpoints Not Met", label: "Completed – Primary Endpoints Not Met" },
     { value: "Terminated - Business Decision, Other", label: "Terminated - Business Decision, Other" },
-    { value: "Terminated – Lack of funding", label: "Terminated – Lack of funding" },
-    { value: "Terminated – Planned but never initiated", label: "Terminated – Planned but never initiated" },
+    { value: "Terminated - Business Decision, Pipeline Reprioritization", label: "Terminated - Business Decision, Pipeline Reprioritization" },
+    { value: "Terminated – Business Decision, Drug Strategy Shift", label: "Terminated – Business Decision, Drug Strategy Shift" },
+    { value: "Terminated – Insufficient Enrolment", label: "Terminated – Insufficient Enrolment" },
+    { value: "Terminated – Lack Of Efficacy", label: "Terminated – Lack Of Efficacy" },
+    { value: "Terminated – Lack Of Funding", label: "Terminated – Lack Of Funding" },
     { value: "Terminated – Other", label: "Terminated – Other" },
+    { value: "Terminated – Planned But Never Initiated", label: "Terminated – Planned But Never Initiated" },
+    { value: "Terminated – Safety/adverse Effects", label: "Terminated – Safety/adverse Effects" },
     { value: "Terminated – Unknown", label: "Terminated – Unknown" }
   ],
   adverse_event_reported: [
@@ -822,10 +829,10 @@ export function TherapeuticAdvancedSearchModal({
       fieldOptionsForField = dynamicDropdowns[categoryName].options
     }
     const isDateField = dateFields.includes(criterion.field)
-    // Exclude text-only fields from getting dynamic values - they should be text inputs
+    // Exclude text-only fields and regions from getting dynamic values - they should use dropdown options only
     const textOnlyFields = ['title', 'trial_identifier', 'purpose_of_trial', 'summary', 'treatment_regimen',
       'primaryOutcomeMeasures', 'otherOutcomeMeasures', 'inclusion_criteria',
-      'exclusion_criteria', 'notes', 'study_design', 'reference_links']
+      'exclusion_criteria', 'notes', 'study_design', 'reference_links', 'regions', 'region']
     const dynamicValues = textOnlyFields.includes(criterion.field) ? [] : getFieldValues(criterion.field)
 
     // Special handling for primary_drugs and other_drugs - use SearchableSelect with drug names from hook
