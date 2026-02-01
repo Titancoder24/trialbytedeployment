@@ -189,11 +189,17 @@ const fieldOptions: Record<string, { value: string; label: string }[]> = {
   ]
 }
 
-// Text operators (for non-numeric fields)
-const textOperators = [
+// Default text operators (for non-numeric fields)
+const defaultTextOperators = [
   { value: "contains", label: "Contains" },
   { value: "is", label: "is" },
   { value: "is_not", label: "is not" },
+]
+
+// Special text operators for long fields (contains / not contains)
+const containsOperators = [
+  { value: "contains", label: "Contains" },
+  { value: "is_not", label: "not contains" }, // "is not" maps to !includes logic
 ]
 
 // Numeric operators (for number fields)
@@ -216,10 +222,17 @@ const dateOperators = [
   { value: "less_than_equal", label: "<=" },
 ]
 
+// Trial ID operators (is, is not, contains)
+const trialIdOperators = [
+  { value: "is", label: "is" },
+  { value: "is_not", label: "is not" },
+  { value: "contains", label: "contains" }
+]
+
 // Helper function to get operators based on field type
 const getOperatorsForField = (fieldValue: string) => {
   const field = searchFields.find(f => f.value === fieldValue)
-  if (!field) return textOperators
+  if (!field) return defaultTextOperators
 
   // Binary yes/no fields - only allow "is" and "is not"
   const binaryFields = ["results_available", "endpoints_met"]
@@ -229,13 +242,28 @@ const getOperatorsForField = (fieldValue: string) => {
   ]
   if (binaryFields.includes(fieldValue)) return binaryOperators
 
+  // Fields that should only have "Contains" and "not contains"
+  const containsOnlyFields = [
+    "primary_outcome_measure",
+    "other_outcome_measure",
+    "treatment_regimen",
+    "study_design",
+    "purpose_of_trial",
+    "summary",
+    "inclusion_criteria",
+    "exclusion_criteria"
+  ]
+
+  if (containsOnlyFields.includes(fieldValue)) return containsOperators
+  if (fieldValue === "trial_id") return trialIdOperators
+
   switch (field.type) {
     case "number":
       return numericOperators
     case "date":
       return dateOperators
     default:
-      return textOperators
+      return defaultTextOperators
   }
 }
 
@@ -358,7 +386,7 @@ export function ClinicalTrialAdvancedSearchModal({
     const fieldType = getFieldType(criterion.field)
     const options = dynamicFieldOptions[criterion.field]
 
-    // Date field - show date picker
+    // Date field - show date picker with month/year dropdowns in calendar header
     if (fieldType === "date") {
       return (
         <Popover>
@@ -371,19 +399,26 @@ export function ClinicalTrialAdvancedSearchModal({
               )}
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
-              {criterion.value ? format(new Date(criterion.value), "PPP") : "Select date"}
+              {criterion.value ? format(new Date(criterion.value), "MM-dd-yyyy") : "Select date"}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
             <Calendar
               mode="single"
               selected={criterion.value ? new Date(criterion.value) : undefined}
-              onSelect={(date) => {
+              onSelect={(date: Date | undefined) => {
                 if (date) {
-                  updateCriteria(criterion.id, "value", date.toISOString())
+                  // Store as YYYY-MM-DD to avoid timezone issues
+                  const year = date.getFullYear();
+                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                  const day = String(date.getDate()).padStart(2, '0');
+                  updateCriteria(criterion.id, "value", `${year}-${month}-${day}`)
                 }
               }}
               initialFocus
+              captionLayout="dropdown"
+              fromYear={1900}
+              toYear={2100}
             />
           </PopoverContent>
         </Popover>

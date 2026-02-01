@@ -1401,6 +1401,11 @@ export default function AdminTherapeuticsPage() {
         }
       }
 
+      // Special handling for trial_id: "is" should behave like "contains"
+      if (field === "trial_id" && operator === "is") {
+        return targetValue.includes(searchValueLower);
+      }
+
       // Special handling for drug fields (primary_drugs, other_drugs) - check related drug names
       // IMPORTANT: For drug fields, ONLY use the drug mapping logic - don't fall through to default
       if (field === "primary_drugs" || field === "other_drugs") {

@@ -23,7 +23,6 @@ import { Calendar } from "@/components/ui/calendar"
 import { X, Plus, Minus, CalendarIcon, Search, Calendar as CalendarIcon2, Eye, Trash2, Loader2, AlertCircle } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
-import CustomDateInput from "@/components/ui/custom-date-input"
 import { MultiTagInput } from "@/components/ui/multi-tag-input"
 import { SearchableSelect } from "@/components/ui/searchable-select"
 import { SaveQueryModal } from "@/components/save-query-modal"
@@ -215,11 +214,17 @@ const therapeuticSearchFields = [
   { value: "age_to", label: "Age To" },
 ]
 
-// Text operators (for non-numeric fields)
-const textOperators = [
+// Default text operators
+const defaultTextOperators = [
   { value: "contains", label: "Contains" },
   { value: "is", label: "is" },
   { value: "is_not", label: "is not" },
+]
+
+// Special text operators for long fields (contains / not contains)
+const containsOperators = [
+  { value: "contains", label: "Contains" },
+  { value: "is_not", label: "not contains" }, // "is not" maps to !includes logic
 ]
 
 // Numeric operators (for number fields)
@@ -242,6 +247,13 @@ const dateOperators = [
   { value: "less_than_equal", label: "<=" },
 ]
 
+// Trial ID operators (is, is not, contains)
+const trialIdOperators = [
+  { value: "is", label: "is" },
+  { value: "is_not", label: "is not" },
+  { value: "contains", label: "contains" }
+]
+
 // Helper function to get operators based on field type
 const getOperatorsForField = (fieldValue: string) => {
   // Numeric fields
@@ -261,10 +273,25 @@ const getOperatorsForField = (fieldValue: string) => {
     { value: "is_not", label: "is not" }
   ]
 
+  // Fields that should only have "Contains" and "not contains"
+  const containsOnlyFields = [
+    "primary_outcome_measure",
+    "other_outcome_measure",
+    "treatment_regimen",
+    "study_design",
+    "purpose_of_trial",
+    "summary",
+    "inclusion_criteria",
+    "exclusion_criteria"
+  ]
+
   if (numericFields.includes(fieldValue)) return numericOperators
   if (dateFieldsList.includes(fieldValue)) return dateOperators
   if (binaryFields.includes(fieldValue)) return binaryOperators
-  return textOperators
+  if (containsOnlyFields.includes(fieldValue)) return containsOperators
+  if (fieldValue === "trial_id") return trialIdOperators
+
+  return defaultTextOperators
 }
 
 // Field-specific options for dropdowns - matching exactly what's available in trial creation
@@ -445,14 +472,7 @@ const fieldOptions: Record<string, { value: string; label: string }[]> = {
     { value: "denmark", label: "Denmark" }
   ],
   // Regions - Exact options from creation phase
-  regions: [
-    { value: "north_america", label: "North America" },
-    { value: "europe", label: "Europe" },
-    { value: "asia_pacific", label: "Asia Pacific" },
-    { value: "latin_america", label: "Latin America" },
-    { value: "africa", label: "Africa" },
-    { value: "middle_east", label: "Middle East" }
-  ],
+
   // Trial Record Status - Exact options from creation phase
   trial_record_status: [
     { value: "DIP", label: "Development In Progress (DIP)" },
@@ -587,7 +607,7 @@ export function TherapeuticAdvancedSearchModal({
     'therapeutic_area', 'trial_phase', 'trial_status', 'disease_type', 'patient_segment',
     'line_of_therapy', 'trial_record_status', 'sex', 'healthy_volunteers', 'trial_outcome',
     'adverse_event_reported', 'adverse_event_type', 'study_design_keywords', 'trial_tags',
-    'sponsor_collaborators', 'sponsor_field_activity', 'associated_cro', 'country', 'regions',
+    'sponsor_collaborators', 'sponsor_field_activity', 'associated_cro', 'country', 'region',
     'full_review_user', 'last_modified_user', 'results_available', 'endpoints_met'
   ]
 
@@ -595,6 +615,7 @@ export function TherapeuticAdvancedSearchModal({
   const categoryToFieldMap: Record<string, string> = {
     'trial_status': 'status',
     'country': 'countries',
+    'region': 'regions'
   };
 
   // Memoize category configs to prevent infinite loops
@@ -604,6 +625,7 @@ export function TherapeuticAdvancedSearchModal({
       fallbackOptions: fieldOptions[categoryToFieldMap[categoryName] || categoryName] || []
     }));
   }, []); // Empty deps since dropdownCategories, categoryToFieldMap, and fieldOptions are stable
+
 
   // Fetch all dynamic dropdown options
   const { results: dynamicDropdowns, loading: dropdownsLoading } = useMultipleDynamicDropdowns(categoryConfigs)
@@ -819,7 +841,8 @@ export function TherapeuticAdvancedSearchModal({
       'status': 'trial_status',
       'gender': 'sex',
       'countries': 'country',
-      'region': 'regions',
+      'region': 'region',
+      'regions': 'region'
     };
     const categoryName = fieldToCategoryMap[criterion.field] || criterion.field;
 
@@ -910,15 +933,43 @@ export function TherapeuticAdvancedSearchModal({
       )
     }
 
-    // Date field with custom input
+    // Date field with calendar popup and month/year dropdown navigation
     if (isDateField) {
+      const dateValue = Array.isArray(criterion.value) ? criterion.value[0] || "" : criterion.value;
       return (
-        <CustomDateInput
-          value={Array.isArray(criterion.value) ? criterion.value[0] || "" : criterion.value}
-          onChange={(value) => updateCriteria(criterion.id, "value", value)}
-          placeholder="MM-DD-YYYY"
-          className="w-full"
-        />
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                "w-full justify-start text-left font-normal border border-gray-300 rounded-lg",
+                !dateValue && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {dateValue ? format(new Date(dateValue), "MM-dd-yyyy") : "Select date"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={dateValue ? new Date(dateValue) : undefined}
+              onSelect={(date: Date | undefined) => {
+                if (date) {
+                  // Store as YYYY-MM-DD to avoid timezone issues
+                  const year = date.getFullYear();
+                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                  const day = String(date.getDate()).padStart(2, '0');
+                  updateCriteria(criterion.id, "value", `${year}-${month}-${day}`)
+                }
+              }}
+              initialFocus
+              captionLayout="dropdown"
+              fromYear={1900}
+              toYear={2100}
+            />
+          </PopoverContent>
+        </Popover>
       )
     }
 

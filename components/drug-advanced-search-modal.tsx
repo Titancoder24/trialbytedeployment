@@ -5,9 +5,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { X, Plus, Minus } from "lucide-react"
+import { X, Plus, Minus, CalendarIcon } from "lucide-react"
 import { QueryHistoryModal } from "@/components/query-history-modal"
-import CustomDateInput from "@/components/ui/custom-date-input"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { DrugFilterState } from "./drug-filter-modal"
 
@@ -234,15 +237,42 @@ export function DrugAdvancedSearchModal({
     const isDateField = dateFields.includes(criterion.field)
     const dynamicValues = getFieldValues(criterion.field)
 
-    // Date field with custom input
+    // Date field with calendar popup and month/year dropdown navigation
     if (isDateField) {
       return (
-        <CustomDateInput
-          value={criterion.value}
-          onChange={(value) => updateCriteria(criterion.id, "value", value)}
-          placeholder="Month Day Year"
-          className="w-full"
-        />
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                "w-full justify-start text-left font-normal border border-gray-300 rounded-lg",
+                !criterion.value && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {criterion.value ? format(new Date(criterion.value), "MM-dd-yyyy") : "Select date"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={criterion.value ? new Date(criterion.value) : undefined}
+              onSelect={(date: Date | undefined) => {
+                if (date) {
+                  // Store as YYYY-MM-DD to avoid timezone issues
+                  const year = date.getFullYear();
+                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                  const day = String(date.getDate()).padStart(2, '0');
+                  updateCriteria(criterion.id, "value", `${year}-${month}-${day}`)
+                }
+              }}
+              initialFocus
+              captionLayout="dropdown"
+              fromYear={1900}
+              toYear={2100}
+            />
+          </PopoverContent>
+        </Popover>
       )
     }
 

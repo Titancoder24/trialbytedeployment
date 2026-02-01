@@ -534,11 +534,11 @@ export default function ClinicalTrialDashboard() {
       // Dates
       case "actual_start_date": return trial.timing[0]?.start_date_actual || "";
       case "estimated_start_date": return trial.timing[0]?.start_date_estimated || "";
-      case "actual_enrollment_closed_date": return trial.timing[0]?.actual_enrollment_closed_date || "";
-      case "estimated_enrollment_closed_date": return trial.timing[0]?.enrollment_closed_estimated || trial.timing[0]?.actual_enrollment_closed_date || "";
-      case "actual_trial_end_date": return trial.timing[0]?.actual_trial_completion_date || "";
+      case "actual_enrollment_closed_date": return trial.timing[0]?.enrollment_closed_actual || "";
+      case "estimated_enrollment_closed_date": return trial.timing[0]?.enrollment_closed_estimated || "";
+      case "actual_trial_end_date": return trial.timing[0]?.trial_end_date_actual || "";
       case "estimated_trial_end_date": return trial.timing[0]?.trial_end_date_estimated || "";
-      case "actual_result_published_date": return trial.timing[0]?.actual_published_date || "";
+      case "actual_result_published_date": return trial.timing[0]?.result_published_date_actual || "";
       case "estimated_result_published_date": return trial.timing[0]?.result_published_date_estimated || "";
 
       default: return "";
@@ -824,6 +824,11 @@ export default function ClinicalTrialDashboard() {
       // 2. Tokenize by newlines or bullet points and check if any chunk matches normalized search
       const chunks = fieldValue.split(/\n|•/).map(s => normalize(s)).filter(Boolean);
       if (chunks.includes(normSearch)) return true;
+    }
+
+    // Special handling for trial_id: "is" should behave like "contains"
+    if (fieldName === "trial_id" && operator === "is") {
+      return field.includes(value);
     }
 
     // Default string comparison
