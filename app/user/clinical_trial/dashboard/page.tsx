@@ -742,6 +742,48 @@ export default function ClinicalTrialDashboard() {
     const field = normalizeForComparison(fieldValue);
     const value = normalizeForComparison(searchValue || '');
 
+    // Drug fields special handling - check aliases for better matching (same logic as filters)
+    const drugFields = ["primary_drugs", "secondary_drugs"];
+    if (fieldName && drugFields.includes(fieldName)) {
+      // Handle N/A, empty, or null-like values for drug fields
+      const normalizedField = field.trim().toLowerCase();
+      if (!normalizedField || normalizedField === "" || normalizedField === "n/a" || normalizedField === "na") {
+        // For "is_not", empty/N/A values should match (trial doesn't have the drug)
+        // For "is" and "contains", empty/N/A values should NOT match
+        if (operator === "is_not" || operator === "not_equals") {
+          return true; // Empty/N/A is "not" any specific drug
+        }
+        return false; // Empty/N/A doesn't "contain" or "is" any specific drug
+      }
+
+      // Direct match check - check if search value is contained in the field
+      const directMatch = field.includes(value);
+
+      // Check aliases for the search value
+      const searchAliases = drugAliasesMap[searchValue?.toLowerCase()] || [];
+      const aliasMatch = searchAliases.some(alias =>
+        field.includes(normalizeForComparison(alias))
+      );
+
+      // Also check if any drug in the field has the search value as an alias
+      const fieldDrugs = field.split(',').map(d => d.trim());
+      const reverseAliasMatch = fieldDrugs.some(drug => {
+        const drugAliases = drugAliasesMap[drug] || [];
+        return drugAliases.some(alias => normalizeForComparison(alias).includes(value));
+      });
+
+      // For drug fields, both "is" and "contains" should use the same matching logic
+      // This matches filter behavior where selecting a drug returns all trials with that drug or its aliases
+      switch (operator) {
+        case "contains":
+        case "is":
+          return directMatch || aliasMatch || reverseAliasMatch;
+        case "is_not":
+          return !(directMatch || aliasMatch || reverseAliasMatch);
+        default: break;
+      }
+    }
+
     // Date Logic - Prioritize raw numeric comparison if available
     if (fieldName?.includes("date")) {
       // If getFieldValue returned a generic string/number, enforce Date parsing

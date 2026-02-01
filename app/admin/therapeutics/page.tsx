@@ -1433,9 +1433,14 @@ export default function AdminTherapeuticsPage() {
         // searchValueLower is already defined at the top
         const trialDrugValue = fieldValue.toLowerCase().trim();
 
-        // If trial has no drug value, don't match
-        if (!trialDrugValue || trialDrugValue === "") {
-          return false;
+        // If trial has no drug value or is N/A
+        // For "is_not", empty/N/A values should match (trial doesn't have the drug)
+        // For "is" and "contains", empty/N/A values should NOT match
+        if (!trialDrugValue || trialDrugValue === "" || trialDrugValue === "n/a" || trialDrugValue === "na") {
+          if (operator === "is_not" || operator === "not_equals") {
+            return true; // Empty/N/A is "not" any specific drug
+          }
+          return false; // Empty/N/A doesn't "contain" or "is" any specific drug
         }
 
         // Get all related drug names for the search value (case-insensitive)
@@ -1488,15 +1493,24 @@ export default function AdminTherapeuticsPage() {
           // Normalize trial drug value for comparison
           const trialValueTrimmed = trialDrugValue.trim();
 
+          // Split trial drug value by comma to handle multi-drug fields like "letrozole, Exemestane"
+          const trialDrugs = trialValueTrimmed.split(',').map(d => d.trim().toLowerCase());
+
           // Check if trial value exactly matches any related name (case-insensitive)
+          // OR if any individual drug in a comma-separated list matches
           const matchesRelatedName = Array.from(relatedNames).some(relatedName => {
             const relatedNameTrimmed = relatedName.trim();
-            // Exact match only - no partial matching
-            const matches = trialValueTrimmed === relatedNameTrimmed;
-            if (matches) {
+            // Check exact match on whole field
+            if (trialValueTrimmed === relatedNameTrimmed) {
               console.log(`  ✓ Match found: trial value "${trialDrugValue}" matches related name "${relatedName}"`);
+              return true;
             }
-            return matches;
+            // Check if any individual drug in comma-separated list matches
+            if (trialDrugs.some(drug => drug === relatedNameTrimmed)) {
+              console.log(`  ✓ Match found: drug "${relatedNameTrimmed}" found in trial drugs "${trialDrugValue}"`);
+              return true;
+            }
+            return false;
           });
 
           // Debug logging
