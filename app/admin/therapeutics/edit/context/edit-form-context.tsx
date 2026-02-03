@@ -1295,6 +1295,38 @@ export function EditTherapeuticFormProvider({ children, trialId }: { children: R
             }).filter(Boolean);
           };
 
+          // Special helper for drug fields - uses ||| delimiter for new data
+          // For backward compatibility, also splits by ", " (comma followed by space)
+          // This preserves drug names like "Cyclophosphamide, BMS" if saved with ||| delimiter
+          const stringToArrayForDrugs = (value: unknown): string[] => {
+            if (value === null || value === undefined || value === "") return [];
+
+            // Handle actual arrays
+            if (Array.isArray(value)) {
+              return value.flat().filter(Boolean).map(item => {
+                if (typeof item === 'object') {
+                  return (item as any).value || (item as any).label || (item as any).drug_name || (item as any).generic_name || JSON.stringify(item);
+                }
+                return String(item).trim();
+              });
+            }
+
+            // Handle strings
+            let str = typeof value === "string" ? value.trim() : String(value).trim();
+            if (!str) return [];
+
+            // If it contains ||| delimiter, split by that (new format - preserves commas in names)
+            if (str.includes("|||")) {
+              return str.split("|||").map(s => s.trim()).filter(Boolean);
+            }
+
+            // For backward compatibility with existing comma-separated data:
+            // Split by ", " (comma followed by space) which is the standard separator
+            // This allows drug names with commas but no space after (like internal commas) to be preserved
+            // Most drug entries are separated by ", " so this should work for existing data
+            return str.split(", ").map(s => s.trim()).filter(Boolean);
+          };
+
           const mappedData: EditTherapeuticFormData = {
             step5_1: {
               therapeutic_area: stringToArray(foundTrial.overview?.therapeutic_area),
@@ -1347,8 +1379,8 @@ export function EditTherapeuticFormProvider({ children, trialId }: { children: R
               })(),
               trial_phase: foundTrial.overview?.trial_phase || "",
               status: foundTrial.overview?.status || "",
-              primary_drugs: stringToArray(foundTrial.overview?.primary_drugs),
-              other_drugs: stringToArray(foundTrial.overview?.other_drugs),
+              primary_drugs: stringToArrayForDrugs(foundTrial.overview?.primary_drugs),
+              other_drugs: stringToArrayForDrugs(foundTrial.overview?.other_drugs),
               title: foundTrial.overview?.title || "",
               disease_type: stringToArray(foundTrial.overview?.disease_type),
               patient_segment: stringToArray(foundTrial.overview?.patient_segment),
@@ -2888,6 +2920,33 @@ export function EditTherapeuticFormProvider({ children, trialId }: { children: R
         return String(value || "").trim();
       };
 
+      // Special helper for drug fields - uses comma-space as delimiter for backward compatibility
+      // If a drug name contains comma-space, use ||| delimiter
+      const arrayToStringForDrugs = (value: string | string[]): string => {
+        if (Array.isArray(value)) {
+          const cleanedItems = value
+            .flat()
+            .map(item => {
+              if (item === null || item === undefined) return "";
+              if (typeof item === 'object') {
+                return (item as any).value || (item as any).label || (item as any).drug_name || (item as any).generic_name || JSON.stringify(item);
+              }
+              return String(item).trim();
+            })
+            .filter(Boolean);
+
+          // Check if any drug name contains ", " - if so, use ||| delimiter
+          const hasCommaSpace = cleanedItems.some(item => item.includes(", "));
+          return cleanedItems.join(hasCommaSpace ? "|||" : ", ");
+        }
+
+        if (typeof value === 'object' && value !== null) {
+          return (value as any).value || (value as any).label || (value as any).drug_name || (value as any).generic_name || JSON.stringify(value);
+        }
+
+        return String(value || "").trim();
+      };
+
       // Prepare the update data for the overview (step5_1)
       // Convert array fields to comma-separated strings as expected by the backend
       const updateData = {
@@ -2896,8 +2955,8 @@ export function EditTherapeuticFormProvider({ children, trialId }: { children: R
         trial_identifier: formData.step5_1.trial_identifier, // Keep as array
         trial_phase: formData.step5_1.trial_phase,
         status: formData.step5_1.status,
-        primary_drugs: arrayToString(formData.step5_1.primary_drugs),
-        other_drugs: arrayToString(formData.step5_1.other_drugs),
+        primary_drugs: arrayToStringForDrugs(formData.step5_1.primary_drugs),
+        other_drugs: arrayToStringForDrugs(formData.step5_1.other_drugs),
         title: formData.step5_1.title,
         disease_type: arrayToString(formData.step5_1.disease_type),
         patient_segment: arrayToString(formData.step5_1.patient_segment),
@@ -4033,8 +4092,8 @@ export function EditTherapeuticFormProvider({ children, trialId }: { children: R
           trial_identifier: formData.step5_1.trial_identifier,
           trial_phase: formData.step5_1.trial_phase,
           status: formData.step5_1.status,
-          primary_drugs: arrayToString(formData.step5_1.primary_drugs),
-          other_drugs: arrayToString(formData.step5_1.other_drugs),
+          primary_drugs: arrayToStringForDrugs(formData.step5_1.primary_drugs),
+          other_drugs: arrayToStringForDrugs(formData.step5_1.other_drugs),
           title: formData.step5_1.title,
           disease_type: arrayToString(formData.step5_1.disease_type),
           patient_segment: arrayToString(formData.step5_1.patient_segment),

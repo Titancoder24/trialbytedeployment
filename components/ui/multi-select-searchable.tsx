@@ -93,9 +93,9 @@ export function MultiSelectSearchable({
         >
           <div className="flex flex-wrap gap-1 flex-1">
             {selectedOptions.length > 0 ? (
-              selectedOptions.map((option) => (
+              selectedOptions.map((option, index) => (
                 <Badge
-                  key={option.value}
+                  key={`${option.value}-${index}`}
                   variant="secondary"
                   className="mr-1 mb-1"
                 >
@@ -138,9 +138,9 @@ export function MultiSelectSearchable({
           <CommandList>
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             <CommandGroup>
-              {options.map((option) => (
+              {options.map((option, index) => (
                 <CommandItem
-                  key={option.value}
+                  key={`${option.value}-${index}`}
                   value={option.label}
                   onSelect={() => handleSelect(option.value)}
                 >
