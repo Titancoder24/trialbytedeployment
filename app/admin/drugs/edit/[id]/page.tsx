@@ -23,7 +23,7 @@ const steps = [
   { id: 3, title: "Development", description: "Development status and company info" },
   { id: 4, title: "Other Sources", description: "Additional data sources" },
   { id: 5, title: "Licensing & Marketing", description: "Commercial information" },
-  { id: 6, title: "Logs", description: "Change logs and notes" }, 
+  { id: 6, title: "Logs", description: "Change logs and notes" },
 ];
 
 export default function EditDrugPage() {
@@ -62,18 +62,8 @@ export default function EditDrugPage() {
     { value: "preclinical", label: "Preclinical" },
   ];
 
-  const originatorOptions: SearchableSelectOption[] = [
-    { value: "pfizer", label: "Pfizer" },
-    { value: "novartis", label: "Novartis" },
-    { value: "roche", label: "Roche" },
-    { value: "merck", label: "Merck" },
-    { value: "bristol_myers_squibb", label: "Bristol Myers Squibb" },
-    { value: "johnson_johnson", label: "Johnson & Johnson" },
-    { value: "gilead", label: "Gilead" },
-    { value: "amgen", label: "Amgen" },
-    { value: "biogen", label: "Biogen" },
-    { value: "regeneron", label: "Regeneron" },
-  ];
+  // Dynamic dropdown for Originator (uses Sponsor and Collaborators from dropdown management)
+  const { options: originatorOptions, loading: originatorLoading } = useDynamicDropdown({ categoryName: 'sponsor_collaborators' });
 
   const regulatoryDesignationsOptions: SearchableSelectOption[] = [
     { value: "orphan_drug", label: "Orphan Drug" },
@@ -251,8 +241,8 @@ export default function EditDrugPage() {
                     rows={2}
                     className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
                   />
-                  <Plus 
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600" 
+                  <Plus
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600"
                     onClick={() => {
                       if (formData.overview.drug_name.trim()) {
                         addDrugName(formData.overview.drug_name, 'drug_name');
@@ -276,8 +266,8 @@ export default function EditDrugPage() {
                     rows={2}
                     className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
                   />
-                  <Plus 
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600" 
+                  <Plus
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600"
                     onClick={() => {
                       if (formData.overview.generic_name.trim()) {
                         addDrugName(formData.overview.generic_name, 'generic_name');
@@ -301,8 +291,8 @@ export default function EditDrugPage() {
                     rows={2}
                     className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
                   />
-                  <Plus 
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600" 
+                  <Plus
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600"
                     onClick={() => {
                       if (formData.overview.other_name.trim()) {
                         addDrugName(formData.overview.other_name, 'other_name');
@@ -837,7 +827,7 @@ export default function EditDrugPage() {
             {/* Development Section */}
             <div className="space-y-4">
               <h3 className="font-semibold text-lg text-gray-800">Development</h3>
-              
+
               {/* Preclinical Sub-section */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -858,7 +848,7 @@ export default function EditDrugPage() {
             {/* Clinical Section */}
             <div className="space-y-4">
               <h4 className="text-base font-semibold text-gray-900">Clinical</h4>
-              
+
               {/* Clinical Trials Table */}
               <div className="border border-gray-300 rounded-lg overflow-hidden">
                 {/* Table Header */}
@@ -956,33 +946,30 @@ export default function EditDrugPage() {
                 <div className="flex">
                   <button
                     onClick={() => setActiveTab("pipeline_data")}
-                    className={`px-6 py-3 text-sm font-medium transition-all ${
-                      activeTab === "pipeline_data"
+                    className={`px-6 py-3 text-sm font-medium transition-all ${activeTab === "pipeline_data"
                         ? "text-white"
                         : "text-gray-600 bg-gray-200 hover:bg-gray-300"
-                    }`}
+                      }`}
                     style={activeTab === "pipeline_data" ? { backgroundColor: '#204B73' } : {}}
                   >
                     Pipeline Data
                   </button>
                   <button
                     onClick={() => setActiveTab("press_releases")}
-                    className={`px-6 py-3 text-sm font-medium transition-all ${
-                      activeTab === "press_releases"
+                    className={`px-6 py-3 text-sm font-medium transition-all ${activeTab === "press_releases"
                         ? "text-white"
                         : "text-gray-600 bg-gray-200 hover:bg-gray-300"
-                    }`}
+                      }`}
                     style={activeTab === "press_releases" ? { backgroundColor: '#204B73' } : {}}
                   >
                     Press Releases
                   </button>
                   <button
                     onClick={() => setActiveTab("publications")}
-                    className={`px-6 py-3 text-sm font-medium transition-all ${
-                      activeTab === "publications"
+                    className={`px-6 py-3 text-sm font-medium transition-all ${activeTab === "publications"
                         ? "text-white"
                         : "text-gray-600 bg-gray-200 hover:bg-gray-300"
-                    }`}
+                      }`}
                     style={activeTab === "publications" ? { backgroundColor: '#204B73' } : {}}
                   >
                     Publications
@@ -1042,7 +1029,7 @@ export default function EditDrugPage() {
                       }}
                       onUpdateNote={(index, updatedNote) => {
                         const currentNotes = Array.isArray(formData.otherSources?.pressReleaseNotes) ? formData.otherSources.pressReleaseNotes : [];
-                        const updatedNotes = currentNotes.map((note, i) => 
+                        const updatedNotes = currentNotes.map((note, i) =>
                           i === index ? { ...note, ...updatedNote } : note
                         );
                         updateField("otherSources", "pressReleaseNotes", updatedNotes);
@@ -1091,7 +1078,7 @@ export default function EditDrugPage() {
                       }}
                       onUpdateNote={(index, updatedNote) => {
                         const currentNotes = Array.isArray(formData.otherSources?.publicationNotes) ? formData.otherSources.publicationNotes : [];
-                        const updatedNotes = currentNotes.map((note, i) => 
+                        const updatedNotes = currentNotes.map((note, i) =>
                           i === index ? { ...note, ...updatedNote } : note
                         );
                         updateField("otherSources", "publicationNotes", updatedNotes);

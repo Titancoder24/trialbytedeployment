@@ -23,6 +23,7 @@ import CustomDateInput from "@/components/ui/custom-date-input";
 import { useToast } from "@/hooks/use-toast";
 import { useContent } from "@/hooks/use-content";
 import { useDrugNames } from "@/hooks/use-drug-names";
+import { useDynamicDropdown } from "@/hooks/use-dynamic-dropdown";
 
 interface DrugFormData {
   overview: {
@@ -43,7 +44,7 @@ interface DrugFormData {
     attachments: string[];
     links: string[];
     drug_development_status_rows: Array<{
-    disease_type: string;
+      disease_type: string;
       therapeutic_class: string;
       company: string;
       company_type: string;
@@ -115,6 +116,11 @@ export default function NewDrugPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState("pipeline_data");
 
+  // Dynamic dropdown for Originator (uses Sponsor and Collaborators from dropdown management)
+  const { options: originatorOptions, loading: originatorLoading } = useDynamicDropdown({
+    categoryName: 'sponsor_collaborators',
+  });
+
   // State for attachment and link inputs
   const [attachmentInput, setAttachmentInput] = useState("");
   const [linkInput, setLinkInput] = useState("");
@@ -144,13 +150,7 @@ export default function NewDrugPage() {
     { value: "marketed", label: "Marketed" },
   ];
 
-  const originatorOptions: SearchableSelectOption[] = [
-    { value: "pfizer", label: "Pfizer" },
-    { value: "novartis", label: "Novartis" },
-    { value: "roche", label: "Roche" },
-    { value: "merck", label: "Merck" },
-    { value: "johnson_johnson", label: "Johnson & Johnson" },
-  ];
+  // originatorOptions is now loaded dynamically via useDynamicDropdown hook above
 
   const therapeuticAreaOptions: SearchableSelectOption[] = [
     { value: "oncology", label: "Oncology" },
@@ -520,8 +520,8 @@ export default function NewDrugPage() {
                     rows={2}
                     className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
                   />
-                  <Plus 
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600" 
+                  <Plus
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600"
                     onClick={() => {
                       if (content.overview.drug_name.trim()) {
                         addDrugName(content.overview.drug_name, 'drug_name');
@@ -531,7 +531,7 @@ export default function NewDrugPage() {
                         });
                       }
                     }}
-                    />
+                  />
                 </div>
               </div>
               <div className="space-y-2">
@@ -550,8 +550,8 @@ export default function NewDrugPage() {
                     rows={2}
                     className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
                   />
-                  <Plus 
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600" 
+                  <Plus
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600"
                     onClick={() => {
                       if (content.overview.generic_name.trim()) {
                         addDrugName(content.overview.generic_name, 'generic_name');
@@ -563,7 +563,7 @@ export default function NewDrugPage() {
                     }}
                   />
                 </div>
-                      </div>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="other_name" className="text-sm font-medium text-gray-700">Other Name</Label>
                 <div className="relative">
@@ -580,8 +580,8 @@ export default function NewDrugPage() {
                     rows={2}
                     className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
                   />
-                  <Plus 
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600" 
+                  <Plus
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600"
                     onClick={() => {
                       if (content.overview.other_name.trim()) {
                         addDrugName(content.overview.other_name, 'other_name');
@@ -675,7 +675,7 @@ export default function NewDrugPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="originator" className="text-sm font-medium text-gray-700">Originator</Label>
-                      <SearchableSelect
+                <SearchableSelect
                   options={originatorOptions}
                   value={content.overview.originator}
                   onValueChange={(value) =>
@@ -688,11 +688,11 @@ export default function NewDrugPage() {
                   searchPlaceholder="Search originator..."
                   emptyMessage="No originator found."
                   className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
-                      />
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="other_active_companies" className="text-sm font-medium text-gray-700">Other Active Companies</Label>
-                      <SearchableSelect
+                <SearchableSelect
                   options={originatorOptions}
                   value={content.overview.other_active_companies}
                   onValueChange={(value) =>
@@ -705,7 +705,7 @@ export default function NewDrugPage() {
                   searchPlaceholder="Search companies..."
                   emptyMessage="No companies found."
                   className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
-                      />
+                />
               </div>
             </div>
 
@@ -713,7 +713,7 @@ export default function NewDrugPage() {
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="therapeutic_area" className="text-sm font-medium text-gray-700">Therapeutics Area</Label>
-                      <SearchableSelect
+                <SearchableSelect
                   options={therapeuticAreaOptions}
                   value={content.overview.therapeutic_area}
                   onValueChange={(value) =>
@@ -726,11 +726,11 @@ export default function NewDrugPage() {
                   searchPlaceholder="therapeutic area..."
                   emptyMessage="No therapeutic area found."
                   className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
-                      />
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="disease_type" className="text-sm font-medium text-gray-700">Disease Type</Label>
-                      <SearchableSelect
+                <SearchableSelect
                   options={diseaseTypeOptions}
                   value={content.overview.disease_type}
                   onValueChange={(value) =>
@@ -743,11 +743,11 @@ export default function NewDrugPage() {
                   searchPlaceholder="Search disease type..."
                   emptyMessage="No disease type found."
                   className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
-                      />
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="regulator_designations" className="text-sm font-medium text-gray-700">Regulator Designations</Label>
-                      <SearchableSelect
+                <SearchableSelect
                   options={regulatoryDesignationsOptions}
                   value={content.overview.regulator_designations}
                   onValueChange={(value) =>
@@ -760,9 +760,9 @@ export default function NewDrugPage() {
                   searchPlaceholder="Search regulatory designations..."
                   emptyMessage="No regulatory designations found."
                   className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
-                      />
-                    </div>
+                />
               </div>
+            </div>
 
             {/* Drug Development Status Section */}
             <Card className="border border-gray-200 rounded-lg shadow-sm bg-white">
@@ -772,9 +772,9 @@ export default function NewDrugPage() {
               <CardContent className="space-y-4">
                 {/* First Row: 6 Dropdown Fields */}
                 <div className="grid grid-cols-6 gap-4">
-              <div className="space-y-2">
-                      <Label className="text-sm font-medium text-gray-700">Disease Type</Label>
-                      <SearchableSelect
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-gray-700">Disease Type</Label>
+                    <SearchableSelect
                       options={diseaseTypeOptions}
                       value={content.overview.drug_development_status_rows?.[0]?.disease_type || ""}
                       onValueChange={(value) => {
@@ -797,10 +797,10 @@ export default function NewDrugPage() {
                         });
                       }}
                       placeholder="disease type"
-                        emptyMessage="No disease type found."
-                        className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
-                      />
-              </div>
+                      emptyMessage="No disease type found."
+                      className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
+                    />
+                  </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-gray-700">Therapeutic Class</Label>
                     <SearchableSelect
@@ -831,9 +831,9 @@ export default function NewDrugPage() {
                       className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
                     />
                   </div>
-              <div className="space-y-2">
-                      <Label className="text-sm font-medium text-gray-700">Company</Label>
-                      <SearchableSelect
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-gray-700">Company</Label>
+                    <SearchableSelect
                       options={COMPANY_OPTIONS}
                       value={content.overview.drug_development_status_rows?.[0]?.company || ""}
                       onValueChange={(value) => {
@@ -855,15 +855,15 @@ export default function NewDrugPage() {
                           drug_development_status_rows: updatedRows,
                         });
                       }}
-                        placeholder="Select company"
-                        searchPlaceholder="Search company..."
-                        emptyMessage="No company found."
-                        className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
-                      />
-              </div>
-              <div className="space-y-2">
-                      <Label className="text-sm font-medium text-gray-700">Company Type</Label>
-                      <SearchableSelect
+                      placeholder="Select company"
+                      searchPlaceholder="Search company..."
+                      emptyMessage="No company found."
+                      className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-gray-700">Company Type</Label>
+                    <SearchableSelect
                       options={COMPANY_TYPE_OPTIONS}
                       value={content.overview.drug_development_status_rows?.[0]?.company_type || ""}
                       onValueChange={(value) => {
@@ -887,13 +887,13 @@ export default function NewDrugPage() {
                       }}
                       placeholder="company type"
                       searchPlaceholder="company type..."
-                        emptyMessage="No company type found."
-                        className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
-                      />
-              </div>
-              <div className="space-y-2">
-                      <Label className="text-sm font-medium text-gray-700">Country</Label>
-                      <SearchableSelect
+                      emptyMessage="No company type found."
+                      className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-gray-700">Country</Label>
+                    <SearchableSelect
                       options={COUNTRY_OPTIONS}
                       value={content.overview.drug_development_status_rows?.[0]?.country || ""}
                       onValueChange={(value) => {
@@ -915,15 +915,15 @@ export default function NewDrugPage() {
                           drug_development_status_rows: updatedRows,
                         });
                       }}
-                        placeholder="Select country"
-                        searchPlaceholder="Search country..."
-                        emptyMessage="No country found."
-                        className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
-                      />
-              </div>
-              <div className="space-y-2">
+                      placeholder="Select country"
+                      searchPlaceholder="Search country..."
+                      emptyMessage="No country found."
+                      className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label className="text-sm font-medium text-gray-700">Status</Label>
-                      <SearchableSelect
+                    <SearchableSelect
                       options={DEVELOPMENT_STATUS_OPTIONS_DETAILED}
                       value={content.overview.drug_development_status_rows?.[0]?.development_status || ""}
                       onValueChange={(value) => {
@@ -945,12 +945,12 @@ export default function NewDrugPage() {
                           drug_development_status_rows: updatedRows,
                         });
                       }}
-                        placeholder="Select status"
-                        searchPlaceholder="Search status..."
-                        emptyMessage="No status found."
-                        className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
-                      />
-                    </div>
+                      placeholder="Select status"
+                      searchPlaceholder="Search status..."
+                      emptyMessage="No status found."
+                      className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
+                    />
+                  </div>
                 </div>
 
                 {/* Reference Section with Add Attachments and Add Links inside */}
@@ -1037,7 +1037,7 @@ export default function NewDrugPage() {
                         </Button>
                       </div>
                     </div>
-                    
+
                     {/* Display added attachments and links */}
                     {(content.overview.attachments && content.overview.attachments.length > 0) || (content.overview.links && content.overview.links.length > 0) ? (
                       <div className="mt-2 p-2 bg-gray-50 rounded border">
@@ -1059,8 +1059,8 @@ export default function NewDrugPage() {
 
                 {/* Add Row Button */}
                 <div className="flex justify-end">
-                <Button
-                  type="button"
+                  <Button
+                    type="button"
                     onClick={() => {
                       console.log("Add row clicked");
                       const newRow = {
@@ -1079,11 +1079,11 @@ export default function NewDrugPage() {
                       console.log("Row added successfully");
                     }}
                     className="text-white"
-                  style={{ backgroundColor: '#204B73' }}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
+                    style={{ backgroundColor: '#204B73' }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
                     Add Row
-                </Button>
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -1111,7 +1111,7 @@ export default function NewDrugPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="drug_record_status" className="text-sm font-medium text-gray-700">Drug Record Status</Label>
-              <SearchableSelect
+                <SearchableSelect
                   options={drugRecordStatusOptions}
                   value={content.overview.drug_record_status}
                   onValueChange={(value) =>
@@ -1120,11 +1120,11 @@ export default function NewDrugPage() {
                       drug_record_status: value,
                     })
                   }
-                placeholder="Select drug record status"
-                searchPlaceholder="Search drug record status..."
-                emptyMessage="No drug record status found."
-                className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
-              />
+                  placeholder="Select drug record status"
+                  searchPlaceholder="Search drug record status..."
+                  emptyMessage="No drug record status found."
+                  className="border-gray-600 focus:border-gray-800 focus:ring-gray-800"
+                />
               </div>
             </div>
           </div>
@@ -1244,8 +1244,8 @@ export default function NewDrugPage() {
             </div>
 
             {/* Therapeutic Class and its Development Section */}
-            
-                    </div>
+
+          </div>
         );
 
       case 3: // Development Tab
@@ -1279,16 +1279,16 @@ export default function NewDrugPage() {
                   <Plus className="h-5 w-5 text-gray-400 cursor-pointer" />
                 </button>
               </div>
-                  <Textarea
+              <Textarea
                 value={content.development.reference || ''}
                 onChange={(e) => updateContent("development", {
-                        ...content.development,
+                  ...content.development,
                   reference: e.target.value,
                 })}
                 rows={2}
-                      className="w-full border border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-800"
-                  />
-                </div>
+                className="w-full border border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-800"
+              />
+            </div>
 
             {/* Clinical Section */}
             <div className="space-y-4">
@@ -1302,16 +1302,16 @@ export default function NewDrugPage() {
                 <div className="grid grid-cols-5 bg-gray-50 border-b border-gray-300">
                   <div className="p-3 text-sm font-medium text-gray-700 border-r border-gray-300">
                     Trial ID
-                        </div>
+                  </div>
                   <div className="p-3 text-sm font-medium text-gray-700 border-r border-gray-300">
                     Title
-                      </div>
+                  </div>
                   <div className="p-3 text-sm font-medium text-gray-700 border-r border-gray-300">
                     Primary Drugs
                   </div>
                   <div className="p-3 text-sm font-medium text-gray-700 border-r border-gray-300">
                     Status
-                </div>
+                  </div>
                   <div className="p-3 text-sm font-medium text-gray-700">Sponsor</div>
                 </div>
 
@@ -1326,8 +1326,8 @@ export default function NewDrugPage() {
                       })}
                       rows={2}
                       className="w-full border border-gray-600 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-gray-800"
-                      />
-                    </div>
+                    />
+                  </div>
                   <div className="p-3 border-r border-gray-300">
                     <Textarea
                       value={content.development.therapeutic_class || ''}
@@ -1337,8 +1337,8 @@ export default function NewDrugPage() {
                       })}
                       rows={2}
                       className="w-full border border-gray-600 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-gray-800"
-                      />
-                    </div>
+                    />
+                  </div>
                   <div className="p-3 border-r border-gray-300">
                     <Textarea
                       value={content.development.company || ''}
@@ -1348,8 +1348,8 @@ export default function NewDrugPage() {
                       })}
                       rows={2}
                       className="w-full border border-gray-600 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-gray-800"
-                      />
-                    </div>
+                    />
+                  </div>
                   <div className="p-3 border-r border-gray-300">
                     <Textarea
                       value={content.development.company_type || ''}
@@ -1359,8 +1359,8 @@ export default function NewDrugPage() {
                       })}
                       rows={2}
                       className="w-full border border-gray-600 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-gray-800"
-                      />
-                    </div>
+                    />
+                  </div>
                   <div className="p-3">
                     <Textarea
                       value={content.development.status || ''}
@@ -1370,10 +1370,10 @@ export default function NewDrugPage() {
                       })}
                       rows={2}
                       className="w-full border border-gray-600 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-gray-800"
-                      />
-                    </div>
-                    </div>
+                    />
                   </div>
+                </div>
+              </div>
             </div>
 
           </div>
@@ -1409,33 +1409,30 @@ export default function NewDrugPage() {
                 <div className="flex">
                   <button
                     onClick={() => setActiveTab("pipeline_data")}
-                    className={`px-6 py-3 text-sm font-medium transition-all ${
-                      activeTab === "pipeline_data"
-                        ? "text-white"
-                        : "text-gray-600 bg-gray-200 hover:bg-gray-300"
-                    }`}
+                    className={`px-6 py-3 text-sm font-medium transition-all ${activeTab === "pipeline_data"
+                      ? "text-white"
+                      : "text-gray-600 bg-gray-200 hover:bg-gray-300"
+                      }`}
                     style={activeTab === "pipeline_data" ? { backgroundColor: '#204B73' } : {}}
                   >
                     Pipeline Data
                   </button>
                   <button
                     onClick={() => setActiveTab("press_releases")}
-                    className={`px-6 py-3 text-sm font-medium transition-all ${
-                      activeTab === "press_releases"
-                        ? "text-white"
-                        : "text-gray-600 bg-gray-200 hover:bg-gray-300"
-                    }`}
+                    className={`px-6 py-3 text-sm font-medium transition-all ${activeTab === "press_releases"
+                      ? "text-white"
+                      : "text-gray-600 bg-gray-200 hover:bg-gray-300"
+                      }`}
                     style={activeTab === "press_releases" ? { backgroundColor: '#204B73' } : {}}
                   >
                     Press Releases
                   </button>
                   <button
                     onClick={() => setActiveTab("publications")}
-                    className={`px-6 py-3 text-sm font-medium transition-all ${
-                      activeTab === "publications"
-                        ? "text-white"
-                        : "text-gray-600 bg-gray-200 hover:bg-gray-300"
-                    }`}
+                    className={`px-6 py-3 text-sm font-medium transition-all ${activeTab === "publications"
+                      ? "text-white"
+                      : "text-gray-600 bg-gray-200 hover:bg-gray-300"
+                      }`}
                     style={activeTab === "publications" ? { backgroundColor: '#204B73' } : {}}
                   >
                     Publications
@@ -1445,12 +1442,12 @@ export default function NewDrugPage() {
                 {/* Tab Content */}
                 <div className="p-6">
                   {activeTab === "pipeline_data" && (
-                <div className="space-y-2">
+                    <div className="space-y-2">
                       <Label className="text-sm font-medium text-gray-700">Pipeline Data</Label>
                       <div className="relative">
-                  <Textarea
+                        <Textarea
                           value={content.otherSources.pipelineData}
-                    onChange={(e) =>
+                          onChange={(e) =>
                             updateContent("otherSources", {
                               ...content.otherSources,
                               pipelineData: e.target.value,
@@ -1496,14 +1493,14 @@ export default function NewDrugPage() {
                           isVisible: true
                         };
                         const currentNotes = Array.isArray(content.otherSources?.pressReleaseNotes) ? content.otherSources.pressReleaseNotes : [];
-                            updateContent("otherSources", {
-                              ...content.otherSources,
+                        updateContent("otherSources", {
+                          ...content.otherSources,
                           pressReleaseNotes: [...currentNotes, newNote]
                         });
                       }}
                       onUpdateNote={(index, updatedNote) => {
                         const currentNotes = Array.isArray(content.otherSources?.pressReleaseNotes) ? content.otherSources.pressReleaseNotes : [];
-                        const updatedNotes = currentNotes.map((note, i) => 
+                        const updatedNotes = currentNotes.map((note, i) =>
                           i === index ? { ...note, ...updatedNote } : note
                         );
                         updateContent("otherSources", {
@@ -1554,14 +1551,14 @@ export default function NewDrugPage() {
                           isVisible: true
                         };
                         const currentNotes = Array.isArray(content.otherSources?.publicationNotes) ? content.otherSources.publicationNotes : [];
-                            updateContent("otherSources", {
-                              ...content.otherSources,
+                        updateContent("otherSources", {
+                          ...content.otherSources,
                           publicationNotes: [...currentNotes, newNote]
                         });
                       }}
                       onUpdateNote={(index, updatedNote) => {
                         const currentNotes = Array.isArray(content.otherSources?.publicationNotes) ? content.otherSources.publicationNotes : [];
-                        const updatedNotes = currentNotes.map((note, i) => 
+                        const updatedNotes = currentNotes.map((note, i) =>
                           i === index ? { ...note, ...updatedNote } : note
                         );
                         updateContent("otherSources", {
@@ -1882,17 +1879,17 @@ export default function NewDrugPage() {
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-gray-700">Full Review</Label>
                 <div className="flex items-center space-x-2 pt-2">
-                <Checkbox
-                  id="full_review"
+                  <Checkbox
+                    id="full_review"
                     checked={content.logs?.full_review || false}
-                  onCheckedChange={(checked) =>
-                    updateContent("logs", {
-                      ...content.logs,
-                      full_review: checked as boolean,
-                    })
-                  }
-                />
-                <Label htmlFor="full_review" className="text-sm font-medium text-gray-700">Full Review</Label>
+                    onCheckedChange={(checked) =>
+                      updateContent("logs", {
+                        ...content.logs,
+                        full_review: checked as boolean,
+                      })
+                    }
+                  />
+                  <Label htmlFor="full_review" className="text-sm font-medium text-gray-700">Full Review</Label>
                 </div>
               </div>
               <div className="space-y-2">
@@ -1943,7 +1940,7 @@ export default function NewDrugPage() {
               }}
               onUpdateNote={(index, updatedNote) => {
                 const currentNotes = Array.isArray(content.logs?.notes) ? content.logs.notes : [];
-                const updatedNotes = currentNotes.map((note, i) => 
+                const updatedNotes = currentNotes.map((note, i) =>
                   i === index ? { ...note, ...updatedNote } : note
                 );
                 updateContent("logs", {
