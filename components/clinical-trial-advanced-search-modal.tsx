@@ -124,16 +124,73 @@ const fieldOptions: Record<string, { value: string; label: string }[]> = {
     { value: "Update In Progress (UIP)", label: "Update In Progress (UIP)" }
   ],
   disease_type: [
+    { value: "Acute Lymphocytic Leukemia", label: "Acute Lymphocytic Leukemia" },
+    { value: "Acute Myelogenous Leukemia", label: "Acute Myelogenous Leukemia" },
+    { value: "Anal", label: "Anal" },
+    { value: "Appendiceal", label: "Appendiceal" },
+    { value: "Basal Skin Cell Carcinoma", label: "Basal Skin Cell Carcinoma" },
+    { value: "Bladder", label: "Bladder" },
     { value: "Breast", label: "Breast" },
-    { value: "Lung Non-small cell", label: "Lung Non-small cell" },
+    { value: "Cervical", label: "Cervical" },
+    { value: "Cholangiocarcinoma (Bile duct)", label: "Cholangiocarcinoma (Bile duct)" },
+    { value: "Chronic Lymphocytic Leukemia", label: "Chronic Lymphocytic Leukemia" },
+    { value: "Chronic Myelomonositic Leukemia", label: "Chronic Myelomonositic Leukemia" },
+    { value: "Astrocytoma", label: "Astrocytoma" },
+    { value: "Brain Stem Glioma", label: "Brain Stem Glioma" },
+    { value: "Carniopharyngioma", label: "Carniopharyngioma" },
+    { value: "Choroid Plexus Tumors", label: "Choroid Plexus Tumors" },
+    { value: "Embryonal Tumors", label: "Embryonal Tumors" },
+    { value: "Epedymoma", label: "Epedymoma" },
+    { value: "Germ Cell Tumors", label: "Germ Cell Tumors" },
+    { value: "Glioblastoma", label: "Glioblastoma" },
+    { value: "Hemangioblastoma", label: "Hemangioblastoma" },
+    { value: "Medulloblastoma", label: "Medulloblastoma" },
+    { value: "Meningioma", label: "Meningioma" },
+    { value: "Oligodendroglioma", label: "Oligodendroglioma" },
+    { value: "Pineal Tumor", label: "Pineal Tumor" },
+    { value: "Pituitary Tumor", label: "Pituitary Tumor" },
     { value: "Colorectal", label: "Colorectal" },
-    { value: "Melanoma", label: "Melanoma" },
+    { value: "Endometrial", label: "Endometrial" },
+    { value: "Esophageal", label: "Esophageal" },
+    { value: "Fallopian Tube", label: "Fallopian Tube" },
+    { value: "Gall Bladder", label: "Gall Bladder" },
+    { value: "Gastric", label: "Gastric" },
+    { value: "GIST", label: "GIST" },
+    { value: "Head/Neck", label: "Head/Neck" },
+    { value: "Hodgkin's Lymphoma", label: "Hodgkin's Lymphoma" },
+    { value: "Leukemia, Chronic Myelogenous", label: "Leukemia, Chronic Myelogenous" },
     { value: "Liver", label: "Liver" },
-    { value: "Pancreas", label: "Pancreas" },
+    { value: "Lung Non-small cell", label: "Lung Non-small cell" },
+    { value: "Lung Small Cell", label: "Lung Small Cell" },
+    { value: "Melanoma", label: "Melanoma" },
+    { value: "Mesothelioma", label: "Mesothelioma" },
+    { value: "Metastatic Cancer", label: "Metastatic Cancer" },
+    { value: "Multiple Myeloma", label: "Multiple Myeloma" },
+    { value: "Myelodysplastic Syndrome", label: "Myelodysplastic Syndrome" },
+    { value: "Myeloproliferative Neoplasms", label: "Myeloproliferative Neoplasms" },
+    { value: "Neuroblastoma", label: "Neuroblastoma" },
+    { value: "Neuroendocrine", label: "Neuroendocrine" },
+    { value: "Non-Hodgkin's Lymphoma", label: "Non-Hodgkin's Lymphoma" },
+    { value: "Osteosarcoma", label: "Osteosarcoma" },
     { value: "Ovarian", label: "Ovarian" },
+    { value: "Pancreas", label: "Pancreas" },
+    { value: "Penile", label: "Penile" },
+    { value: "Primary Peritoneal", label: "Primary Peritoneal" },
     { value: "Prostate", label: "Prostate" },
     { value: "Renal", label: "Renal" },
-    { value: "Multiple Myeloma", label: "Multiple Myeloma" }
+    { value: "Small Intestine", label: "Small Intestine" },
+    { value: "Soft Tissue Carcinoma", label: "Soft Tissue Carcinoma" },
+    { value: "Solid Tumor, Unspecified", label: "Solid Tumor, Unspecified" },
+    { value: "Squamous Skin Cell Carcinoma", label: "Squamous Skin Cell Carcinoma" },
+    { value: "Supportive care", label: "Supportive care" },
+    { value: "Tenosynovial Giant Cell Tumor", label: "Tenosynovial Giant Cell Tumor" },
+    { value: "Testicular", label: "Testicular" },
+    { value: "Thymus", label: "Thymus" },
+    { value: "Thyroid", label: "Thyroid" },
+    { value: "Unspecified Cancer", label: "Unspecified Cancer" },
+    { value: "Unspecified Haematological Cancer", label: "Unspecified Haematological Cancer" },
+    { value: "Vaginal", label: "Vaginal" },
+    { value: "Vulvar", label: "Vulvar" }
   ],
   patient_segment: [
     { value: "Children", label: "Children" },
@@ -251,7 +308,8 @@ const getOperatorsForField = (fieldValue: string) => {
     "purpose_of_trial",
     "summary",
     "inclusion_criteria",
-    "exclusion_criteria"
+    "exclusion_criteria",
+    "internal_note"
   ]
 
   if (containsOnlyFields.includes(fieldValue)) return containsOperators
@@ -298,7 +356,12 @@ export function ClinicalTrialAdvancedSearchModal({
     fallbackOptions: fieldOptions.regions
   })
 
-  // Build dynamic field options with drug and region data
+  // Get sponsor_collaborators dynamically from dropdown management
+  const { options: dynamicSponsors, loading: isSponsorsLoading } = useDynamicDropdown({
+    categoryName: 'sponsor_collaborators',
+  })
+
+  // Build dynamic field options with drug, region, and sponsor data
   const dynamicFieldOptions = useMemo((): Record<string, { value: string; label: string }[]> => {
     const drugOptions = getPrimaryDrugsOptions()
     return {
@@ -312,8 +375,11 @@ export function ClinicalTrialAdvancedSearchModal({
       regions: dynamicRegions.length > 0
         ? dynamicRegions
         : fieldOptions.regions,
+      sponsor_collaborators: dynamicSponsors.length > 0
+        ? dynamicSponsors
+        : fieldOptions.sponsor_collaborators,
     }
-  }, [getPrimaryDrugsOptions, dynamicRegions])
+  }, [getPrimaryDrugsOptions, dynamicRegions, dynamicSponsors])
 
   // Sync internal state with props when modal opens or currentSearchCriteria change
   useEffect(() => {

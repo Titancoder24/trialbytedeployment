@@ -36,7 +36,7 @@ import {
 
 import { formatDateToMMDDYYYY } from "@/lib/date-utils";
 import { normalizePhaseValue } from "@/lib/search-utils";
-import { formatDisplayValue } from "@/lib/format-utils";
+import { formatDisplayValue, normalizeForComparison } from "@/lib/format-utils";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2, Eye, Plus, Search, Loader2, Filter, Clock, Edit, ChevronDown, Settings, Download, Save, ExternalLink, Maximize2, RefreshCw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -142,6 +142,7 @@ interface TherapeuticTrial {
     full_review_user: string | null;
     next_review_date: string | null;
     attachment: string | null;
+    internal_note: string | null;
   }>;
   notes: Array<{
     id: string;
@@ -995,6 +996,13 @@ export default function AdminTherapeuticsPage() {
 
   // Get sort value from trial based on field
   const getSortValue = (trial: TherapeuticTrial, field: string): string | number => {
+    // Helper to parse date string to timestamp (for proper date sorting)
+    const parseDateToTimestamp = (dateStr: string | undefined | null): number => {
+      if (!dateStr) return 0;
+      const parsed = new Date(dateStr);
+      return isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+    };
+
     switch (field) {
       // Core fields
       case "trialId": return trial.overview?.trial_id || trial.overview?.trial_identifier?.[0] || "";
@@ -1037,19 +1045,30 @@ export default function AdminTherapeuticsPage() {
       case "treatmentRegimen": return trial.outcomes?.[0]?.treatment_regimen || "";
       case "numberOfArms": return parseInt(String(trial.outcomes?.[0]?.number_of_arms || "0")) || 0;
 
-      // Timing fields
-      case "startDateEstimated": return trial.timing?.[0]?.start_date_estimated || "";
-      case "trialEndDateEstimated": return trial.timing?.[0]?.trial_end_date_estimated || "";
-      case "actualStartDate": return trial.timing?.[0]?.start_date_actual || "";
-      case "actualEnrollmentClosedDate": return trial.timing?.[0]?.actual_enrollment_closed_date || "";
-      case "actualTrialCompletionDate": return trial.timing?.[0]?.trial_end_date_actual || "";
-      case "actualPublishedDate": return trial.timing?.[0]?.result_published_date_actual || "";
-      case "estimatedEnrollmentClosedDate": return trial.timing?.[0]?.enrollment_closed_estimated || "";
-      case "estimatedResultPublishedDate": return trial.timing?.[0]?.result_published_date_estimated || "";
+      // Timing fields - return timestamps for proper date sorting
+      case "startDateEstimated": return parseDateToTimestamp(trial.timing?.[0]?.start_date_estimated);
+      case "trialEndDateEstimated": return parseDateToTimestamp(trial.timing?.[0]?.trial_end_date_estimated);
+      case "actualStartDate": return parseDateToTimestamp(trial.timing?.[0]?.start_date_actual);
+      case "actualEnrollmentClosedDate": return parseDateToTimestamp(trial.timing?.[0]?.enrollment_closed_actual);
+      case "actualTrialCompletionDate": return parseDateToTimestamp(trial.timing?.[0]?.trial_end_date_actual);
+      case "actualPublishedDate": return parseDateToTimestamp(trial.timing?.[0]?.result_published_date_actual);
+      case "estimatedEnrollmentClosedDate": return parseDateToTimestamp(trial.timing?.[0]?.enrollment_closed_estimated);
+      case "estimatedResultPublishedDate": return parseDateToTimestamp(trial.timing?.[0]?.result_published_date_estimated);
 
-      // Results fields
-      case "resultsAvailable": return trial.results?.[0]?.trial_results?.length ? "Yes" : "No";
-      case "endpointsMet": return trial.results?.[0]?.trial_outcome || "";
+      // Results fields - special handling for Yes/No sorting
+      case "resultsAvailable": {
+        const val = trial.results?.[0]?.results_available;
+        if (val === true || val === "Yes" || val === "yes") return "Yes";
+        if (val === false || val === "No" || val === "no") return "No";
+        return "No"; // Default to No if not set
+      }
+      case "endpointsMet": {
+        // Return the actual endpoints_met value (Yes/No/NA) for proper sorting
+        const endpointsMet = trial.results?.[0]?.endpoints_met;
+        if (endpointsMet) return endpointsMet;
+        // Fallback to trial_outcome if endpoints_met is not available
+        return trial.results?.[0]?.trial_outcome || "";
+      }
       case "trialOutcome": return trial.results?.[0]?.trial_outcome || "";
 
       // Sites fields
@@ -1057,8 +1076,8 @@ export default function AdminTherapeuticsPage() {
 
       // Admin-only fields
       case "referenceLinks": return Array.isArray(trial.overview?.reference_links) ? trial.overview.reference_links.join(", ") : "";
-      case "nextReviewDate": return trial.logs?.[0]?.next_review_date || "";
-      case "lastModifiedDate": return trial.logs?.[0]?.last_modified_date || "";
+      case "nextReviewDate": return parseDateToTimestamp(trial.logs?.[0]?.next_review_date);
+      case "lastModifiedDate": return parseDateToTimestamp(trial.logs?.[0]?.last_modified_date);
 
       default: return "";
     }
@@ -1203,7 +1222,18 @@ export default function AdminTherapeuticsPage() {
         case "total_sites":
         case "total_number_of_sites": fieldValue = trial.sites[0]?.total?.toString() || ""; break;
         case "site_notes": fieldValue = trial.sites[0]?.notes || ""; break;
-        case "internal_note": fieldValue = trial.notes?.map((n: any) => n.notes).join(" ") || ""; break;
+        case "internal_note":
+          fieldValue = trial.logs?.[0]?.internal_note || "";
+          // Debug log for internal_note search
+          console.log('🔍 Internal Note Debug:', {
+            trialId: trial.trial_id,
+            logsLength: trial.logs?.length || 0,
+            hasLogs: !!trial.logs,
+            logsArray: trial.logs,
+            internalNote: trial.logs?.[0]?.internal_note,
+            extractedValue: fieldValue
+          });
+          break;
         case "next_review_date": fieldValue = trial.logs?.[0]?.next_review_date || ""; break;
 
 
@@ -1266,8 +1296,22 @@ export default function AdminTherapeuticsPage() {
         "trial_tags"
       ];
 
+      // Fields that need format normalization (snake_case vs display format)
+      const fieldsNeedingNormalization = [
+        "disease_type", "therapeutic_area", "patient_segment", "line_of_therapy",
+        "trial_phase", "trial_record_status", "countries", "region"
+      ];
+
       if (categoricalFields.includes(field)) {
         const tokens = fieldValue.split(/[,;]+/).map(t => t.trim().toLowerCase());
+
+        // For fields that need normalization, also create normalized tokens
+        const normalizedTokens = fieldsNeedingNormalization.includes(field)
+          ? fieldValue.split(/[,;]+/).map(t => normalizeForComparison(t))
+          : tokens;
+
+        // Normalized search value for format-agnostic comparison
+        const normalizedSearchValue = normalizeForComparison(searchValue);
 
         // Special handling for trial_tags - use substring matching since tags can be multi-word
         if (field === "trial_tags") {
@@ -1314,13 +1358,26 @@ export default function AdminTherapeuticsPage() {
           // No, `is` defaults to `targetValue === searchValueLower`.
 
           if (tokens.length > 0) { }
-          // For multi-value categorical fields, "is" means at least one token matches exactly
-          return tokens.includes(searchValueLower);
+          // For "is" operator on categorical fields:
+          // If field has a SINGLE value (one token), do exact match
+          // If field has MULTIPLE values (comma-separated), the entire field should equal the search value exactly
+          // This means "is X" should NOT match "X, Y" - only match "X" exactly
+          if (fieldsNeedingNormalization.includes(field)) {
+            // Exact match on the FULL normalized field value
+            const normalizedFullValue = normalizeForComparison(fieldValue);
+            return normalizedFullValue === normalizedSearchValue;
+          }
+          // Exact match on the full field value (not token match)
+          return targetValue === searchValueLower;
         }
         if (operator === "contains") {
           // For single-value fields, use exact match
           if (singleValueFields.includes(field)) {
             return targetValue === searchValueLower;
+          }
+          // Use normalized comparison for fields with format mismatches
+          if (fieldsNeedingNormalization.includes(field)) {
+            return normalizedTokens.includes(normalizedSearchValue);
           }
           return tokens.includes(searchValueLower);
         }
@@ -1331,6 +1388,10 @@ export default function AdminTherapeuticsPage() {
           }
           // "Is Not" Operator: exclude trials where value is part of multi-value field.
           // Check that NONE of the tokens equal the search value exactly.
+          // Use normalized comparison for fields with format mismatches
+          if (fieldsNeedingNormalization.includes(field)) {
+            return !normalizedTokens.includes(normalizedSearchValue);
+          }
           return !tokens.includes(searchValueLower);
         }
       }
@@ -1585,6 +1646,39 @@ export default function AdminTherapeuticsPage() {
         }
       }
 
+
+      // Debug logging for internal_note before comparison
+      if (field === "internal_note") {
+        console.log('🔎 Internal Note Comparison:', {
+          trialId: trial.trial_id,
+          targetValue: targetValue.substring(0, 100) + '...',
+          searchValueLower,
+          operator,
+          includesCheck: targetValue.includes(searchValueLower),
+          equalsCheck: targetValue === searchValueLower
+        });
+      }
+
+      // Special handling for internal_note and other text fields - normalize whitespace for comparison
+      // This handles cases where search input collapses newlines to spaces but database has \n
+      if (field === "internal_note") {
+        const normalizedTarget = targetValue.replace(/[\n\r\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+        const normalizedSearch = searchValueLower.replace(/[\n\r\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+        console.log('🔎 Internal Note Normalized:', {
+          normalizedTarget: normalizedTarget.substring(0, 100) + '...',
+          normalizedSearch,
+          includesCheck: normalizedTarget.includes(normalizedSearch)
+        });
+
+        switch (operator) {
+          case "contains": return normalizedTarget.includes(normalizedSearch);
+          case "is": return normalizedTarget === normalizedSearch;
+          case "is_not": return !normalizedTarget.includes(normalizedSearch);
+          default: return normalizedTarget.includes(normalizedSearch);
+        }
+      }
+
       switch (operator) {
         case "contains": return targetValue.includes(searchValueLower);
         case "is": return targetValue === searchValueLower;
@@ -1809,6 +1903,11 @@ export default function AdminTherapeuticsPage() {
         const fullSnakeValue = lowerValue.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
         if (filterValues.includes(fullSnakeValue)) return true;
 
+        // Use normalizeForComparison for format-agnostic matching
+        // This handles cases like "Solid Tumor, Unspecified" matching "solid_tumor_unspecified"
+        const normalizedDbValue = normalizeForComparison(value);
+        if (filterValues.some(f => normalizeForComparison(f) === normalizedDbValue)) return true;
+
         return false;
       };
 
@@ -1818,15 +1917,34 @@ export default function AdminTherapeuticsPage() {
         if (!value) return false;
 
         const lowerValue = value.toLowerCase();
-
-        // Check normal partial match
-        if (filterValues.some(f => lowerValue.includes(f.toLowerCase()))) return true;
-
-        // Check snake_case partial match
+        // Create a normalized version that converts underscores to spaces (like user dashboard)
+        const normalizedValue = lowerValue.replace(/_/g, ' ').replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+        // Also keep the loose version for compatibility
+        const looseValue = lowerValue.replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+        // Create snake version for DB values that are snake_case
         const snakeValue = lowerValue.replace(/[^a-z0-9]+/g, '_');
-        if (filterValues.some(f => snakeValue.includes(f.toLowerCase()))) return true;
 
-        return false;
+        return filterValues.some((f) => {
+          const fLower = f.toLowerCase();
+          // Normalize filter value the same way
+          const fNormalized = fLower.replace(/_/g, ' ').replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+
+          // 1. Direct partial match
+          if (lowerValue.includes(fLower)) return true;
+
+          // 2. Normalized match (underscores -> spaces) - PRIMARY FIX
+          if (normalizedValue.includes(fNormalized) || fNormalized.includes(normalizedValue)) return true;
+
+          // 3. Loose partial match (ignore punctuation/spacing differences)
+          const fLoose = fLower.replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+          if (fLoose && looseValue.includes(fLoose)) return true;
+
+          // 4. Snake_case partial match (ignore underscores vs spaces)
+          const fSnake = fLower.replace(/[^a-z0-9]+/g, '_');
+          if (fSnake && snakeValue.includes(fSnake)) return true;
+
+          return false;
+        });
       };
 
       // Helper: Check numeric values (supports ranges like "10-50", "1000+", "<10")
@@ -1934,9 +2052,9 @@ export default function AdminTherapeuticsPage() {
       };
 
       // Overview Fields
-      if (!checkExact(appliedFilters.therapeuticAreas, trial.overview?.therapeutic_area)) return false;
+      if (!checkPartial(appliedFilters.therapeuticAreas, trial.overview?.therapeutic_area)) return false;
       if (!checkExact(appliedFilters.statuses, trial.overview?.status)) return false;
-      if (!checkExact(appliedFilters.diseaseTypes, trial.overview?.disease_type)) return false;
+      if (!checkPartial(appliedFilters.diseaseTypes, trial.overview?.disease_type)) return false;
       if (!checkDrugWithAliases(appliedFilters.primaryDrugs, trial.overview?.primary_drugs)) return false;
       if (!checkExact(appliedFilters.trialPhases, trial.overview?.trial_phase)) return false;
       if (!checkPartial(appliedFilters.countries, trial.overview?.countries)) return false;
@@ -2016,15 +2134,37 @@ export default function AdminTherapeuticsPage() {
     const aValue = getSortValue(a, sortField);
     const bValue = getSortValue(b, sortField);
 
-    // Handle string comparisons
+    // Special handling for Yes/No fields (resultsAvailable, endpointsMet, healthyVolunteers)
+    const yesNoFields = ['resultsAvailable', 'endpointsMet', 'healthyVolunteers'];
+    if (yesNoFields.includes(sortField) && typeof aValue === 'string' && typeof bValue === 'string') {
+      // Normalize to lowercase for comparison
+      const aLower = aValue.toLowerCase().trim();
+      const bLower = bValue.toLowerCase().trim();
+
+      // Define sort order: Yes > No > NA/empty (for ascending)
+      const getYesNoOrder = (val: string): number => {
+        if (val === 'yes') return 1;
+        if (val === 'no') return 2;
+        return 3; // NA or empty
+      };
+
+      const aOrder = getYesNoOrder(aLower);
+      const bOrder = getYesNoOrder(bLower);
+
+      // For ascending: Yes first (lower order value first)
+      // For descending: No first (higher order value first)
+      return sortDirection === 'asc' ? aOrder - bOrder : bOrder - aOrder;
+    }
+
+    // Handle numeric comparisons (including timestamps for dates)
+    if (typeof aValue === 'number' && typeof bValue === 'number') {
+      return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+    }
+
+    // Handle string comparisons (alphabetical)
     if (typeof aValue === 'string' && typeof bValue === 'string') {
       const comparison = aValue.toLowerCase().localeCompare(bValue.toLowerCase());
       return sortDirection === 'asc' ? comparison : -comparison;
-    }
-
-    // Handle numeric comparisons
-    if (typeof aValue === 'number' && typeof bValue === 'number') {
-      return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
     }
 
     // Mixed types - convert to string

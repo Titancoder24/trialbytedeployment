@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { ArrowLeft, ArrowRight, Save, Loader2 } from "lucide-react";
 import { useEditDrugForm } from "../../context/edit-drug-form-context";
 import { useDrugNames } from "@/hooks/use-drug-names";
 import { useToast } from "@/hooks/use-toast";
+import { useDynamicDropdown } from "@/hooks/use-dynamic-dropdown";
 
 export default function EditDrugOverview() {
   const router = useRouter();
@@ -48,18 +49,21 @@ export default function EditDrugOverview() {
     { value: "marketed", label: "Marketed" },
   ];
 
-  const originatorOptions: SearchableSelectOption[] = [
-    { value: "pfizer", label: "Pfizer" },
-    { value: "novartis", label: "Novartis" },
-    { value: "roche", label: "Roche" },
-    { value: "merck", label: "Merck" },
-    { value: "bristol_myers_squibb", label: "Bristol Myers Squibb" },
-    { value: "johnson_johnson", label: "Johnson & Johnson" },
-    { value: "gilead", label: "Gilead" },
-    { value: "amgen", label: "Amgen" },
-    { value: "biogen", label: "Biogen" },
-    { value: "regeneron", label: "Regeneron" },
-  ];
+
+  // Dynamic dropdown for Originator (uses Sponsor and Collaborators from dropdown management)
+  const { options: originatorOptions, loading: originatorLoading, error: originatorError } = useDynamicDropdown({
+    categoryName: 'sponsor_collaborators',
+  });
+
+  // Debug logging for dynamic dropdown
+  useEffect(() => {
+    console.log('[Edit Drug Form] Originator dropdown loading:', originatorLoading);
+    console.log('[Edit Drug Form] Originator dropdown error:', originatorError);
+    console.log('[Edit Drug Form] Originator options count:', originatorOptions.length);
+    if (originatorOptions.length > 0) {
+      console.log('[Edit Drug Form] Sample originator options:', originatorOptions.slice(0, 5));
+    }
+  }, [originatorOptions, originatorLoading, originatorError]);
 
   const therapeuticAreaOptions: SearchableSelectOption[] = [
     { value: "oncology", label: "Oncology" },
@@ -177,13 +181,12 @@ export default function EditDrugOverview() {
           {[1, 2, 3, 4, 5, 6].map((step) => (
             <div
               key={step}
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                step === 1
-                  ? "bg-blue-600 text-white"
-                  : step < 1
+              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${step === 1
+                ? "bg-blue-600 text-white"
+                : step < 1
                   ? "bg-gray-200 text-gray-600"
                   : "bg-gray-100 text-gray-400"
-              }`}
+                }`}
             >
               {step}
             </div>
@@ -337,6 +340,7 @@ export default function EditDrugOverview() {
                     onValueChange={(value) => updateField("overview", "originator", value)}
                     placeholder="Select originator"
                     className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                    loading={originatorLoading}
                   />
                 </div>
                 <div className="space-y-2">

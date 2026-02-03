@@ -162,6 +162,7 @@ interface TherapeuticTrial {
     last_modified_user: string | null;
     full_review_user: string | null;
     next_review_date: string | null;
+    internal_note: string | null;
     attachment: string | null;
   }>;
   notes: Array<{
@@ -528,8 +529,8 @@ export default function ClinicalTrialDashboard() {
         }
 
       // Notes
-      case "internal_note": return trial.notes?.map(n => n.notes).join(" ") || "";
-      case "next_review_date": return trial.logs?.[0]?.next_review_date || trial.notes?.[0]?.next_review_date || "";
+      case "internal_note": return trial.logs?.[0]?.internal_note || "";
+      case "next_review_date": return trial.logs?.[0]?.next_review_date || "";
 
       // Dates
       case "actual_start_date": return trial.timing[0]?.start_date_actual || "";
@@ -552,9 +553,22 @@ export default function ClinicalTrialDashboard() {
     return match ? parseInt(match[1], 10) : -1;
   };
 
-  const parseDate = (dateStr: string | null | undefined): number => {
-    if (!dateStr) return -1;
-    return new Date(dateStr).getTime();
+  // Helper to parse date string to timestamp (for proper date sorting)
+  const parseDateToTimestamp = (dateStr: string | undefined | null): number => {
+    if (!dateStr) return 0;
+    const parsed = new Date(dateStr);
+    return isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+  };
+
+  // Helper to format date for display (MM/DD/YYYY)
+  const formatDateToMMDDYYYY = (dateString: string | undefined | null): string => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString; // Return original if parsing fails
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    return `${mm}/${dd}/${yyyy}`;
   };
 
   const getSortValue = (trial: TherapeuticTrial, field: string): string | number => {
@@ -605,7 +619,12 @@ export default function ClinicalTrialDashboard() {
       case "subjectType": return trial.criteria[0]?.subject_type || "";
       case "sex": return trial.criteria[0]?.sex || "";
       case "healthy_volunteers":
-      case "healthyVolunteers": return trial.criteria[0]?.healthy_volunteers || "";
+      case "healthyVolunteers": {
+        const val = trial.criteria[0]?.healthy_volunteers;
+        if (val === true || val === "Yes" || val === "yes") return "Yes";
+        if (val === false || val === "No" || val === "no") return "No";
+        return val || "";
+      }
       case "target_no_volunteers":
       case "targetNoVolunteers": return parseInt(String(trial.criteria[0]?.target_no_volunteers || "0")) || 0;
       case "actual_enrolled_volunteers":
@@ -628,11 +647,26 @@ export default function ClinicalTrialDashboard() {
       case "number_of_arms":
       case "numberOfArms": return parseInt(String(trial.outcomes[0]?.number_of_arms || "0")) || 0;
 
-      // Timing Section
+      // Timing Section - Return timestamps for proper date sorting
       case "start_date_estimated":
-      case "startDateEstimated": return parseDate(trial.timing[0]?.start_date_estimated);
+      case "startDateEstimated": return parseDateToTimestamp(trial.timing[0]?.start_date_estimated);
+      case "estimated_start_date": return parseDateToTimestamp(trial.timing[0]?.start_date_estimated);
+
       case "trial_end_date_estimated":
-      case "trialEndDateEstimated": return parseDate(trial.timing[0]?.trial_end_date_estimated);
+      case "trialEndDateEstimated": return parseDateToTimestamp(trial.timing[0]?.trial_end_date_estimated);
+      case "estimated_trial_end_date": return parseDateToTimestamp(trial.timing[0]?.trial_end_date_estimated);
+
+      case "actual_start_date": return parseDateToTimestamp(trial.timing?.[0]?.start_date_actual);
+      case "actual_enrollment_closed_date": return parseDateToTimestamp(trial.timing?.[0]?.enrollment_closed_actual);
+      case "estimated_enrollment_closed_date": return parseDateToTimestamp(trial.timing?.[0]?.enrollment_closed_estimated);
+      case "estimatedEnrollmentClosedDate": return parseDateToTimestamp(trial.timing?.[0]?.enrollment_closed_estimated);
+
+      case "actual_trial_completion_date": return parseDateToTimestamp(trial.timing?.[0]?.trial_end_date_actual);
+      case "estimated_trial_completion_date": return parseDateToTimestamp(trial.timing?.[0]?.trial_completion_date_estimated);
+
+      case "actual_published_date": return parseDateToTimestamp(trial.timing?.[0]?.result_published_date_actual);
+      case "estimated_result_published_date": return parseDateToTimestamp(trial.timing?.[0]?.result_published_date_estimated);
+      case "estimatedResultPublishedDate": return parseDateToTimestamp(trial.timing?.[0]?.result_published_date_estimated);
 
       // Results Section
       case "trial_outcome":
@@ -644,11 +678,20 @@ export default function ClinicalTrialDashboard() {
       case "treatment_for_adverse_events":
       case "treatmentForAdverseEvents": return trial.results[0]?.treatment_for_adverse_events || "";
 
-      // Boolean-like fields (Results Available, Endpoints Met)
       case "resultsAvailable":
-      case "results_available": return trial.results && trial.results.length > 0 ? 1 : 0;
+      case "results_available": {
+        const val = trial.results?.[0]?.results_available;
+        if (val === true || val === "Yes" || val === "yes") return "Yes";
+        if (val === false || val === "No" || val === "no") return "No";
+        return "No"; // Default to No if not set
+      }
       case "endpointsMet":
-      case "endpoints_met": return trial.results?.[0]?.trial_results?.length > 0 ? 1 : 0;
+      case "endpoints_met": {
+        const val = trial.results?.[0]?.endpoints_met;
+        if (val === true || val === "Yes" || val === "yes") return "Yes";
+        if (val === false || val === "No" || val === "no") return "No";
+        return val || (trial.results?.[0]?.trial_outcome ? "Yes" : "No"); // Fallback
+      }
 
       // Sites Section - total is numeric
       case "total_sites":
@@ -657,15 +700,13 @@ export default function ClinicalTrialDashboard() {
       case "siteNotes": return trial.sites[0]?.notes || "";
 
       // New/Other fields
-      case "estimatedEnrollmentClosedDate": return parseDate(trial.timing[0]?.actual_enrollment_closed_date); // Using actual as estimated mapping based on recent interface update
-      case "estimatedResultPublishedDate": return parseDate(trial.results[0]?.estimated_result_published_date); // Assuming field name
       case "reference_links":
       case "referenceLinks":
         return Array.isArray(trial.overview.reference_links)
           ? trial.overview.reference_links.join(", ")
           : "";
       case "nextReviewDate": return 0; // Placeholder
-      case "lastModifiedDate": return parseDate(trial.overview.updated_at);
+      case "lastModifiedDate": return parseDateToTimestamp(trial.overview.updated_at);
 
       default: return "";
     }
@@ -694,7 +735,12 @@ export default function ClinicalTrialDashboard() {
     // Ensure value is a string before string operations
     // JOIN WITH COMMA to preserve separation for split(',') operations later
     const strValue = Array.isArray(value) ? value.join(", ") : String(value);
-    return strValue.toLowerCase().replace(/_/g, " ").replace(/\s+/g, " ").trim();
+    return strValue
+      .toLowerCase()
+      .replace(/_/g, " ")           // Replace underscores with spaces
+      .replace(/[(),\/\-–—]/g, " ") // Replace parentheses, commas, slashes, dashes with spaces
+      .replace(/\s+/g, " ")         // Normalize multiple spaces to single space
+      .trim();
   };
 
   // Helper function to recursively search for term in object
@@ -1051,13 +1097,31 @@ export default function ClinicalTrialDashboard() {
     const aValue = getSortValue(a, sortField);
     const bValue = getSortValue(b, sortField);
 
+    // Special handling for Yes/No fields
+    const yesNoFields = ['results_available', 'endpoints_met', 'healthy_volunteers'];
+    if (yesNoFields.includes(sortField) && typeof aValue === 'string' && typeof bValue === 'string') {
+      const aLower = aValue.toLowerCase().trim();
+      const bLower = bValue.toLowerCase().trim();
+
+      const getYesNoOrder = (val: string): number => {
+        if (val === 'yes') return 1;
+        if (val === 'no') return 2;
+        return 3; // Other/Empty
+      };
+
+      const aOrder = getYesNoOrder(aLower);
+      const bOrder = getYesNoOrder(bLower);
+
+      return sortDirection === 'asc' ? aOrder - bOrder : bOrder - aOrder;
+    }
+
     // Handle string comparisons
     if (typeof aValue === 'string' && typeof bValue === 'string') {
       const comparison = aValue.toLowerCase().localeCompare(bValue.toLowerCase());
       return sortDirection === 'asc' ? comparison : -comparison;
     }
 
-    // Handle numeric comparisons
+    // Handle numeric comparisons (including timestamps)
     if (typeof aValue === 'number' && typeof bValue === 'number') {
       return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
     }
@@ -1090,13 +1154,19 @@ export default function ClinicalTrialDashboard() {
   };
 
   const hasActiveFilters = () => {
-    return Object.values(appliedFilters).some(filter => filter.length > 0) ||
-      appliedSearchCriteria.length > 0;
+    return Object.values(appliedFilters).some(filter => filter.length > 0);
+  };
+
+  const hasActiveAdvancedSearch = () => {
+    return appliedSearchCriteria.length > 0;
   };
 
   const getActiveFilterCount = () => {
-    const filterCount = Object.values(appliedFilters).reduce((count, filter) => count + filter.length, 0);
-    return filterCount + appliedSearchCriteria.length;
+    return Object.values(appliedFilters).reduce((count, filter) => count + filter.length, 0);
+  };
+
+  const getActiveAdvancedSearchCount = () => {
+    return appliedSearchCriteria.length;
   };
 
   // Function to format filter label for display
@@ -1688,19 +1758,24 @@ export default function ClinicalTrialDashboard() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setAdvancedSearchModalOpen(true)}
-                className="flex items-center gap-2 bg-white hover:bg-gray-50 transition-colors shadow-sm"
+                className={`flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm ${hasActiveAdvancedSearch() ? "bg-green-100 text-green-700" : "bg-white text-black"}`}
                 style={{
                   fontFamily: "Poppins",
                   fontSize: "14px",
                   fontWeight: 600,
-                  color: "#000000",
+                  color: hasActiveAdvancedSearch() ? "#15803d" : "#000000",
                   padding: "10px 20px",
                   borderRadius: "12px",
                   border: "none",
                 }}
               >
-                <Search className="h-5 w-5" style={{ color: "#000000" }} />
+                <Search className="h-5 w-5" style={{ color: hasActiveAdvancedSearch() ? "#15803d" : "#000000" }} />
                 {t("common.advancedSearch")}
+                {hasActiveAdvancedSearch() && (
+                  <Badge className="ml-1 bg-green-600 text-white text-xs px-1 py-0">
+                    {getActiveAdvancedSearchCount()}
+                  </Badge>
+                )}
               </button>
               <button
                 onClick={() => setFilterModalOpen(true)}
@@ -2146,7 +2221,7 @@ export default function ClinicalTrialDashboard() {
               {/* View Type and Active Filters */}
               <div className="mb-1 flex items-center justify-between">
 
-                {hasActiveFilters() && (
+                {(hasActiveFilters() || hasActiveAdvancedSearch()) && (
                   <div className="flex items-center space-x-3">
                     <span className="text-sm text-gray-600">Active filters:</span>
                     <div className="flex flex-wrap gap-1">
@@ -3524,31 +3599,32 @@ export default function ClinicalTrialDashboard() {
                             {/* Timing Section Cells */}
                             {columnSettings.actualStartDate && (
                               <td className="p-4 align-middle w-[120px]">
-                                <span>{trial.timing?.[0]?.start_date_actual || "N/A"}</span>
+                                <span>{formatDateToMMDDYYYY(trial.timing?.[0]?.start_date_actual)}</span>
                               </td>
                             )}
                             {columnSettings.startDateEstimated && (
                               <td className="p-4 align-middle w-[120px]">
-                                <span>{trial.timing?.[0]?.start_date_estimated || "N/A"}</span>
+                                <span>{formatDateToMMDDYYYY(trial.timing?.[0]?.start_date_estimated)}</span>
                               </td>
                             )}
                             {columnSettings.trialEndDateEstimated && (
                               <td className="p-4 align-middle w-[120px]">
+                                <span>{formatDateToMMDDYYYY(trial.timing?.[0]?.trial_end_date_estimated)}</span>
                               </td>
                             )}
                             {columnSettings.actualEnrollmentClosedDate && (
                               <td className="p-4 align-middle w-[120px]">
-                                <span>{trial.timing?.[0]?.actual_enrollment_closed_date || "N/A"}</span>
+                                <span>{formatDateToMMDDYYYY(trial.timing?.[0]?.enrollment_closed_actual)}</span>
                               </td>
                             )}
                             {columnSettings.actualTrialCompletionDate && (
                               <td className="p-4 align-middle w-[120px]">
-                                <span>{trial.timing?.[0]?.actual_trial_completion_date || "N/A"}</span>
+                                <span>{formatDateToMMDDYYYY(trial.timing?.[0]?.trial_end_date_actual)}</span>
                               </td>
                             )}
                             {columnSettings.actualPublishedDate && (
                               <td className="p-4 align-middle w-[120px]">
-                                <span>{trial.timing?.[0]?.actual_published_date || "N/A"}</span>
+                                <span>{formatDateToMMDDYYYY(trial.timing?.[0]?.result_published_date_actual)}</span>
                               </td>
                             )}
                             {/* Results Section Cells */}

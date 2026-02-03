@@ -119,6 +119,7 @@ interface TherapeuticTrial {
     last_modified_user: string | null;
     full_review_user: string | null;
     next_review_date: string | null;
+    internal_note: string | null;
   }>;
   notes: Array<{
     id: string;
@@ -282,7 +283,8 @@ const getOperatorsForField = (fieldValue: string) => {
     "purpose_of_trial",
     "summary",
     "inclusion_criteria",
-    "exclusion_criteria"
+    "exclusion_criteria",
+    "internal_note"
   ]
 
   if (numericFields.includes(fieldValue)) return numericOperators

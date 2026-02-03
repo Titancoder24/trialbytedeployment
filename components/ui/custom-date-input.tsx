@@ -200,7 +200,7 @@ export function CustomDateInput({
             selected={selectedDate}
             onSelect={handleCalendarSelect}
             initialFocus
-            captionLayout="dropdown-buttons"
+            captionLayout="dropdown"
             fromYear={1900}
             toYear={2100}
           />

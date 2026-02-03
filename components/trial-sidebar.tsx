@@ -166,7 +166,7 @@ export function TrialSidebar({
                               ? "text-[#204B73] font-medium bg-gray-50"
                               : "text-gray-600 hover:bg-[#204B73] hover:text-white"
                               }`}
-                            onClick={() => onSectionClick("otherSources")}
+                            onClick={() => onSectionClick(subItem.id)}
                             style={{
                               fontFamily: "Poppins",
                               fontWeight: activeSection === subItem.id ? 500 : 400,

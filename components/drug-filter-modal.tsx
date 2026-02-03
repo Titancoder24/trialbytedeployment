@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { X, Search } from "lucide-react"
+import { useDynamicDropdown } from "@/hooks/use-dynamic-dropdown"
 import {
   GLOBAL_STATUS_OPTIONS,
   DEVELOPMENT_STATUS_OPTIONS_DETAILED,
@@ -60,6 +61,12 @@ export function DrugFilterModal({ open, onOpenChange, onApplyFilters, currentFil
   const [activeCategory, setActiveCategory] = useState<keyof DrugFilterState>("globalStatuses")
   const [searchFilter, setSearchFilter] = useState("")
 
+  // Dynamic dropdown for Originator (uses Sponsor and Collaborators from dropdown management)
+  const { options: dynamicOriginatorOptions, loading: originatorLoading } = useDynamicDropdown({
+    categoryName: 'sponsor_collaborators',
+    fallbackOptions: ORIGINATOR_OPTIONS,
+  });
+
   // Update local state when props change (re-opening modal)
   useEffect(() => {
     if (open) {
@@ -68,13 +75,16 @@ export function DrugFilterModal({ open, onOpenChange, onApplyFilters, currentFil
     }
   }, [open, currentFilters])
 
-  const filterCategories: Record<keyof DrugFilterState, SearchableSelectOption[]> = {
+  // Use dynamic options if available, otherwise use static
+  const originatorOptions = dynamicOriginatorOptions.length > 0 ? dynamicOriginatorOptions : ORIGINATOR_OPTIONS;
+
+  const filterCategories: Record<keyof DrugFilterState, SearchableSelectOption[]> = useMemo(() => ({
     globalStatuses: GLOBAL_STATUS_OPTIONS,
     developmentStatuses: DEVELOPMENT_STATUS_OPTIONS_DETAILED,
     therapeuticAreas: THERAPEUTIC_AREA_OPTIONS,
     diseaseTypes: DISEASE_TYPE_OPTIONS,
-    originators: ORIGINATOR_OPTIONS,
-    otherActiveCompanies: ORIGINATOR_OPTIONS,
+    originators: originatorOptions,
+    otherActiveCompanies: originatorOptions,
     regulatorDesignations: REGULATORY_DESIGNATIONS_OPTIONS,
     drugRecordStatus: DRUG_RECORD_STATUS_OPTIONS,
     isApproved: IS_APPROVED_OPTIONS,
@@ -87,7 +97,7 @@ export function DrugFilterModal({ open, onOpenChange, onApplyFilters, currentFil
     therapeuticClasses: THERAPEUTIC_CLASS_OPTIONS,
     countries: COUNTRY_OPTIONS,
     primaryNames: primaryNameOptions
-  }
+  }), [originatorOptions, primaryNameOptions]);
 
   const categoryLabels: Record<keyof DrugFilterState, string> = {
     globalStatuses: "Global Status",

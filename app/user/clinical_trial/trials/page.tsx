@@ -690,6 +690,38 @@ function ClinicalTrialsPage() {
 
   // Scroll to section function
   const scrollToSection = (sectionId: string) => {
+    // Map sub-section IDs to their corresponding group types
+    const otherSourcesSubSections: Record<string, string> = {
+      pipelineData: 'pipeline_data',
+      pressRelease: 'press_releases',
+      publications: 'publications',
+      trialRegistries: 'trial_registries',
+    };
+
+    // Check if this is an Other Sources sub-section
+    if (otherSourcesSubSections[sectionId]) {
+      // First scroll to Other Sources section
+      if (otherSourcesRef?.current) {
+        otherSourcesRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+        setActiveSection("otherSources");
+
+        // After a short delay, scroll to the specific sub-section
+        setTimeout(() => {
+          const targetElement = document.getElementById(`othersources-${otherSourcesSubSections[sectionId]}`);
+          if (targetElement) {
+            targetElement.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            });
+          }
+        }, 500);
+      }
+      return;
+    }
+
     const refs = {
       overview: overviewRef,
       objectives: objectivesRef,
@@ -3612,7 +3644,7 @@ function ClinicalTrialsPage() {
                               if (items.length === 0) return null;
 
                               return (
-                                <div key={groupType}>
+                                <div key={groupType} id={`othersources-${groupType}`}>
                                   {/* Group Header */}
                                   <h3 className="text-md font-bold text-[#204B73] mb-3">
                                     {groupLabels[groupType]}

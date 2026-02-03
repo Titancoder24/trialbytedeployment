@@ -68,9 +68,22 @@ const staticFilterCategories = {
     "Unspecified Cancer", "Unspecified Haematological Cancer", "Vaginal", "Vulvar"
   ],
   trialPhases: ["Phase I", "Phase I/II", "Phase II", "Phase II/III", "Phase III", "Phase III/IV", "Phase IV"],
-  patientSegments: ["Children", "Adults", "Healthy Volunteers", "Unknown", "First Line", "Second Line", "Adjuvant"],
+  patientSegments: [
+    "HER2+ Breast Cancer",
+    "HER2- Breast Cancer",
+    "HR+ Breast Cancer (ER+ And/or PR+)",
+    "Triple-negative Breast Cancer (TNBC)",
+    "Early-stage Breast Cancer",
+    "Locally Advanced Breast Cancer",
+    "Metastatic Breast Cancer",
+    "Recurrent Breast Cancer",
+    "Advanced Breast Cancer (non-metastatic)",
+    "Premenopausal Breast Cancer Patients",
+    "Postmenopausal Breast Cancer Patients",
+    "Breast Cancer (NOS)"
+  ],
   lineOfTherapy: [
-    "1 – First Line", "2 – Second Line", "Unknown", "2+ - At least second line",
+    "1 - First Line", "2 - Second Line", "Unknown", "2+ - At least second line",
     "3+ - At least third line", "Neo-Adjuvant", "Adjuvant", "Maintenance/Consolidation",
     "1+ - At least first line"
   ],
@@ -138,19 +151,43 @@ export function ClinicalTrialFilterModal({
     fallbackOptions: staticFilterCategories.countries.map(c => ({ value: c, label: c }))
   })
 
+  // Fetch sponsors dynamically from the dropdown management database
+  const { options: dynamicSponsors, loading: isSponsorsLoading } = useDynamicDropdown({
+    categoryName: 'sponsor_collaborators',
+    fallbackOptions: []
+  })
+
+  // Fetch sponsor field activity dynamically
+  const { options: dynamicSponsorFieldActivity, loading: isSponsorFieldActivityLoading } = useDynamicDropdown({
+    categoryName: 'sponsor_field_activity',
+    fallbackOptions: []
+  })
+
+  // Fetch associated CRO dynamically
+  const { options: dynamicAssociatedCro, loading: isAssociatedCroLoading } = useDynamicDropdown({
+    categoryName: 'associated_cro',
+    fallbackOptions: []
+  })
+
   // Build filter categories with dynamic drug and country data from API
   const filterCategories = useMemo(() => {
     const drugOptions = getPrimaryDrugsOptions()
     const drugLabels = drugOptions.map(drug => drug.label)
     const countryLabels = dynamicCountries.map(country => country.label)
+    const sponsorLabels = dynamicSponsors.map(sponsor => sponsor.label)
+    const sponsorFieldActivityLabels = dynamicSponsorFieldActivity.map(item => item.label)
+    const associatedCroLabels = dynamicAssociatedCro.map(cro => cro.label)
 
     return {
       ...staticFilterCategories,
       primaryDrugs: drugLabels.length > 0 ? drugLabels : ["No drugs available - add drugs in the drug module"],
       otherDrugs: drugLabels.length > 0 ? drugLabels : ["No drugs available - add drugs in the drug module"],
       countries: countryLabels.length > 0 ? countryLabels : staticFilterCategories.countries,
+      sponsorsCollaborators: sponsorLabels.length > 0 ? sponsorLabels : [],
+      sponsorFieldActivity: sponsorFieldActivityLabels.length > 0 ? sponsorFieldActivityLabels : [],
+      associatedCro: associatedCroLabels.length > 0 ? associatedCroLabels : [],
     }
-  }, [getPrimaryDrugsOptions, dynamicCountries])
+  }, [getPrimaryDrugsOptions, dynamicCountries, dynamicSponsors, dynamicSponsorFieldActivity, dynamicAssociatedCro])
 
   // Sync internal state with props when modal opens or currentFilters change
   useEffect(() => {

@@ -95,6 +95,7 @@ const DROPDOWN_OPTIONS: Record<keyof TherapeuticFilterState, SearchableSelectOpt
     { value: "pancreas", label: "Pancreas" },
     { value: "prostate", label: "Prostate" },
     { value: "renal", label: "Renal" },
+    { value: "solid_tumor_unspecified", label: "Solid Tumor, Unspecified" },
     { value: "thyroid", label: "Thyroid" },
     { value: "unspecified_cancer", label: "Unspecified Cancer" },
   ],
@@ -1020,11 +1021,13 @@ const getUniqueValues = (trials: any[], fieldPath: string): string[] => {
 
   // Deduplicate values that are essentially the same but differ by formatting
   // (e.g., "Completed Outcome Unknown" vs "Completed — Outcome Unknown")
-  // Keep the version with em dash (—) as the preferred format
+  // (e.g., "Solid Tumor Unspecified" vs "Solid Tumor, Unspecified")
+  // Keep the version with comma or em dash (—) as the preferred format
   const normalizeForComparison = (str: string): string => {
     return str
-      .replace(/\s*[—–-]\s*/g, '') // Remove all types of dashes with surrounding spaces
-      .replace(/\s+/g, ' ')        // Normalize multiple spaces to single space
+      .replace(/\s*[—–-]\s*/g, ' ') // Replace all types of dashes with space
+      .replace(/[,_]/g, ' ')        // Replace commas and underscores with space
+      .replace(/\s+/g, ' ')         // Normalize multiple spaces to single space
       .toLowerCase()
       .trim()
   }
@@ -1037,14 +1040,17 @@ const getUniqueValues = (trials: any[], fieldPath: string): string[] => {
     if (!existing) {
       deduplicatedMap.set(normalized, value)
     } else {
-      // Prefer the version with em dash (—) over regular dash or no dash
+      // Prefer the version with comma, then em dash (—), then en dash (–), then regular dash
+      const hasComma = (str: string) => str.includes(',')
       const hasEmDash = (str: string) => str.includes('—')
       const hasEnDash = (str: string) => str.includes('–')
-      const hasRegularDash = (str: string) => str.includes('-') && !str.includes('—') && !str.includes('–')
 
-      if (hasEmDash(value) && !hasEmDash(existing)) {
+      // Priority: comma > em dash > en dash > no punctuation
+      if (hasComma(value) && !hasComma(existing)) {
         deduplicatedMap.set(normalized, value)
-      } else if (hasEnDash(value) && !hasEmDash(existing) && !hasEnDash(existing)) {
+      } else if (!hasComma(existing) && hasEmDash(value) && !hasEmDash(existing)) {
+        deduplicatedMap.set(normalized, value)
+      } else if (!hasComma(existing) && !hasEmDash(existing) && hasEnDash(value) && !hasEnDash(existing)) {
         deduplicatedMap.set(normalized, value)
       }
       // Keep existing if it already has better formatting

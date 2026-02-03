@@ -70,3 +70,32 @@ export function formatDisplayValueWithFallback(
     }
     return formatDisplayValue(value);
 }
+
+/**
+ * Normalizes a value for comparison by converting both snake_case and display format
+ * to a common lowercase format without special characters.
+ * 
+ * This is useful for filter matching where dropdown values might be in snake_case
+ * (e.g., "solid_tumor_unspecified") but database values are in display format
+ * (e.g., "Solid Tumor, Unspecified").
+ * 
+ * @example
+ * normalizeForComparison("solid_tumor_unspecified") // "solid tumor unspecified"
+ * normalizeForComparison("Solid Tumor, Unspecified") // "solid tumor unspecified"
+ * normalizeForComparison("Phase I/II") // "phase i ii"
+ * 
+ * @param value - The string value to normalize
+ * @returns Normalized lowercase string for comparison
+ */
+export function normalizeForComparison(value: string | null | undefined): string {
+    if (!value || value.trim() === "") {
+        return "";
+    }
+
+    return value
+        .toLowerCase()
+        .replace(/_/g, " ")           // Replace underscores with spaces
+        .replace(/[,\/\-–—]/g, " ")   // Replace commas, slashes, dashes with spaces
+        .replace(/\s+/g, " ")         // Normalize multiple spaces to single space
+        .trim();
+}

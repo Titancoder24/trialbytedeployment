@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,15 +18,7 @@ import { Plus, X } from "lucide-react";
 import { useDrugForm } from "../context/drug-form-context";
 import DrugFormProgress from "../components/drug-form-progress";
 import { SearchableSelect, SearchableSelectOption } from "@/components/ui/searchable-select";
-
-// Originator options - same companies for both Originator and Other Active Companies
-const originatorOptions: SearchableSelectOption[] = [
-  { value: "pfizer", label: "Pfizer" },
-  { value: "novartis", label: "Novartis" },
-  { value: "roche", label: "Roche" },
-  { value: "merck", label: "Merck" },
-  { value: "johnson_johnson", label: "Johnson & Johnson" },
-];
+import { useDynamicDropdown } from "@/hooks/use-dynamic-dropdown";
 
 export default function DrugsNewOverview() {
   const {
@@ -36,6 +29,21 @@ export default function DrugsNewOverview() {
     updateArrayItem,
   } = useDrugForm();
   const form = formData.overview;
+
+  // Dynamic dropdown for Originator (uses Sponsor and Collaborators from dropdown management)
+  const { options: originatorOptions, loading: originatorLoading, error: originatorError } = useDynamicDropdown({
+    categoryName: 'sponsor_collaborators',
+  });
+
+  // Debug logging for dynamic dropdown
+  useEffect(() => {
+    console.log('[Drug Form] Originator dropdown loading:', originatorLoading);
+    console.log('[Drug Form] Originator dropdown error:', originatorError);
+    console.log('[Drug Form] Originator options count:', originatorOptions.length);
+    if (originatorOptions.length > 0) {
+      console.log('[Drug Form] Sample originator options:', originatorOptions.slice(0, 5));
+    }
+  }, [originatorOptions, originatorLoading, originatorError]);
 
   const addAttachment = () => addArrayItem("overview", "attachments");
   const removeAttachment = (index: number) =>
@@ -171,6 +179,7 @@ export default function DrugsNewOverview() {
                 searchPlaceholder="Search originator..."
                 emptyMessage="No originator found."
                 className="border-gray-300 focus:border-gray-500 focus:ring-gray-500"
+                loading={originatorLoading}
               />
             </div>
             <div className="space-y-2">
@@ -185,6 +194,7 @@ export default function DrugsNewOverview() {
                 searchPlaceholder="Search companies..."
                 emptyMessage="No companies found."
                 className="border-gray-300 focus:border-gray-500 focus:ring-gray-500"
+                loading={originatorLoading}
               />
             </div>
           </div>

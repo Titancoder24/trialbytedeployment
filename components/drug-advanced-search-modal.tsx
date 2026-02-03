@@ -12,6 +12,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
+import { useDynamicDropdown } from "@/hooks/use-dynamic-dropdown"
 import { DrugFilterState } from "./drug-filter-modal"
 
 interface DrugAdvancedSearchModalProps {
@@ -132,6 +133,12 @@ export function DrugAdvancedSearchModal({
   const [drugData, setDrugData] = useState<DrugData[]>([])
   const [loading, setLoading] = useState(false)
 
+  // Dynamic dropdown for Originator (uses Sponsor and Collaborators from dropdown management)
+  const { options: dynamicOriginatorOptions } = useDynamicDropdown({
+    categoryName: 'sponsor_collaborators',
+    fallbackOptions: [],
+  });
+
   const isEditMode = editingQueryId !== null && editingQueryId !== ""
 
   // Load initial criteria when modal opens or when initialCriteria changes
@@ -169,6 +176,11 @@ export function DrugAdvancedSearchModal({
     // Don't extract values for date fields - they use date picker
     if (dateFields.includes(field)) {
       return []
+    }
+
+    // Use dynamic dropdown options for originator and other_active_companies
+    if (field === 'originator' || field === 'other_active_companies') {
+      return dynamicOriginatorOptions.map(opt => opt.value);
     }
 
     const values = new Set<string>()
