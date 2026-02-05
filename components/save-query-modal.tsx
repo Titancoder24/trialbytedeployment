@@ -19,6 +19,9 @@ interface SaveQueryModalProps {
   editingQueryId?: string | null
   editingQueryTitle?: string
   editingQueryDescription?: string
+  storageKey?: string
+  queryType?: string
+  sourceModal?: "filter" | "advanced"
 }
 
 export function SaveQueryModal({
@@ -30,7 +33,10 @@ export function SaveQueryModal({
   searchTerm = "",
   editingQueryId = null,
   editingQueryTitle = "",
-  editingQueryDescription = ""
+  editingQueryDescription = "",
+  storageKey = "unifiedSavedQueries",
+  queryType = "dashboard",
+  sourceModal
 }: SaveQueryModalProps) {
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
@@ -120,12 +126,13 @@ export function SaveQueryModal({
         searchTerm: searchTerm || "",
         filters: currentFilters,
         searchCriteria: currentSearchCriteria,
-        savedAt: new Date().toISOString()
+        savedAt: new Date().toISOString(),
+        sourceModal: sourceModal // Add origin tracking
       }
 
       if (isEditMode && editingQueryId) {
         // UPDATE MODE: Update existing query
-        const existingQueries = JSON.parse(localStorage.getItem('unifiedSavedQueries') || '[]')
+        const existingQueries = JSON.parse(localStorage.getItem(storageKey) || '[]')
         const queryIndex = existingQueries.findIndex((q: any) => q.id === editingQueryId)
 
         if (queryIndex !== -1) {
@@ -137,7 +144,7 @@ export function SaveQueryModal({
             query_data: queryData,
             updated_at: new Date().toISOString()
           }
-          localStorage.setItem('unifiedSavedQueries', JSON.stringify(existingQueries))
+          localStorage.setItem(storageKey, JSON.stringify(existingQueries))
         }
 
         // Try to update in backend API
@@ -145,7 +152,7 @@ export function SaveQueryModal({
           const requestBody = {
             title: title.trim(),
             description: description.trim() || null,
-            query_type: "dashboard",
+            query_type: queryType,
             query_data: queryData,
             filters: currentFilters
           }
@@ -177,22 +184,22 @@ export function SaveQueryModal({
           id: Date.now().toString(),
           title: title.trim(),
           description: description.trim() || null,
-          query_type: "dashboard",
+          query_type: queryType,
           query_data: queryData,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }
 
-        const existingQueries = JSON.parse(localStorage.getItem('unifiedSavedQueries') || '[]')
+        const existingQueries = JSON.parse(localStorage.getItem(storageKey) || '[]')
         existingQueries.push(localQuery)
-        localStorage.setItem('unifiedSavedQueries', JSON.stringify(existingQueries))
+        localStorage.setItem(storageKey, JSON.stringify(existingQueries))
 
         // Try to save to backend API
         try {
           const requestBody = {
             title: title.trim(),
             description: description.trim() || null,
-            query_type: "dashboard",
+            query_type: queryType,
             query_data: queryData,
             filters: currentFilters
           }

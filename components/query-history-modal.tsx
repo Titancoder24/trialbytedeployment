@@ -39,13 +39,17 @@ interface QueryHistoryModalProps {
   onOpenChange: (open: boolean) => void
   onLoadQuery?: (queryData: any) => void
   onEditQuery?: (queryData: any) => void
+  storageKey?: string
+  queryType?: string
 }
 
 export function QueryHistoryModal({
   open,
   onOpenChange,
   onLoadQuery,
-  onEditQuery
+  onEditQuery,
+  storageKey = "unifiedSavedQueries",
+  queryType = "dashboard"
 }: QueryHistoryModalProps) {
   const [savedQueries, setSavedQueries] = useState<SavedQuery[]>([])
   const [loading, setLoading] = useState(false)
@@ -65,7 +69,7 @@ export function QueryHistoryModal({
     setError("")
 
     try {
-      let url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/queries/saved/user/dashboard-queries`
+      let url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/queries/saved/user/${queryType}-queries`
 
       const response = await fetch(url, {
         method: "GET",
@@ -79,7 +83,7 @@ export function QueryHistoryModal({
         const data = await response.json()
 
         if (!data.data || data.data.length === 0) {
-          const localQueries = JSON.parse(localStorage.getItem('unifiedSavedQueries') || '[]')
+          const localQueries = JSON.parse(localStorage.getItem(storageKey) || '[]')
           setSavedQueries(localQueries)
         } else {
           setSavedQueries(data.data || [])
@@ -87,14 +91,14 @@ export function QueryHistoryModal({
         return
       }
 
-      const localQueries = JSON.parse(localStorage.getItem('unifiedSavedQueries') || '[]')
+      const localQueries = JSON.parse(localStorage.getItem(storageKey) || '[]')
       setSavedQueries(localQueries)
 
     } catch (error) {
       console.error("Error fetching saved queries:", error)
 
       try {
-        const localQueries = JSON.parse(localStorage.getItem('unifiedSavedQueries') || '[]')
+        const localQueries = JSON.parse(localStorage.getItem(storageKey) || '[]')
         setSavedQueries(localQueries)
         setError("")
       } catch (localError) {
@@ -127,9 +131,9 @@ export function QueryHistoryModal({
         return
       }
 
-      const localQueries = JSON.parse(localStorage.getItem('unifiedSavedQueries') || '[]')
+      const localQueries = JSON.parse(localStorage.getItem(storageKey) || '[]')
       const updatedQueries = localQueries.filter((query: any) => query.id !== queryId)
-      localStorage.setItem('unifiedSavedQueries', JSON.stringify(updatedQueries))
+      localStorage.setItem(storageKey, JSON.stringify(updatedQueries))
 
       toast({
         title: "Success",
@@ -142,9 +146,9 @@ export function QueryHistoryModal({
       console.error("Error deleting query:", error)
 
       try {
-        const localQueries = JSON.parse(localStorage.getItem('unifiedSavedQueries') || '[]')
+        const localQueries = JSON.parse(localStorage.getItem(storageKey) || '[]')
         const updatedQueries = localQueries.filter((query: any) => query.id !== queryId)
-        localStorage.setItem('unifiedSavedQueries', JSON.stringify(updatedQueries))
+        localStorage.setItem(storageKey, JSON.stringify(updatedQueries))
 
         toast({
           title: "Success",
@@ -253,13 +257,13 @@ export function QueryHistoryModal({
       }
 
       // Fallback to localStorage
-      const localQueries = JSON.parse(localStorage.getItem('unifiedSavedQueries') || '[]')
+      const localQueries = JSON.parse(localStorage.getItem(storageKey) || '[]')
       const updatedQueries = localQueries.map((q: SavedQuery) =>
         q.id === editingQuery.id
           ? { ...q, title: editTitle, description: editDescription, created_at: new Date(editDate).toISOString() }
           : q
       )
-      localStorage.setItem('unifiedSavedQueries', JSON.stringify(updatedQueries))
+      localStorage.setItem(storageKey, JSON.stringify(updatedQueries))
 
       toast({
         title: "Success",
@@ -273,13 +277,13 @@ export function QueryHistoryModal({
 
       // Fallback to localStorage
       try {
-        const localQueries = JSON.parse(localStorage.getItem('unifiedSavedQueries') || '[]')
+        const localQueries = JSON.parse(localStorage.getItem(storageKey) || '[]')
         const updatedQueries = localQueries.map((q: SavedQuery) =>
           q.id === editingQuery.id
             ? { ...q, title: editTitle, description: editDescription, created_at: new Date(editDate).toISOString() }
             : q
         )
-        localStorage.setItem('unifiedSavedQueries', JSON.stringify(updatedQueries))
+        localStorage.setItem(storageKey, JSON.stringify(updatedQueries))
 
         toast({
           title: "Success",

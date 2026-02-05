@@ -508,7 +508,7 @@ export function DrugAdvancedSearchModal({
             criteria.map((criterion, index) => (
               <div key={criterion.id} className="space-y-3">
                 <div className="grid grid-cols-12 gap-3 items-center">
-                  <div className="col-span-2">
+                  <div className="col-span-3">
                     <Select
                       value={criterion.field}
                       onValueChange={(value) => updateCriteria(criterion.id, "field", value)}
@@ -544,7 +544,7 @@ export function DrugAdvancedSearchModal({
                     </Select>
                   </div>
 
-                  <div className="col-span-4">
+                  <div className="col-span-3">
                     {renderValueInput(criterion)}
                   </div>
 

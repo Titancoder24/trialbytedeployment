@@ -1151,6 +1151,10 @@ export default function ClinicalTrialDashboard() {
   const clearAllFilters = () => {
     setAppliedFilters(DEFAULT_FILTER_STATE);
     setAppliedSearchCriteria([]);
+    setSearchTerm("");
+    setEditingQueryId(null);
+    setEditingQueryTitle("");
+    setEditingQueryDescription("");
   };
 
   const hasActiveFilters = () => {
@@ -1194,6 +1198,14 @@ export default function ClinicalTrialDashboard() {
       studyDesignKeywords: "Study Design Keywords"
     };
     return labelMap[key] || key;
+  };
+
+  const handleSaveQuery = () => {
+    // Reset editing state for NEW save from the dashboard sidebar
+    setEditingQueryId(null);
+    setEditingQueryTitle("");
+    setEditingQueryDescription("");
+    setSaveQueryModalOpen(true);
   };
 
   const handleSaveQuerySuccess = () => {
@@ -2008,7 +2020,7 @@ export default function ClinicalTrialDashboard() {
                 {/* Save This Query */}
                 <div className="relative">
                   <button
-                    onClick={() => setSaveQueryModalOpen(true)}
+                    onClick={handleSaveQuery}
                     onMouseEnter={() => setHoveredButton("save")}
                     onMouseLeave={() => setHoveredButton(null)}
                     className="w-full text-left px-4 py-3 transition-all flex items-center gap-3"
@@ -2359,7 +2371,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2378,7 +2390,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2397,7 +2409,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2416,7 +2428,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2436,7 +2448,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2456,7 +2468,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2475,7 +2487,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2494,7 +2506,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2514,7 +2526,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2534,7 +2546,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2554,7 +2566,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2574,7 +2586,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2594,7 +2606,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2614,7 +2626,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2634,7 +2646,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2654,7 +2666,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2674,7 +2686,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2694,7 +2706,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2713,7 +2725,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2732,7 +2744,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2751,7 +2763,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2770,7 +2782,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2789,7 +2801,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2808,7 +2820,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2827,7 +2839,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2846,7 +2858,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2866,7 +2878,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2885,7 +2897,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2904,7 +2916,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2923,7 +2935,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2942,7 +2954,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2961,7 +2973,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2980,7 +2992,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -2999,7 +3011,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -3019,7 +3031,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -3038,7 +3050,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -3057,7 +3069,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -3076,7 +3088,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -3095,7 +3107,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -3114,7 +3126,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -3134,7 +3146,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -3153,7 +3165,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -3172,7 +3184,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -3191,7 +3203,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -3210,7 +3222,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -3229,7 +3241,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -3248,7 +3260,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -3267,7 +3279,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -3287,7 +3299,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -3306,7 +3318,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -3326,7 +3338,7 @@ export default function ClinicalTrialDashboard() {
                                   className="flex items-center gap-1 text-xs text-gray-300 hover:text-white"
                                   style={{ fontSize: "11px" }}
                                 >
-                                  Filter <ChevronDown className="h-3 w-3" />
+                                  Sort <ChevronDown className="h-3 w-3" />
                                 </button>
                               </div>
                             </th>
@@ -3862,6 +3874,8 @@ export default function ClinicalTrialDashboard() {
                 editingQueryId={editingQueryId}
                 editingQueryTitle={editingQueryTitle}
                 editingQueryDescription={editingQueryDescription}
+                storageKey="userDashboardQueries"
+                queryType="user-dashboard"
               />
 
               {/* Advanced Search Modal */}
@@ -3874,6 +3888,8 @@ export default function ClinicalTrialDashboard() {
                 editingQueryId={editingQueryId}
                 editingQueryTitle={editingQueryTitle}
                 editingQueryDescription={editingQueryDescription}
+                storageKey="userDashboardQueries"
+                queryType="user-dashboard"
               />
 
               {/* Save Query Modal */}
@@ -3887,6 +3903,9 @@ export default function ClinicalTrialDashboard() {
                 editingQueryId={editingQueryId}
                 editingQueryTitle={editingQueryTitle}
                 editingQueryDescription={editingQueryDescription}
+                storageKey="userDashboardQueries"
+                queryType="user-dashboard"
+                sourceModal={filterModalOpen ? "filter" : "advanced"}
               />
 
               {/* Query History Modal */}
@@ -3894,6 +3913,8 @@ export default function ClinicalTrialDashboard() {
                 open={queryHistoryModalOpen}
                 onOpenChange={setQueryHistoryModalOpen}
                 onLoadQuery={handleLoadQuery}
+                storageKey="userDashboardQueries"
+                queryType="user-dashboard"
                 onEditQuery={(queryData) => {
                   // Close the query history modal
                   setQueryHistoryModalOpen(false);
@@ -3928,9 +3949,13 @@ export default function ClinicalTrialDashboard() {
                     setSearchTerm(queryData.searchTerm);
                   }
 
-                  // Open the appropriate modal based on query type
-                  if (hasFilters && !hasSearchCriteria) {
-                    // Open Filter modal with pre-populated filters
+                  // Open the appropriate modal based on query type or sourceModal metadata
+                  if (queryData.sourceModal === "filter") {
+                    setFilterModalOpen(true);
+                  } else if (queryData.sourceModal === "advanced") {
+                    setAdvancedSearchModalOpen(true);
+                  } else if (hasFilters && !hasSearchCriteria) {
+                    // Fallback for legacy queries
                     setFilterModalOpen(true);
                   } else {
                     // Open Advanced Search modal (default for search criteria or mixed)

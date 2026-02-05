@@ -25,6 +25,8 @@ interface ClinicalTrialAdvancedSearchModalProps {
   editingQueryId?: string | null
   editingQueryTitle?: string
   editingQueryDescription?: string
+  storageKey?: string
+  queryType?: string
 }
 
 export interface ClinicalTrialSearchCriteria {
@@ -70,7 +72,6 @@ const searchFields = [
   { value: "age_to", label: "Age To", type: "number" },
   { value: "results_available", label: "Results Available", type: "dropdown" },
   { value: "endpoints_met", label: "Endpoints Met", type: "dropdown" },
-  { value: "internal_note", label: "Internal Note", type: "text" },
   { value: "actual_start_date", label: "Actual Start Date", type: "date" },
   { value: "estimated_start_date", label: "Estimated Start Date", type: "date" },
   { value: "actual_enrollment_closed_date", label: "Actual Enrollment Closed Date", type: "date" },
@@ -137,7 +138,7 @@ const fieldOptions: Record<string, { value: string; label: string }[]> = {
     { value: "Chronic Myelomonositic Leukemia", label: "Chronic Myelomonositic Leukemia" },
     { value: "Astrocytoma", label: "Astrocytoma" },
     { value: "Brain Stem Glioma", label: "Brain Stem Glioma" },
-    { value: "Carniopharyngioma", label: "Carniopharyngioma" },
+    { value: "Craniopharyngioma", label: "Craniopharyngioma" },
     { value: "Choroid Plexus Tumors", label: "Choroid Plexus Tumors" },
     { value: "Embryonal Tumors", label: "Embryonal Tumors" },
     { value: "Epedymoma", label: "Epedymoma" },
@@ -193,11 +194,18 @@ const fieldOptions: Record<string, { value: string; label: string }[]> = {
     { value: "Vulvar", label: "Vulvar" }
   ],
   patient_segment: [
-    { value: "Children", label: "Children" },
-    { value: "Adults", label: "Adults" },
-    { value: "Healthy Volunteers", label: "Healthy Volunteers" },
-    { value: "First Line", label: "First Line" },
-    { value: "Second Line", label: "Second Line" }
+    { value: "her2_positive_breast_cancer", label: "HER2+ Breast Cancer" },
+    { value: "her2_negative_breast_cancer", label: "HER2- Breast Cancer" },
+    { value: "hr_positive_breast_cancer", label: "HR+ Breast Cancer (ER+ and/or PR+)" },
+    { value: "triple_negative_breast_cancer", label: "Triple-Negative Breast Cancer (TNBC)" },
+    { value: "early_stage_breast_cancer", label: "Early-Stage Breast Cancer" },
+    { value: "locally_advanced_breast_cancer", label: "Locally Advanced Breast Cancer" },
+    { value: "metastatic_breast_cancer", label: "Metastatic Breast Cancer" },
+    { value: "recurrent_breast_cancer", label: "Recurrent Breast Cancer" },
+    { value: "advanced_breast_cancer_non_metastatic", label: "Advanced Breast Cancer (Non-Metastatic)" },
+    { value: "premenopausal_breast_cancer", label: "Premenopausal Breast Cancer Patients" },
+    { value: "postmenopausal_breast_cancer", label: "Postmenopausal Breast Cancer Patients" },
+    { value: "breast_cancer_nos", label: "Breast Cancer (NOS)" }
   ],
   line_of_therapy: [
     { value: "1 – First Line", label: "1 – First Line" },
@@ -333,7 +341,9 @@ export function ClinicalTrialAdvancedSearchModal({
   currentSearchCriteria,
   editingQueryId,
   editingQueryTitle,
-  editingQueryDescription
+  editingQueryDescription,
+  storageKey = "unifiedSavedQueries",
+  queryType = "dashboard"
 }: ClinicalTrialAdvancedSearchModalProps) {
   // Start with a single empty criteria row - NO default selections
   const [criteria, setCriteria] = useState<ClinicalTrialSearchCriteria[]>([
@@ -361,6 +371,18 @@ export function ClinicalTrialAdvancedSearchModal({
     categoryName: 'sponsor_collaborators',
   })
 
+  // Get line_of_therapy dynamically from dropdown management
+  const { options: dynamicLineOfTherapy, loading: isLineOfTherapyLoading } = useDynamicDropdown({
+    categoryName: 'line_of_therapy',
+    fallbackOptions: fieldOptions.line_of_therapy
+  })
+
+  // Get trial_status dynamically from dropdown management
+  const { options: dynamicStatuses, loading: isStatusesLoading } = useDynamicDropdown({
+    categoryName: 'trial_status',
+    fallbackOptions: fieldOptions.trial_status
+  })
+
   // Build dynamic field options with drug, region, and sponsor data
   const dynamicFieldOptions = useMemo((): Record<string, { value: string; label: string }[]> => {
     const drugOptions = getPrimaryDrugsOptions()
@@ -378,8 +400,14 @@ export function ClinicalTrialAdvancedSearchModal({
       sponsor_collaborators: dynamicSponsors.length > 0
         ? dynamicSponsors
         : fieldOptions.sponsor_collaborators,
+      line_of_therapy: dynamicLineOfTherapy.length > 0
+        ? dynamicLineOfTherapy
+        : fieldOptions.line_of_therapy,
+      trial_status: dynamicStatuses.length > 0
+        ? dynamicStatuses
+        : fieldOptions.trial_status,
     }
-  }, [getPrimaryDrugsOptions, dynamicRegions, dynamicSponsors])
+  }, [getPrimaryDrugsOptions, dynamicRegions, dynamicSponsors, dynamicLineOfTherapy, dynamicStatuses])
 
   // Sync internal state with props when modal opens or currentSearchCriteria change
   useEffect(() => {
@@ -493,6 +521,20 @@ export function ClinicalTrialAdvancedSearchModal({
 
     // Dropdown field - show select with options
     if (fieldType === "dropdown" && options) {
+      // Use SearchableSelect for drug fields to provide search capability
+      if (criterion.field === "primary_drugs" || criterion.field === "secondary_drugs") {
+        return (
+          <SearchableSelect
+            value={criterion.value}
+            onValueChange={(value) => updateCriteria(criterion.id, "value", value)}
+            options={options}
+            placeholder="Select drug"
+            searchPlaceholder="Search drugs..."
+            className="w-full"
+          />
+        )
+      }
+
       return (
         <Select
           value={criterion.value}
@@ -576,7 +618,7 @@ export function ClinicalTrialAdvancedSearchModal({
               <div key={criterion.id} className="space-y-3">
                 <div className="flex items-center gap-3">
                   {/* Field Dropdown */}
-                  <div className="w-[180px]">
+                  <div className="w-[230px]">
                     <SearchableSelect
                       options={searchFields}
                       value={criterion.field}
@@ -588,7 +630,7 @@ export function ClinicalTrialAdvancedSearchModal({
                   </div>
 
                   {/* Operator Dropdown - Teal Color #208B8B */}
-                  <div className="w-[100px]">
+                  <div className="w-[110px]">
                     <Select
                       value={criterion.operator}
                       onValueChange={(value) => updateCriteria(criterion.id, "operator", value)}
@@ -727,6 +769,9 @@ export function ClinicalTrialAdvancedSearchModal({
         editingQueryId={editingQueryId}
         editingQueryTitle={editingQueryTitle}
         editingQueryDescription={editingQueryDescription}
+        storageKey={storageKey}
+        queryType={queryType}
+        sourceModal="advanced"
       />
     </>
   )

@@ -3261,6 +3261,8 @@ export default function AdminTherapeuticsPage() {
         editingQueryTitle={editingQueryTitle}
         editingQueryDescription={editingQueryDescription}
         onSaveQuerySuccess={handleSaveQuerySuccess}
+        storageKey="adminTherapeuticQueries"
+        queryType="admin-therapeutic"
       />
 
       {/* Filter Modal */}
@@ -3270,6 +3272,11 @@ export default function AdminTherapeuticsPage() {
         onApplyFilters={handleApplyFilters}
         currentFilters={appliedFilters}
         trials={trials}
+        storageKey="adminTherapeuticQueries"
+        queryType="admin-therapeutic"
+        editingQueryId={editingQueryId}
+        editingQueryTitle={editingQueryTitle}
+        editingQueryDescription={editingQueryDescription}
       />
 
       {/* Save Query Modal */}
@@ -3283,6 +3290,9 @@ export default function AdminTherapeuticsPage() {
         editingQueryId={editingQueryId}
         editingQueryTitle={editingQueryTitle}
         editingQueryDescription={editingQueryDescription}
+        storageKey="adminTherapeuticQueries"
+        queryType="admin-therapeutic"
+        sourceModal={filterModalOpen ? "filter" : "advanced"}
       />
 
       {/* Query History Modal */}
@@ -3291,6 +3301,8 @@ export default function AdminTherapeuticsPage() {
         onOpenChange={setQueryHistoryModalOpen}
         onLoadQuery={handleLoadQuery}
         onEditQuery={handleEditQuery}
+        storageKey="adminTherapeuticQueries"
+        queryType="admin-therapeutic"
       />
 
       {/* Query Logs Modal */}

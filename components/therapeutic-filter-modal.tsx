@@ -19,6 +19,11 @@ interface TherapeuticFilterModalProps {
   onApplyFilters: (filters: TherapeuticFilterState) => void
   currentFilters: TherapeuticFilterState
   trials?: any[]
+  storageKey?: string
+  queryType?: string
+  editingQueryId?: string | null
+  editingQueryTitle?: string
+  editingQueryDescription?: string
 }
 
 // Dropdown options for core filter fields only
@@ -79,25 +84,63 @@ const DROPDOWN_OPTIONS: Record<keyof TherapeuticFilterState, SearchableSelectOpt
     { value: "cervical", label: "Cervical" },
     { value: "cholangiocarcinoma", label: "Cholangiocarcinoma (Bile duct)" },
     { value: "chronic_lymphocytic_leukemia", label: "Chronic Lymphocytic Leukemia" },
+    { value: "chronic_myelomonositic_leukemia", label: "Chronic Myelomonositic Leukemia" },
+    { value: "astrocytoma", label: "Astrocytoma" },
+    { value: "brain_stem_glioma", label: "Brain Stem Glioma" },
+    { value: "craniopharyngioma", label: "Craniopharyngioma" },
+    { value: "choroid_plexus_tumors", label: "Choroid Plexus Tumors" },
+    { value: "embryonal_tumors", label: "Embryonal Tumors" },
+    { value: "epedymoma", label: "Epedymoma" },
+    { value: "germ_cell_tumors", label: "Germ Cell Tumors" },
+    { value: "glioblastoma", label: "Glioblastoma" },
+    { value: "hemangioblastoma", label: "Hemangioblastoma" },
+    { value: "medulloblastoma", label: "Medulloblastoma" },
+    { value: "meningioma", label: "Meningioma" },
+    { value: "oligodendroglioma", label: "Oligodendroglioma" },
+    { value: "pineal_tumor", label: "Pineal Tumor" },
+    { value: "pituitary_tumor", label: "Pituitary Tumor" },
     { value: "colorectal", label: "Colorectal" },
     { value: "endometrial", label: "Endometrial" },
     { value: "esophageal", label: "Esophageal" },
+    { value: "fallopian_tube", label: "Fallopian Tube" },
+    { value: "gall_bladder", label: "Gall Bladder" },
     { value: "gastric", label: "Gastric" },
+    { value: "gist", label: "GIST" },
     { value: "head_neck", label: "Head/Neck" },
     { value: "hodgkins_lymphoma", label: "Hodgkin's Lymphoma" },
+    { value: "leukemia_chronic_myelogenous", label: "Leukemia, Chronic Myelogenous" },
     { value: "liver", label: "Liver" },
     { value: "lung_non_small_cell", label: "Lung Non-small cell" },
     { value: "lung_small_cell", label: "Lung Small Cell" },
     { value: "melanoma", label: "Melanoma" },
+    { value: "mesothelioma", label: "Mesothelioma" },
+    { value: "metastatic_cancer", label: "Metastatic Cancer" },
     { value: "multiple_myeloma", label: "Multiple Myeloma" },
+    { value: "myelodysplastic_syndrome", label: "Myelodysplastic Syndrome" },
+    { value: "myeloproliferative_neoplasms", label: "Myeloproliferative Neoplasms" },
+    { value: "neuroblastoma", label: "Neuroblastoma" },
+    { value: "neuroendocrine", label: "Neuroendocrine" },
     { value: "non_hodgkins_lymphoma", label: "Non-Hodgkin's Lymphoma" },
+    { value: "osteosarcoma", label: "Osteosarcoma" },
     { value: "ovarian", label: "Ovarian" },
     { value: "pancreas", label: "Pancreas" },
+    { value: "penile", label: "Penile" },
+    { value: "primary_peritoneal", label: "Primary Peritoneal" },
     { value: "prostate", label: "Prostate" },
     { value: "renal", label: "Renal" },
+    { value: "small_intestine", label: "Small Intestine" },
+    { value: "soft_tissue_carcinoma", label: "Soft Tissue Carcinoma" },
     { value: "solid_tumor_unspecified", label: "Solid Tumor, Unspecified" },
+    { value: "squamous_skin_cell_carcinoma", label: "Squamous Skin Cell Carcinoma" },
+    { value: "supportive_care", label: "Supportive care" },
+    { value: "tenosynovial_giant_cell_tumor", label: "Tenosynovial Giant Cell Tumor" },
+    { value: "testicular", label: "Testicular" },
+    { value: "thymus", label: "Thymus" },
     { value: "thyroid", label: "Thyroid" },
     { value: "unspecified_cancer", label: "Unspecified Cancer" },
+    { value: "unspecified_haematological_cancer", label: "Unspecified Haematological Cancer" },
+    { value: "vaginal", label: "Vaginal" },
+    { value: "vulvar", label: "Vulvar" }
   ],
 
   // Patient Segment Options
@@ -1062,12 +1105,19 @@ const getUniqueValues = (trials: any[], fieldPath: string): string[] => {
   return deduplicated
 }
 
-export function TherapeuticFilterModal({ open, onOpenChange, onApplyFilters, currentFilters, trials = [] }: TherapeuticFilterModalProps) {
+export function TherapeuticFilterModal({ open, onOpenChange, onApplyFilters,
+  currentFilters,
+  trials = [],
+  storageKey = "unifiedSavedQueries",
+  queryType = "dashboard",
+  editingQueryId = null,
+  editingQueryTitle = "",
+  editingQueryDescription = ""
+}: TherapeuticFilterModalProps) {
   const [filters, setFilters] = useState<TherapeuticFilterState>(currentFilters)
   const [activeCategory, setActiveCategory] = useState<keyof TherapeuticFilterState>("therapeuticAreas")
   const [saveQueryModalOpen, setSaveQueryModalOpen] = useState(false)
   const [filterCategories, setFilterCategories] = useState<Record<keyof TherapeuticFilterState, string[]>>({
-    therapeuticAreas: [],
     statuses: [],
     diseaseTypes: [],
     primaryDrugs: [],
@@ -1210,18 +1260,20 @@ export function TherapeuticFilterModal({ open, onOpenChange, onApplyFilters, cur
         return DROPDOWN_OPTIONS.patientSegments?.map(opt => opt.label) || [];
       }
 
-      // For trialOutcome, studyDesignKeywords, and regions - ONLY use static/dynamic options - do not merge with trial data
+      // For trialOutcome, studyDesignKeywords, lineOfTherapy, and regions - ONLY use static/dynamic options - do not merge with trial data
       // This prevents duplicate entries with different formatting (trailing periods, spelling variations)
-      if (category === 'trialOutcome' || category === 'studyDesignKeywords' || category === 'regions') {
+      if (category === 'trialOutcome' || category === 'studyDesignKeywords' || category === 'regions' || category === 'lineOfTherapy') {
         return fallbackValues;
       }
 
-      // Helper to deduplicate values that differ only by dash formatting, trailing periods, or spelling variations
+      // Helper to deduplicate values that differ only by dash formatting, trailing periods, comma differences, apostrophes, or spelling variations
       const deduplicateByDash = (values: string[]): string[] => {
         const normalizeForDedupe = (str: string): string => {
           return str
             .replace(/\.$/g, '')              // Remove trailing periods
             .replace(/\s*[—–-]\s*/g, ' ')     // Replace all dash types with single space
+            .replace(/,\s*/g, ' ')            // Replace commas with space (handles "Solid Tumor, Unspecified" vs "Solid Tumor Unspecified")
+            .replace(/['\']/g, '')            // Remove apostrophes (handles "Non-hodgkin's" vs "Non Hodgkins")
             .replace(/\s+/g, ' ')             // Normalize multiple spaces
             .replace(/enrollment/gi, 'enrolment') // Normalize spelling
             .replace(/multiple.blinded/gi, 'double blinded') // Normalize blinding terms
@@ -1237,13 +1289,22 @@ export function TherapeuticFilterModal({ open, onOpenChange, onApplyFilters, cur
           if (!existing) {
             dedupeMap.set(normalized, value);
           } else {
-            // Prefer version with em dash (—) over en dash (–) over hyphen (-) over no dash
+            // Prefer version with apostrophe > comma > em dash (—) > en dash (–) > hyphen (-) > no punctuation
+            const hasApostrophe = (s: string) => s.includes("'") || s.includes("'");
+            const hasComma = (s: string) => s.includes(',');
             const hasEmDash = (s: string) => s.includes('—');
             const hasEnDash = (s: string) => s.includes('–');
+            const hasHyphen = (s: string) => s.includes('-');
 
-            if (hasEmDash(value) && !hasEmDash(existing)) {
+            if (hasApostrophe(value) && !hasApostrophe(existing)) {
               dedupeMap.set(normalized, value);
-            } else if (hasEnDash(value) && !hasEmDash(existing) && !hasEnDash(existing)) {
+            } else if (!hasApostrophe(existing) && hasComma(value) && !hasComma(existing)) {
+              dedupeMap.set(normalized, value);
+            } else if (!hasApostrophe(existing) && !hasComma(existing) && hasEmDash(value) && !hasEmDash(existing)) {
+              dedupeMap.set(normalized, value);
+            } else if (!hasApostrophe(existing) && !hasComma(existing) && !hasEmDash(existing) && hasEnDash(value) && !hasEnDash(existing)) {
+              dedupeMap.set(normalized, value);
+            } else if (!hasApostrophe(existing) && !hasComma(existing) && !hasEmDash(existing) && !hasEnDash(existing) && hasHyphen(value) && !hasHyphen(existing)) {
               dedupeMap.set(normalized, value);
             }
           }
@@ -1531,6 +1592,12 @@ export function TherapeuticFilterModal({ open, onOpenChange, onApplyFilters, cur
         currentFilters={filters}
         currentSearchCriteria={[]}
         searchTerm=""
+        storageKey={storageKey}
+        queryType={queryType}
+        sourceModal="filter"
+        editingQueryId={editingQueryId}
+        editingQueryTitle={editingQueryTitle}
+        editingQueryDescription={editingQueryDescription}
       />
     </Dialog>
   )

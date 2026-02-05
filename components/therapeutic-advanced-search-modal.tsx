@@ -136,9 +136,11 @@ interface TherapeuticAdvancedSearchModalProps {
   currentFilters?: TherapeuticFilterState // Add current filters for save query functionality
   initialCriteria?: TherapeuticSearchCriteria[] // Add initial criteria for editing
   editingQueryId?: string | null
-  editingQueryTitle?: string
-  editingQueryDescription?: string
-  onSaveQuerySuccess?: () => void
+  editingQueryTitle?: string;
+  editingQueryDescription?: string;
+  onSaveQuerySuccess?: () => void;
+  storageKey?: string;
+  queryType?: string;
 }
 
 
@@ -347,25 +349,25 @@ const fieldOptions: Record<string, { value: string; label: string }[]> = {
     { value: "chronic_lymphocytic_leukemia", label: "Chronic Lymphocytic Leukemia" },
     { value: "chronic_myelomonositic_leukemia", label: "Chronic Myelomonositic Leukemia" },
     { value: "astrocytoma", label: "Astrocytoma" },
-    { value: "brain_stem_glioma", label: "Brain Stem Giloma" },
-    { value: "craniopharyngioma", label: "Carniopharyngioma" },
+    { value: "brain_stem_glioma", label: "Brain Stem Glioma" },
+    { value: "craniopharyngioma", label: "Craniopharyngioma" },
     { value: "choroid_plexus_tumors", label: "Choroid Plexus Tumors" },
     { value: "embryonal_tumors", label: "Embryonal Tumors" },
     { value: "epedymoma", label: "Epedymoma" },
     { value: "germ_cell_tumors", label: "Germ Cell Tumors" },
-    { value: "glioblastoma", label: "Giloblastoma" },
+    { value: "glioblastoma", label: "Glioblastoma" },
     { value: "hemangioblastoma", label: "Hemangioblastoma" },
     { value: "medulloblastoma", label: "Medulloblastoma" },
     { value: "meningioma", label: "Meningioma" },
-    { value: "oligodendroglioma", label: "Oligodendrogiloma" },
+    { value: "oligodendroglioma", label: "Oligodendroglioma" },
     { value: "pineal_tumor", label: "Pineal Tumor" },
-    { value: "pituitary_tumor", label: "Pituatory Tumor" },
+    { value: "pituitary_tumor", label: "Pituitary Tumor" },
     { value: "colorectal", label: "Colorectal" },
     { value: "endometrial", label: "Endometrial" },
     { value: "esophageal", label: "Esophageal" },
     { value: "fallopian_tube", label: "Fallopian Tube" },
     { value: "gall_bladder", label: "Gall Bladder" },
-    { value: "gastric", label: "Gastirc" },
+    { value: "gastric", label: "Gastric" },
     { value: "gist", label: "GIST" },
     { value: "head_neck", label: "Head/Neck" },
     { value: "hodgkins_lymphoma", label: "Hodgkin's Lymphoma" },
@@ -406,14 +408,14 @@ const fieldOptions: Record<string, { value: string; label: string }[]> = {
   // Patient Segment - Breast Cancer specific patient segments only
   patient_segment: [
     { value: "her2_positive_breast_cancer", label: "HER2+ Breast Cancer" },
-    { value: "her2_negative_breast_cancer", label: "HER2− Breast Cancer" },
+    { value: "her2_negative_breast_cancer", label: "HER2- Breast Cancer" },
     { value: "hr_positive_breast_cancer", label: "HR+ Breast Cancer (ER+ and/or PR+)" },
     { value: "triple_negative_breast_cancer", label: "Triple-Negative Breast Cancer (TNBC)" },
     { value: "early_stage_breast_cancer", label: "Early-Stage Breast Cancer" },
     { value: "locally_advanced_breast_cancer", label: "Locally Advanced Breast Cancer" },
     { value: "metastatic_breast_cancer", label: "Metastatic Breast Cancer" },
     { value: "recurrent_breast_cancer", label: "Recurrent Breast Cancer" },
-    { value: "advanced_breast_cancer", label: "Advanced Breast Cancer (Non-Metastatic)" },
+    { value: "advanced_breast_cancer_non_metastatic", label: "Advanced Breast Cancer (Non-Metastatic)" },
     { value: "premenopausal_breast_cancer", label: "Premenopausal Breast Cancer Patients" },
     { value: "postmenopausal_breast_cancer", label: "Postmenopausal Breast Cancer Patients" },
     { value: "breast_cancer_nos", label: "Breast Cancer (NOS)" },
@@ -584,7 +586,9 @@ export function TherapeuticAdvancedSearchModal({
   editingQueryId = null,
   editingQueryTitle = "",
   editingQueryDescription = "",
-  onSaveQuerySuccess
+  onSaveQuerySuccess,
+  storageKey = "unifiedSavedQueries",
+  queryType = "dashboard"
 }: TherapeuticAdvancedSearchModalProps) {
   const [criteria, setCriteria] = useState<TherapeuticSearchCriteria[]>([
     {
@@ -1351,7 +1355,7 @@ export function TherapeuticAdvancedSearchModal({
             {criteria.map((criterion, index) => (
               <div key={criterion.id} className="space-y-3">
                 <div className="grid grid-cols-12 gap-3 items-center">
-                  <div className="col-span-3">
+                  <div className="col-span-4">
                     <SearchableSelect
                       options={therapeuticSearchFields}
                       value={criterion.field}
@@ -1384,7 +1388,7 @@ export function TherapeuticAdvancedSearchModal({
                     {renderValueInput(criterion)}
                   </div>
 
-                  <div className="col-span-2">
+                  <div className="col-span-1">
                     <Select
                       value={criterion.logic}
                       onValueChange={(value) => updateCriteria(criterion.id, "logic", value as "AND" | "OR")}
@@ -1591,6 +1595,9 @@ export function TherapeuticAdvancedSearchModal({
         editingQueryTitle={editingQueryTitle}
         editingQueryDescription={editingQueryDescription}
         onSaveSuccess={onSaveQuerySuccess}
+        storageKey={storageKey}
+        queryType={queryType}
+        sourceModal="advanced"
       />
     </>
   )

@@ -1804,7 +1804,7 @@ function ClinicalTrialsPage() {
                         {t("sections.summary")}
                       </h3>
                       <p
-                        className="text-gray-900 text-sm leading-relaxed"
+                        className="text-gray-900 text-sm leading-relaxed whitespace-pre-wrap"
                         style={{ fontFamily: "Poppins" }}
                       >
                         {currentTrial.outcomes[0]?.summary ||

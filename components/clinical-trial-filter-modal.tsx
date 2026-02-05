@@ -19,6 +19,8 @@ interface ClinicalTrialFilterModalProps {
   editingQueryId?: string | null
   editingQueryTitle?: string
   editingQueryDescription?: string
+  storageKey?: string
+  queryType?: string
 }
 
 export interface ClinicalTrialFilterState {
@@ -54,7 +56,7 @@ const staticFilterCategories = {
     "Acute Lymphocytic Leukemia", "Acute Myelogenous Leukemia", "Anal", "Appendiceal",
     "Basal Skin Cell Carcinoma", "Bladder", "Breast", "Cervical", "Cholangiocarcinoma (Bile duct)",
     "Chronic Lymphocytic Leukemia", "Chronic Myelomonositic Leukemia", "Astrocytoma",
-    "Brain Stem Glioma", "Carniopharyngioma", "Choroid Plexus Tumors", "Embryonal Tumors",
+    "Brain Stem Glioma", "Craniopharyngioma", "Choroid Plexus Tumors", "Embryonal Tumors",
     "Epedymoma", "Germ Cell Tumors", "Glioblastoma", "Hemangioblastoma", "Medulloblastoma",
     "Meningioma", "Oligodendroglioma", "Pineal Tumor", "Pituitary Tumor", "Colorectal",
     "Endometrial", "Esophageal", "Fallopian Tube", "Gall Bladder", "Gastric", "GIST",
@@ -137,7 +139,9 @@ export function ClinicalTrialFilterModal({
   currentFilters,
   editingQueryId,
   editingQueryTitle,
-  editingQueryDescription
+  editingQueryDescription,
+  storageKey = "unifiedSavedQueries",
+  queryType = "dashboard"
 }: ClinicalTrialFilterModalProps) {
   const [filters, setFilters] = useState<ClinicalTrialFilterState>(currentFilters)
   const [activeCategory, setActiveCategory] = useState<keyof ClinicalTrialFilterState>("trialPhases")
@@ -149,6 +153,12 @@ export function ClinicalTrialFilterModal({
   const { options: dynamicCountries, loading: isCountriesLoading } = useDynamicDropdown({
     categoryName: 'country',
     fallbackOptions: staticFilterCategories.countries.map(c => ({ value: c, label: c }))
+  })
+
+  // Fetch trial status dynamically
+  const { options: dynamicStatuses } = useDynamicDropdown({
+    categoryName: 'trial_status',
+    fallbackOptions: staticFilterCategories.statuses.map(s => ({ value: s, label: s }))
   })
 
   // Fetch sponsors dynamically from the dropdown management database
@@ -169,25 +179,35 @@ export function ClinicalTrialFilterModal({
     fallbackOptions: []
   })
 
+  // Fetch line of therapy dynamically
+  const { options: dynamicLineOfTherapy, loading: isLineOfTherapyLoading } = useDynamicDropdown({
+    categoryName: 'line_of_therapy',
+    fallbackOptions: staticFilterCategories.lineOfTherapy.map(l => ({ value: l, label: l }))
+  })
+
   // Build filter categories with dynamic drug and country data from API
   const filterCategories = useMemo(() => {
     const drugOptions = getPrimaryDrugsOptions()
     const drugLabels = drugOptions.map(drug => drug.label)
+    const statusLabels = dynamicStatuses.length > 0 ? dynamicStatuses.map(s => s.label) : staticFilterCategories.statuses
     const countryLabels = dynamicCountries.map(country => country.label)
     const sponsorLabels = dynamicSponsors.map(sponsor => sponsor.label)
     const sponsorFieldActivityLabels = dynamicSponsorFieldActivity.map(item => item.label)
     const associatedCroLabels = dynamicAssociatedCro.map(cro => cro.label)
+    const lineOfTherapyLabels = dynamicLineOfTherapy.map(item => item.label)
 
     return {
       ...staticFilterCategories,
       primaryDrugs: drugLabels.length > 0 ? drugLabels : ["No drugs available - add drugs in the drug module"],
       otherDrugs: drugLabels.length > 0 ? drugLabels : ["No drugs available - add drugs in the drug module"],
+      statuses: statusLabels,
       countries: countryLabels.length > 0 ? countryLabels : staticFilterCategories.countries,
       sponsorsCollaborators: sponsorLabels.length > 0 ? sponsorLabels : [],
       sponsorFieldActivity: sponsorFieldActivityLabels.length > 0 ? sponsorFieldActivityLabels : [],
       associatedCro: associatedCroLabels.length > 0 ? associatedCroLabels : [],
+      lineOfTherapy: lineOfTherapyLabels.length > 0 ? lineOfTherapyLabels : staticFilterCategories.lineOfTherapy,
     }
-  }, [getPrimaryDrugsOptions, dynamicCountries, dynamicSponsors, dynamicSponsorFieldActivity, dynamicAssociatedCro])
+  }, [getPrimaryDrugsOptions, dynamicCountries, dynamicStatuses, dynamicSponsors, dynamicSponsorFieldActivity, dynamicAssociatedCro, dynamicLineOfTherapy])
 
   // Sync internal state with props when modal opens or currentFilters change
   useEffect(() => {
@@ -447,6 +467,9 @@ export function ClinicalTrialFilterModal({
         editingQueryId={editingQueryId}
         editingQueryTitle={editingQueryTitle}
         editingQueryDescription={editingQueryDescription}
+        storageKey={storageKey}
+        queryType={queryType}
+        sourceModal="filter"
       />
     </>
   )
